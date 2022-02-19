@@ -121,7 +121,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
 
         /**
          * Performs {@link Lock#lock}. The main reason for subclassing
-         * is to allow fast path for nonfair version.
+         * is to allow fast path fo
+         * r nonfair version.
          */
         abstract void lock();
 

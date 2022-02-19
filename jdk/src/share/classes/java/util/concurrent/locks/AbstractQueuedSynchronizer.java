@@ -851,6 +851,9 @@ public abstract class AbstractQueuedSynchronizer
      * @param node the node
      * @param arg the acquire argument
      * @return {@code true} if interrupted while waiting
+     *
+     * 负责把 addWaiter 返回的 Node 节点添加到队列结尾，并会执行获取锁操作以及判断
+     * 是否把当前线程挂起。
      */
     final boolean acquireQueued(final Node node, int arg) {
         boolean failed = true;
@@ -1070,6 +1073,8 @@ public abstract class AbstractQueuedSynchronizer
      *         thrown in a consistent fashion for synchronization to work
      *         correctly.
      * @throws UnsupportedOperationException if exclusive mode is not supported
+     *
+     * 分别由继承 AQS 的公平锁（FairSync）、非公平锁（NonfairSync）实现。
      */
     protected boolean tryAcquire(int arg) {
         throw new UnsupportedOperationException();
@@ -1196,6 +1201,8 @@ public abstract class AbstractQueuedSynchronizer
     public final void acquire(int arg) {
         if (!tryAcquire(arg) &&
             acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+            // 是 AQS 中的 Thread.currentThread().interrupt() 方法调用，它的主要作用是在执行完 acquire
+            // 之前自己执行中断操作。
             selfInterrupt();
     }
 
