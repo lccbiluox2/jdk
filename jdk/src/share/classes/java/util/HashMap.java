@@ -286,6 +286,8 @@ public class HashMap<K,V>
      * critical because HashMap uses power-of-two length hash tables, that
      * otherwise encounter collisions for hashCodes that do not differ
      * in lower bits.
+     *
+     * 如果key 不等于 null 的时候，会不会算出来0呢？
      */
     final int hash(Object k) {
         int h = hashSeed;
@@ -397,13 +399,16 @@ public class HashMap<K,V>
      */
     public V put(K key, V value) {
         if (key == null)
+            // key 是支持 空的
             return putForNullKey(value);
+        // 计算hash
         int hash = hash(key);
         int i = indexFor(hash, table.length);
         @SuppressWarnings("unchecked")
         Entry<K,V> e = (Entry<K,V>)table[i];
         for(; e != null; e = e.next) {
             Object k;
+            // 循环找到key 相同的 主要是用来更新
             if (e.hash == hash && ((k = e.key) == key || key.equals(k))) {
                 V oldValue = e.value;
                 e.value = value;
@@ -419,6 +424,9 @@ public class HashMap<K,V>
 
     /**
      * Offloaded version of put for null keys
+     *
+     * 如果key 不等于 null 的时候，会不会算出来0呢？
+     * 当然是可能的，所以这里要遍历
      */
     private V putForNullKey(V value) {
         @SuppressWarnings("unchecked")
@@ -432,6 +440,7 @@ public class HashMap<K,V>
             }
         }
         modCount++;
+        // 如果key 为空的时候，把数据放到第0个位置
         addEntry(0, null, value, 0);
         return null;
     }
@@ -478,10 +487,42 @@ public class HashMap<K,V>
      * resize the map, but sets threshold to Integer.MAX_VALUE.
      * This has the effect of preventing future calls.
      *
+     *
+     *  Integer.highestOneBit() 方法
+     *
+     *  public static int highestOneBit(int i) {
+     *         // HD, Figure 3-1
+     *         i |= (i >>  1);
+     *         i |= (i >>  2);
+     *         i |= (i >>  4);
+     *         i |= (i >>  8);
+     *         i |= (i >> 16);
+     *         return i - (i >>> 1);
+     *     }
+     *
+     *  这个归纳规律就是
+     *           001* ****
+     *  i >>  1  0001 ****
+     *  i |      0011 ****
+     *  i >>  2  0000 11**
+     *  i |      0011 11**
+     *  i >>  4  0000 0011
+     *  i |      0011 1111
+     *  .....
+     *
+     * i - (i >>> 1);
+     * i =       0011 1111
+     * i >>> 1 = 0001 1111
+     *           0010 0000
+     * 仔细一想也对，就一个10 小于10的二次方，就是10的最高位保留，其他的都设置为0就好了
+     * 而我们每一步操作，都是把最高位右边的不为1的设置为1 最后相减得到值
+     *
      * @param newCapacity the new capacity, MUST be a power of two;
      *        must be greater than current capacity unless current
      *        capacity is MAXIMUM_CAPACITY (in which case value
      *        is irrelevant).
+     *
+     *
      */
     void resize(int newCapacity) {
         Entry<?,?>[] oldTable = table;

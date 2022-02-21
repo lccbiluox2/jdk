@@ -579,6 +579,16 @@ public abstract class AbstractQueuedSynchronizer
      * Inserts node into queue, initializing if necessary. See picture above.
      * @param node the node to insert
      * @return node's predecessor
+     *
+     * 自旋转for循环 + CAS 入队列。
+     * 当队列为空时，则会新创建一个节点，把尾节点指向头节点，然后继续循环。
+     * 第二次循环时，则会把当前线程的节点添加到队尾。head 节是一个无用节点，这和我们做CLH实现时类似
+     *
+     * 注意，从尾节点逆向遍历
+     *
+     * 首先这里的节点连接操作并不是原子，也就是说在多线程并发的情况下，可能会出现个别节点并没有设置 next 值，就失败了。
+     * 但这些节点的 prev 是有值的，所以需要逆向遍历，让 prev 属性重新指向新的尾节点，直至全部自旋入队列。
+     * #
      */
     private Node enq(final Node node) {
         for (;;) {
@@ -601,11 +611,17 @@ public abstract class AbstractQueuedSynchronizer
      *
      * @param mode Node.EXCLUSIVE for exclusive, Node.SHARED for shared
      * @return the new node
+     *
+     * 当执行方法 addWaiter，那么就是 !tryAcquire = true，也就是 tryAcquire 获取锁失败了。
+     * 接下来就是把当前线程封装到 Node 节点中，加入到 FIFO 队列中。因为先进先出，所以后来的队列加入到队尾
+     * compareAndSetTail 不一定一定成功，因为在并发场景下，可能会出现操作失败。那么失败后，则需要调用 enq 方法，
+     * 该方法会自旋操作，把节点入队列。
      */
     private Node addWaiter(Node mode) {
         Node node = new Node(Thread.currentThread(), mode);
         // Try the fast path of enq; backup to full enq on failure
         Node pred = tail;
+        // 如果队列不为空, 使用 CAS 方式将当前节点设为尾节点
         if (pred != null) {
             node.prev = pred;
             if (compareAndSetTail(pred, node)) {
@@ -613,6 +629,7 @@ public abstract class AbstractQueuedSynchronizer
                 return node;
             }
         }
+        // 队列为空、CAS失败，将节点插入队列
         enq(node);
         return node;
     }
@@ -789,6 +806,17 @@ public abstract class AbstractQueuedSynchronizer
      * @param pred node's predecessor holding status
      * @param node the node
      * @return {@code true} if thread should block
+     *
+     * 你是否还CANCELLED、SIGNAL、CONDITION 、PROPAGATE ，这四种状态，在这个方法中用到了两种如下：
+     *
+     * CANCELLED，取消排队，放弃获取锁。
+     * SIGNAL，标识当前节点的下一个节点状态已经被挂起，意思就是大家一起排队上厕所，队伍太长了，后面的谢飞机说，我去买个油条哈，一会到我了，你微信我哈。其实就是当前线程执行完毕后，需要额外执行唤醒后继节点操作。
+     * 那么，以上这段代码主要的执行内容包括：
+     *
+     * 如果前一个节点状态是 SIGNAL，则返回 true。安心睡觉😪等着被叫醒
+     * 如果前一个节点状态是 CANCELLED，就是它放弃了，则继续向前寻找其他节点。
+     * 最后如果什么都没找到，就给前一个节点设置个闹钟 SIGNAL，等着被通知。
+     * #
      */
     private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
         int ws = pred.waitStatus;
@@ -796,6 +824,7 @@ public abstract class AbstractQueuedSynchronizer
             /*
              * This node has already set status asking a release
              * to signal it, so it can safely park.
+             * // SIGNAL 设置了前一个节点完结唤醒，安心干别的去了，这里是睡。
              */
             return true;
         if (ws > 0) {
@@ -829,6 +858,8 @@ public abstract class AbstractQueuedSynchronizer
      * Convenience method to park and then check if interrupted
      *
      * @return {@code true} if interrupted
+     *
+     * // 线程挂起等待被唤醒
      */
     private final boolean parkAndCheckInterrupt() {
         LockSupport.park(this);
@@ -861,12 +892,14 @@ public abstract class AbstractQueuedSynchronizer
             boolean interrupted = false;
             for (;;) {
                 final Node p = node.predecessor();
+                // 当前节点的前驱就是head节点时, 再次尝试获取锁
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
                     failed = false;
                     return interrupted;
                 }
+                // 获取锁失败后, 判断是否把当前线程挂起
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
                     interrupted = true;

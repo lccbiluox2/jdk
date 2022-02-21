@@ -836,9 +836,11 @@ static void *java_start(Thread *thread) {
   // from different JVM instances. The benefit is especially true for
   // processors with hyperthreading technology.
   static int counter = 0;
+  // 线程ID
   int pid = os::current_process_id();
   alloca(((pid ^ counter++) & 7) * 128);
 
+// 设置线程
   ThreadLocalStorage::set_thread(thread);
 
   OSThread* osthread = thread->osthread();
@@ -873,16 +875,20 @@ static void *java_start(Thread *thread) {
     MutexLockerEx ml(sync, Mutex::_no_safepoint_check_flag);
 
     // notify parent thread
+    // 设置线程状态：INITIALIZED 初始化完成
     osthread->set_state(INITIALIZED);
+    // 唤醒所有线程
     sync->notify_all();
 
     // wait until os::start_thread()
+    // 循环，初始化状态，则一致等待 wait
     while (osthread->get_state() == INITIALIZED) {
       sync->wait(Mutex::_no_safepoint_check_flag);
     }
   }
 
   // call one more level start routine
+  // 等待唤醒后，执行 run 方法
   thread->run();
 
   return 0;

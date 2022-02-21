@@ -1291,6 +1291,36 @@ public final class Integer extends Number implements Comparable<Integer> {
      * one-bits in its two's complement binary representation, that is, if it
      * is equal to zero.
      *
+     *
+     *  Integer.highestOneBit() 方法
+     *
+     *  public static int highestOneBit(int i) {
+     *         // HD, Figure 3-1
+     *         i |= (i >>  1);
+     *         i |= (i >>  2);
+     *         i |= (i >>  4);
+     *         i |= (i >>  8);
+     *         i |= (i >> 16);
+     *         return i - (i >>> 1);
+     *     }
+     *
+     *  这个归纳规律就是
+     *           001* ****
+     *  i >>  1  0001 ****
+     *  i |      0011 ****
+     *  i >>  2  0000 11**
+     *  i |      0011 11**
+     *  i >>  4  0000 0011
+     *  i |      0011 1111
+     *  .....
+     *
+     * i - (i >>> 1);
+     * i =       0011 1111
+     * i >>> 1 = 0001 1111
+     *           0010 0000
+     * 仔细一想也对，就一个10 小于10的二次方，就是10的最高位保留，其他的都设置为0就好了
+     * 而我们每一步操作，都是把最高位右边的不为1的设置为1 最后相减得到值
+     *
      * @return an {@code int} value with a single one-bit, in the position
      *     of the highest-order one-bit in the specified value, or zero if
      *     the specified value is itself equal to zero.
