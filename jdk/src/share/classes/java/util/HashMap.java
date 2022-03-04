@@ -532,6 +532,7 @@ public class HashMap<K,V>
             return;
         }
 
+        // 创建一个
         Entry<?,?>[] newTable = new Entry<?,?>[newCapacity];
         transfer(newTable);
         table = newTable;
@@ -545,10 +546,13 @@ public class HashMap<K,V>
     void transfer(Entry<?,?>[] newTable) {
         Entry<?,?>[] src = table;
         int newCapacity = newTable.length;
+        // 循环第一个数组的桶
         for (int j = 0; j < src.length; j++ ) {
             Entry<K,V> e = (Entry<K,V>) src[j];
+            // 每个桶下面可能是一个链表
             while(null != e) {
                 Entry<K,V> next = e.next;
+                // 扩容后算出索引位置
                 int i = indexFor(e.hash, newCapacity);
                 e.next = (Entry<K,V>) newTable[i];
                 newTable[i] = e;
@@ -824,6 +828,7 @@ public class HashMap<K,V>
      */
     void addEntry(int hash, K key, V value, int bucketIndex) {
         if ((size >= threshold) && (null != table[bucketIndex])) {
+            // 扩容会扩大2倍
             resize(2 * table.length);
             hash = (null != key) ? hash(key) : 0;
             bucketIndex = indexFor(hash, table.length);

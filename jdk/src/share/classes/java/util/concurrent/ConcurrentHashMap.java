@@ -374,6 +374,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
         }
 
         final V put(K key, int hash, V value, boolean onlyIfAbsent) {
+            // 尝试加锁，如果能获取锁 那么返回null 否则的话就执行 scanAndLockForPut
             HashEntry<K,V> node = tryLock() ? null :
                 scanAndLockForPut(key, hash, value);
             V oldValue;
@@ -675,6 +676,8 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * Returns the segment for the given index, creating it and
      * recording in segment table (via CAS) if not already present.
      *
+     * 这里可能会有并发问题，多个线程都去生成segment，所以要看看是怎么做的
+     *
      * @param k the index
      * @return the segment
      */
@@ -683,17 +686,26 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
         final Segment<K,V>[] ss = this.segments;
         long u = (k << SSHIFT) + SBASE; // raw offset
         Segment<K,V> seg;
+        // getObjectVolatile(ss, u) 这个意思是看ss数组的第u个位置是否为空，这个是cas操作，所以这里不用加锁
+        // 如果取值之后，还是为空，那么进入到if方法之内
         if ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u)) == null) {
+            // 这里使用了模板，在构造方法中初始化了一个0位置的segment
             Segment<K,V> proto = ss[0]; // use segment 0 as prototype
+            // cap是容量大小
             int cap = proto.table.length;
             float lf = proto.loadFactor;
             int threshold = (int)(cap * lf);
+            // 构造一个 HashEntry 的时候 需要指定容量，默认好像是2个
             HashEntry<K,V>[] tab = (HashEntry<K,V>[])new HashEntry<?,?>[cap];
+            // 这里再次判断是否为空，不为空就返回，否则进入if方法
             if ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u))
                 == null) { // recheck
+                // 创建一个segment
                 Segment<K,V> s = new Segment<K,V>(lf, threshold, tab);
+                // 这里cas 自旋 如果为空
                 while ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u))
                        == null) {
+                    // 那么就将 segment 放入对应的数组位置，对 ss 位置的数据进行赋值
                     if (UNSAFE.compareAndSwapObject(ss, u, null, seg = s))
                         break;
                 }
@@ -750,12 +762,16 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
         if (concurrencyLevel > MAX_SEGMENTS)
             concurrencyLevel = MAX_SEGMENTS;
         // Find power-of-two sizes best matching arguments
+        /**
+         * 代表的是 2的次方数
+         */
         int sshift = 0;
         int ssize = 1;
         while (ssize < concurrencyLevel) {
             ++sshift;
             ssize <<= 1;
         }
+        // concurrencyLevel 的值如果是 16 的话，那么 sshift 就是4 然后 segmentShift 就是28
         this.segmentShift = 32 - sshift;
         this.segmentMask = ssize - 1;
         if (initialCapacity > MAXIMUM_CAPACITY)
@@ -1069,9 +1085,16 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
         if (value == null)
             throw new NullPointerException();
         int hash = hash(key);
+        /**
+         * hash >>> segmentShift
+         * 假设hash值是
+         * 01010101 01010101 01010101 01010101  如果 segmentShift 是 28 那么就是右移 28位
+         * 00000000 00000000 00000000 00000101
+         */
         int j = (hash >>> segmentShift) & segmentMask;
         if ((s = (Segment<K,V>)UNSAFE.getObject          // nonvolatile; recheck
              (segments, (j << SSHIFT) + SBASE)) == null) //  in ensureSegment
+            // 生成新的segment
             s = ensureSegment(j);
         return s.put(key, hash, value, false);
     }

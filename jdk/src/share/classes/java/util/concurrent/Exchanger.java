@@ -331,6 +331,31 @@ public class Exchanger<V> {
      * handling of sentinel values.  Callers from public methods decode
      * and cast accordingly.
      *
+     *
+     * 链接：https://www.pdai.tech/md/java/thread/java-thread-x-juc-tool-exchanger.html
+     *
+     * for (;;) {
+     *     if (slot is empty) { // offer
+     *         // slot为空时，将item 设置到Node 中
+     *         place item in a Node;
+     *         if (can CAS slot from empty to node) {
+     *             // 当将node通过CAS交换到slot中时，挂起线程等待被唤醒
+     *             wait for release;
+     *             // 被唤醒后返回node中匹配到的item
+     *             return matching item in node;
+     *         }
+     *     } else if (can CAS slot from node to empty) { // release
+     *          // 将slot设置为空
+     *         // 获取node中的item，将需要交换的数据设置到匹配的item
+     *         get the item in node;
+     *         set matching item in node;
+     *         // 唤醒等待的线程
+     *         release waiting thread;
+     *     }
+     *     // else retry on CAS failure
+     * }
+     *
+     *
      * @param item the (non-null) item to exchange
      * @param timed true if the wait is timed
      * @param nanos if timed, the maximum wait time

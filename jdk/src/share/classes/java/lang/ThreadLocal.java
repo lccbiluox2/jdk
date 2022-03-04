@@ -66,7 +66,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * thread-local instances are subject to garbage collection (unless other
  * references to these copies exist).
  *
- * @author  Josh Bloch and Doug Lea
+ * @author  Josh Bloch and Doug Leapublic T get
  * @since   1.2
  */
 public class ThreadLocal<T> {
@@ -136,6 +136,21 @@ public class ThreadLocal<T> {
      * thread-local variable.  If the variable has no value for the
      * current thread, it is first initialized to the value returned
      * by an invocation of the {@link #initialValue} method.
+
+     *
+     * 主要是用到了Thread对象中的一个ThreadLocalMap类型的变量threadLocals, 负责存
+     * 储当前线程的关于Connection的对象, dbConnectionLocal(以上述例子中为例) 这个变量为Key,
+     * 以新建的Connection对象为Value; 这样的话, 线程第一次读取的时候如果不存在就会调用
+     * ThreadLocal的initialValue方法创建一个Connection对象并且返回
+     *
+     * 1. 首先获取当前线程对象t, 然后从线程t中获取到ThreadLocalMap的成员属性threadLocals
+     * 2. 如果当前线程的threadLocals已经初始化(即不为null) 并且存在以当前ThreadLocal对象
+     *    为Key的值, 则直接返回当前线程要获取的对象(本例中为Connection);
+     * 3. 如果当前线程的threadLocals已经初始化(即不为null)但是不存在以当前ThreadLocal对象
+     *    为Key的的对象, 那么重新创建一个Connection对象, 并且添加到当前线程的threadLocals Map中,
+     *    并返回
+     * 4. 如果当前线程的threadLocals属性还没有被初始化, 则重新创建一个ThreadLocalMap对象,
+     *    并且创建一个Connection对象并添加到ThreadLocalMap对象中并返回。
      *
      * @return the current thread's value of this thread-local
      */
