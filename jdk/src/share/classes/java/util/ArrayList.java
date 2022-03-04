@@ -159,6 +159,9 @@ public class ArrayList<E> extends AbstractList<E>
      * Trims the capacity of this <tt>ArrayList</tt> instance to be the
      * list's current size.  An application can use this operation to minimize
      * the storage of an <tt>ArrayList</tt> instance.
+     *
+     * ArrayList还给我们提供了将底层数组的容量调整为当前列表保存的实际元素的大小的功能。
+     * 它可以通过trimToSize方法来实现。
      */
     public void trimToSize() {
         modCount++;
@@ -172,6 +175,20 @@ public class ArrayList<E> extends AbstractList<E>
      * Increases the capacity of this <tt>ArrayList</tt> instance, if
      * necessary, to ensure that it can hold at least the number of elements
      * specified by the minimum capacity argument.
+     *
+     * 著作权归https://pdai.tech所有。
+     * 链接：https://www.pdai.tech/md/java/collection/java-collection-ArrayList.html
+     *
+     * 每当向数组中添加元素时，都要去检查添加后元素的个数是否会超出当前数组的长度，
+     * 如果超出，数组将会进行扩容，以满足添加数据的需求。数组扩容通过一个公开的方法
+     * ensureCapacity(int minCapacity)来实现。在实际添加大量元素前，我也可以使用
+     * ensureCapacity来手动增加ArrayList实例的容量，以减少递增式再分配的数量。
+
+     *
+     * 数组进行扩容时，会将老数组中的元素重新拷贝一份到新的数组中，每次数组容量的增长大约是
+     * 其原容量的1.5倍。这种操作的代价是很高的，因此在实际使用时，我们应该尽量避免数组容量的
+     * 扩张。当我们可预知要保存的元素的多少时，要在构造ArrayList实例时，就指定其容量，以避免
+     * 数组扩容的发生。或者根据实际需求，通过调用ensureCapacity方法来手动增加ArrayList实例的容量。
      *
      * @param   minCapacity   the desired minimum capacity
      */
@@ -393,10 +410,10 @@ public class ArrayList<E> extends AbstractList<E>
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
     public E set(int index, E element) {
-        rangeCheck(index);
+        rangeCheck(index);//下标越界检查
 
         E oldValue = elementData(index);
-        elementData[index] = element;
+        elementData[index] = element;//赋值到指定位置，复制的仅仅是引用
         return oldValue;
     }
 
@@ -450,6 +467,12 @@ public class ArrayList<E> extends AbstractList<E>
         if (numMoved > 0)
             System.arraycopy(elementData, index+1, elementData, index,
                              numMoved);
+        /** 为了让GC起作用，必须显式的为最后一个位置赋null值。
+         *
+         * 有了垃圾收集器并不意味着一定不会有内存泄漏。对象能否被GC的依据是是否还有引用指向它，
+         * 上面代码中如果不手动赋null值，除非对应的位置被其他元素覆盖，否则原来的对象就一直
+         * 不会被回收。
+         */
         elementData[--size] = null; // Let gc do its work
 
         return oldValue;
