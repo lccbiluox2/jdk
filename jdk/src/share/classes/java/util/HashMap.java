@@ -224,6 +224,15 @@ public class HashMap<K,V>
                                                loadFactor);
 
         // Find a power of 2 >= initialCapacity
+        // 求大于
+        // 比如你传入 20
+        //  第一次 capacity = 1 000001 那就是1
+        //  第2次 capacity 左移1，就是乘2 000010 为2
+        //  第3次 capacity 左移1，就是乘2 000100 为4
+        //  第4次 capacity 左移1，就是乘2 001000 为8
+        //  第5次 capacity 左移1，就是乘2 010000 为16
+        //  第6次 capacity 左移1，就是乘2 100000 为32
+        //  因为 32 大于 20 所以 最终大小是 32
         int capacity = 1;
         while (capacity < initialCapacity)
             capacity <<= 1;
