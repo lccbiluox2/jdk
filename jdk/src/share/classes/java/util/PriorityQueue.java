@@ -76,6 +76,13 @@ package java.util;
  * @since 1.5
  * @author Josh Bloch, Doug Lea
  * @param <E> the type of elements held in this collection
+ *
+ * 著作权归https://pdai.tech所有。
+ * 链接：https://www.pdai.tech/md/java/collection/java-collection-PriorityQueue.html
+ *
+ * 优先队列的作用是能保证每次取出的元素都是队列中权值最小的(Java的优先队列每次取最小元素，
+ * C++的优先队列每次取最大元素)。这里牵涉到了大小关系，元素大小的评判可以通过元素本身的自然顺序
+ * (natural ordering)，也可以通过构造时传入的比较器(Comparator，类似于C++的仿函数)。
  */
 public class PriorityQueue<E> extends AbstractQueue<E>
     implements java.io.Serializable {
@@ -316,17 +323,17 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
-        if (e == null)
+        if (e == null) //不允许放入null元素
             throw new NullPointerException();
         modCount++;
         int i = size;
         if (i >= queue.length)
-            grow(i + 1);
+            grow(i + 1); //自动扩容
         size = i + 1;
-        if (i == 0)
+        if (i == 0) //队列原来为空，这是插入的第一个元素
             queue[0] = e;
         else
-            siftUp(i, e);
+            siftUp(i, e);//调整
         return true;
     }
 
@@ -624,6 +631,8 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * Comparable and Comparator versions are separated into different
      * methods that are otherwise identical. (Similarly for siftDown.)
      *
+     * 该方法用于插入元素x并维持堆的特性。
+     *
      * @param k the position to fill
      * @param x the item to insert
      */
@@ -638,9 +647,9 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     private void siftUpComparable(int k, E x) {
         Comparable<? super E> key = (Comparable<? super E>) x;
         while (k > 0) {
-            int parent = (k - 1) >>> 1;
+            int parent = (k - 1) >>> 1;  //parentNo = (nodeNo-1)/2
             Object e = queue[parent];
-            if (key.compareTo((E) e) >= 0)
+            if (key.compareTo((E) e) >= 0) //调用比较器的比较方法
                 break;
             queue[k] = e;
             k = parent;

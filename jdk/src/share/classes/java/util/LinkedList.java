@@ -399,6 +399,9 @@ public class LinkedList<E>
      * @return {@code true} if this list changed as a result of the call
      * @throws IndexOutOfBoundsException {@inheritDoc}
      * @throws NullPointerException if the specified collection is null
+     *
+     * addAll(index, c) 实现方式并不是直接调用add(index,e)来实现，主要是因为效率的问题，
+     * 另一个是fail-fast中modCount只会增加1次；
      */
     public boolean addAll(int index, Collection<? extends E> c) {
         checkPositionIndex(index);
@@ -442,6 +445,8 @@ public class LinkedList<E>
     /**
      * Removes all of the elements from this list.
      * The list will be empty after this call returns.
+     *
+     * 为了让GC更快可以回收放置的元素，需要将node之间的引用关系赋空。
      */
     public void clear() {
         // Clearing all of the links between nodes is "unnecessary", but:
@@ -496,6 +501,10 @@ public class LinkedList<E>
      * Inserts the specified element at the specified position in this list.
      * Shifts the element currently at that position (if any) and any
      * subsequent elements to the right (adds one to their indices).
+     *
+     * 当index==size时，等同于add(E e); 如果不是，则分两步:
+     * 1.先根据index找到要插入的位置,即node(index)方法；
+     * 2.修改引用，完成插入操作。
      *
      * @param index index at which the specified element is to be inserted
      * @param element element to be inserted

@@ -55,11 +55,13 @@ public abstract class AbstractOwnableSynchronizer
 
     /**
      * Empty constructor for use by subclasses.
+     * // 构造方法
      */
     protected AbstractOwnableSynchronizer() { }
 
     /**
      * The current owner of exclusive mode synchronization.
+     * // 独占模式下的线程
      */
     private transient Thread exclusiveOwnerThread;
 
@@ -68,6 +70,8 @@ public abstract class AbstractOwnableSynchronizer
      * <tt>null</tt> argument indicates that no thread owns access.
      * This method does not otherwise impose any synchronization or
      * <tt>volatile</tt> field accesses.
+     *
+     *  // 设置独占线程
      */
     protected final void setExclusiveOwnerThread(Thread t) {
         exclusiveOwnerThread = t;
@@ -79,6 +83,8 @@ public abstract class AbstractOwnableSynchronizer
      * set.  This method does not otherwise impose any synchronization
      * or <tt>volatile</tt> field accesses.
      * @return the owner thread
+     *
+     *  // 设置独占线程
      */
     protected final Thread getExclusiveOwnerThread() {
         return exclusiveOwnerThread;

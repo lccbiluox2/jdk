@@ -135,19 +135,19 @@ class ObjectMonitor {
   // initialize the monitor, exception the semaphore, all other fields
   // are simple integers or pointers
   ObjectMonitor() {
-    _header       = NULL;
-    _count        = 0;
-    _waiters      = 0,
-    _recursions   = 0;
+    _header       = NULL; // 对象头
+    _count        = 0;   // 记录该检测获取的次数
+    _waiters      = 0, // 当前有多少线程处于wait状态
+    _recursions   = 0;  // 锁的重入次数
     _object       = NULL;
-    _owner        = NULL;
-    _WaitSet      = NULL;
+    _owner        = NULL;// 指向持有 objectMonitor对象的线程
+    _WaitSet      = NULL;// 存放处于wait状态线程的队列
     _WaitSetLock  = 0 ;
     _Responsible  = NULL ;
     _succ         = NULL ;
     _cxq          = NULL ;
     FreeNext      = NULL ;
-    _EntryList    = NULL ;
+    _EntryList    = NULL ;// 存放处于block锁阻塞状态线程的队列
     _SpinFreq     = 0 ;
     _SpinClock    = 0 ;
     OwnerIsThread = 0 ;

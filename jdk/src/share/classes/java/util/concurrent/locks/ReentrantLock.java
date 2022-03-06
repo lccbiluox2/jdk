@@ -237,15 +237,19 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         protected final boolean tryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
             int c = getState();
+            // 判断锁是不是自由状态
             if (c == 0) {
+                // 锁是自由状态也不能直接设置锁，需要再次判断 hasQueuedPredecessors()
+                //  这里与非公平锁不同，非公平锁直接加锁【这里取反】
                 if (!hasQueuedPredecessors() &&
                     compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
                 }
             }
+            // 如果要获取锁的线程 和 持有锁的线程 是否一致，如果一致那么次数+1，这里体现了【重入锁】
             else if (current == getExclusiveOwnerThread()) {
-                int nextc = c + acquires;
+                int nextc = c + acquires;//  state自增
                 if (nextc < 0)
                     throw new Error("Maximum lock count exceeded");
                 setState(nextc);

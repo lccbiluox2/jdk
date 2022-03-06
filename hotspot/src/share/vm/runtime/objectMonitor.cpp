@@ -320,6 +320,7 @@ void ATTR ObjectMonitor::enter(TRAPS) {
   Thread * const Self = THREAD ;
   void * cur ;
 
+  // 通过cas尝试把monitor的_owner字段设置为当前线程
   cur = Atomic::cmpxchg_ptr (Self, &_owner, NULL) ;
   if (cur == NULL) {
      // Either ASSERT _recursions == 0 or explicitly set _recursions = 0.
@@ -329,12 +330,15 @@ void ATTR ObjectMonitor::enter(TRAPS) {
      return ;
   }
 
+  // 设置之前的 _owner 指向当前线程，说明当前线程已经持有锁，依次为重入，_recursions 自增
   if (cur == Self) {
      // TODO-FIXME: check for integer overflow!  BUGID 6557169.
      _recursions ++ ;
      return ;
   }
 
+  // 如果之前_owner指向的BasicLock在当前线程上，说明当前线程是第一次进入该monitor，设置
+  // _recursions 为1，_owner 为当前线程，该线程成功获取到锁并且返回
   if (Self->is_lock_owned ((address)cur)) {
     assert (_recursions == 0, "internal state error");
     _recursions = 1 ;

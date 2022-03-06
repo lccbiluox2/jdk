@@ -165,27 +165,52 @@ static volatile int MonitorPopulation = 0 ;      // # Extant -- in circulation
 // some assembly copies of this code. Make sure update those code
 // if the following function is changed. The implementation is
 // extremely sensitive to race condition. Be careful.
+/**
+  偏向锁的获取BiasedLocking: :revoke_ and_ rebias方法实现
+  1、通过mark0op. mark = obj- >mark ()获取对象的mar kOop数据mark， 即对象头的Mark Word;
+  2、判用rmark是否为可偏向状态，即mark的偏向锁标志位为1，锁标志位为01:
+  3、判rmark中JavaThread的状态: 如果为空，则进入步骤(4) :
+     如果指向当前线程，则执行同步代码块:如果指向其它线程，进入步骤(5) ;
+  4、通过CAS原子指令设置mark中JavaThread为当前线程ID，如果执行CAS)成功，
+     则执行同步代码块，否则进入步骤(5) :
+  5、如果执行CAS失败，表示当前存在多个线程竞争锁，当达到全局安全点( safepoint) ，
+      获得偏向锁的线程被挂起，撤销偏向锁，并升级为轻量级，
 
+  升级完成后被阻塞在安全点的线程继续执行同步代码块:
+  偏向锁的撤销由BiasedLocking: :revoke_ at_ safepoint方法实现
+  1、偏向锁的撤销动作必须等待全局安全点:
+  2、暂停拥有偏向锁的线程，判断锁对象是否处于被锁定状态:
+  3、撤销偏向锁，恢复到无锁(标志位为01)或轻量级锁(标志位为00)的状态
+  jdk1.6之后默认开启偏向锁
+  开启偏向锁: - XX: +UseBiasedLocking -x:BiasedLockingStartupDelay=0 (默认有延迟，关闭延迟)
+  关闭偏向锁XX:-UseBiasedLocking
+*/
 void ObjectSynchronizer::fast_enter(Handle obj, BasicLock* lock, bool attempt_rebias, TRAPS) {
+ // 释放开启了偏向锁
  if (UseBiasedLocking) {
     if (!SafepointSynchronize::is_at_safepoint()) {
+      // 获取偏向锁
       BiasedLocking::Condition cond = BiasedLocking::revoke_and_rebias(obj, attempt_rebias, THREAD);
       if (cond == BiasedLocking::BIAS_REVOKED_AND_REBIASED) {
         return;
       }
     } else {
       assert(!attempt_rebias, "can not rebias toward VM thread");
+      // 偏向锁的撤销，只有其他线程尝试获取偏向锁时候，持有偏向锁的线程才会释放锁
       BiasedLocking::revoke_at_safepoint(obj);
     }
     assert(!obj->mark()->has_bias_pattern(), "biases should be revoked by now");
  }
 
+ // 获取轻量级锁，当关闭轻量级锁功能，或者多个线程竞争偏向锁导致偏向锁升级为轻量级锁
  slow_enter (obj, lock, THREAD) ;
 }
 
+// 轻量级锁的释放
 void ObjectSynchronizer::fast_exit(oop object, BasicLock* lock, TRAPS) {
   assert(!object->mark()->has_bias_pattern(), "should not see bias pattern here");
   // if displaced header is null, the previous enter is recursive enter, no-op
+  //取出在获取轻量级锁时保存在BasicLock对象的mark数据dhw
   markOop dhw = lock->displaced_header();
   markOop mark ;
   if (dhw == NULL) {
@@ -225,19 +250,24 @@ void ObjectSynchronizer::fast_exit(oop object, BasicLock* lock, TRAPS) {
 // We don't need to use fast path here, because it must have been
 // failed in the interpreter/compiler code.
 void ObjectSynchronizer::slow_enter(Handle obj, BasicLock* lock, TRAPS) {
+  // 获取对象的 markOop数据 mark
   markOop mark = obj->mark();
   assert(!mark->has_bias_pattern(), "should not see bias pattern here");
 
+  //判断mark是否为无锁状态: mark的偏向锁标志位为0，锁标志位为01;
   if (mark->is_neutral()) {
     // Anticipate successful CAS -- the ST of the displaced mark must
     // be visible <= the ST performed by the CAS.
+    //把mark保存到BasicLock对象的_ displaced_ header字 段
     lock->set_displaced_header(mark);
+    //通过CAS尝试将Mark Word更新为指向BasicLock对象的指针，如果更新成功，表示竞争到锁，则执行同步个
+    // Atomic: :cmpxchg_ ptr原子操作保证只有一个线程可以把指向栈帧的指针复制到Mark Word
     if (mark == (markOop) Atomic::cmpxchg_ptr(lock, obj()->mark_addr(), mark)) {
       TEVENT (slow_enter: release stacklock) ;
       return ;
     }
     // Fall through to inflate() ...
-  } else
+  } else //如果当前mark处于加锁状态，且mark中 的ptr指针指向当前线程的栈帧，则执行同步代码
   if (mark->has_locker() && THREAD->is_lock_owned((address)mark->locker())) {
     assert(lock != mark->locker(), "must not re-lock the same lock");
     assert(lock != (BasicLock*)obj->mark(), "don't relock with same BasicLock");
@@ -258,6 +288,7 @@ void ObjectSynchronizer::slow_enter(Handle obj, BasicLock* lock, TRAPS) {
   // must be non-zero to avoid looking like a re-entrant lock,
   // and must not look locked either.
   lock->set_displaced_header(markOopDesc::unused_mark());
+  //竞争失败， 退出临界区，开始锁的膨胀
   ObjectSynchronizer::inflate(THREAD, obj())->enter(THREAD);
 }
 

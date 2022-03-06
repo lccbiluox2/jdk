@@ -118,14 +118,18 @@ import sun.misc.Unsafe;
  */
 
 public class LockSupport {
+    // 私有构造函数，无法被实例化
     private LockSupport() {} // Cannot be instantiated.
 
     // Hotspot implementation via intrinsics API
+    // 获取Unsafe实例
     private static final Unsafe unsafe = Unsafe.getUnsafe();
+    // 表示内存偏移地址
     private static final long parkBlockerOffset;
 
     static {
         try {
+            // 获取Thread的parkBlocker字段的内存偏移地址
             parkBlockerOffset = unsafe.objectFieldOffset
                 (java.lang.Thread.class.getDeclaredField("parkBlocker"));
         } catch (Exception ex) { throw new Error(ex); }
@@ -133,6 +137,7 @@ public class LockSupport {
 
     private static void setBlocker(Thread t, Object arg) {
         // Even though volatile, hotspot doesn't need a write barrier here.
+        // 设置线程t的parkBlocker字段的值为arg
         unsafe.putObject(t, parkBlockerOffset, arg);
     }
 
@@ -144,11 +149,20 @@ public class LockSupport {
      * is not guaranteed to have any effect at all if the given
      * thread has not been started.
      *
+     * unpark函数，释放线程的许可，即激活调用park后阻塞的线程。这个函数不是安全的，
+     * 调用这个函数时要确保线程依旧存活。
+     *
+     * 此函数表示如果给定线程的许可尚不可用，则使其可用。如果线程在 park 上受阻塞，
+     * 则它将解除其阻塞状态。否则，保证下一次调用 park 不会受阻塞。如果给定线程尚未启动，
+     * 则无法保证此操作有任何效果。
+     *
      * @param thread the thread to unpark, or {@code null}, in which case
      *        this operation has no effect
      */
     public static void unpark(Thread thread) {
+        // 线程为不空
         if (thread != null)
+            // 释放该线程许可
             unsafe.unpark(thread);
     }
 
@@ -176,14 +190,48 @@ public class LockSupport {
      * the thread to park in the first place. Callers may also determine,
      * for example, the interrupt status of the thread upon return.
      *
+     * 著作权归https://pdai.tech所有。
+     * 链接：https://www.pdai.tech/md/java/thread/java-thread-x-lock-LockSupport.html
+     *
+     * park函数，阻塞线程，并且该线程在下列情况发生之前都会被阻塞:
+     *
+     * ① 调用unpark函数，释放该线程的许可。
+     * ② 该线程被中断。
+     * ③ 设置的时间到了。
+     *
+     * 并且，当time为绝对时间时，isAbsolute为true，否则，isAbsolute为false。
+     * 当time为0时，表示无限等待，直到unpark发生。
+     *
+     * 著作权归https://pdai.tech所有。
+     * 链接：https://www.pdai.tech/md/java/thread/java-thread-x-lock-LockSupport.html
+     *
+     * 说明: 调用park函数时，首先获取当前线程，然后设置当前线程的parkBlocker字段，即
+     * 调用setBlocker函数，之后调用Unsafe类的park函数，之后再调用setBlocker函数。
+     * 那么问题来了，为什么要在此park函数中要调用两次setBlocker函数呢?
+     *
+     * 原因其实很简单，调用park函数时，当前线程首先设置好parkBlocker字段，然后再调用
+     * Unsafe的park函数，此后，当前线程就已经阻塞了，等待该线程的unpark函数被调用，
+     * 所以后面的一个setBlocker函数无法运行，unpark函数被调用，该线程获得许可后，
+     * 就可以继续运行了，也就运行第二个setBlocker，把该线程的parkBlocker字段设置为null，
+     * 这样就完成了整个park函数的逻辑。如果没有第二个setBlocker，那么之后没有调用
+     * park(Object blocker)，而直接调用getBlocker函数，得到的还是前一个
+     * park(Object blocker)设置的blocker，显然是不符合逻辑的。
+     *
+     * 总之，必须要保证在park(Object blocker)整个函数执行完后，该线程的parkBlocker
+     * 字段又恢复为null。所以，park(Object)型函数里必须要调用setBlocker函数两次。
+     *
      * @param blocker the synchronization object responsible for this
      *        thread parking
      * @since 1.6
      */
     public static void park(Object blocker) {
+        // 获取当前线程
         Thread t = Thread.currentThread();
+        // 设置Blocker
         setBlocker(t, blocker);
+        // 获取许可
         unsafe.park(false, 0L);
+        // 重新可运行后再此设置Blocker
         setBlocker(t, null);
     }
 
@@ -310,8 +358,15 @@ public class LockSupport {
      * method to return. Callers should re-check the conditions which caused
      * the thread to park in the first place. Callers may also determine,
      * for example, the interrupt status of the thread upon return.
+     *
+     * 说明: 调用了park函数后，会禁用当前线程，除非许可可用。在以下三种情况之一发生之前，
+     * 当前线程都将处于休眠状态，即下列情况发生时，当前线程会获取许可，可以继续运行。
+     * 1. 其他某个线程将当前线程作为目标调用 unpark。
+     * 2. 其他某个线程中断当前线程。
+     * 3. 该调用不合逻辑地(即毫无理由地)返回。
      */
     public static void park() {
+        // 获取许可，设置时间为无限长，直到可以获取许可
         unsafe.park(false, 0L);
     }
 
@@ -342,9 +397,12 @@ public class LockSupport {
      * for example, the interrupt status of the thread, or the elapsed time
      * upon return.
      *
+     * 此函数表示在许可可用前禁用当前线程，并最多等待指定的等待时间
+     *
      * @param nanos the maximum number of nanoseconds to wait
      */
     public static void parkNanos(long nanos) {
+        // 时间大于0
         if (nanos > 0)
             unsafe.park(false, nanos);
     }
