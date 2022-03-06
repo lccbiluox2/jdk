@@ -379,9 +379,14 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                 scanAndLockForPut(key, hash, value);
             V oldValue;
             try {
+                // 这个是 segment 内部的数组
                 HashEntry<K,V>[] tab = table;
+                // 再利用 hash 值，求应该放置的数组下标
                 int index = (tab.length - 1) & hash;
+                // first 是数组该位置处的链表的表头
                 HashEntry<K,V> first = entryAt(tab, index);
+
+                // 下面这串 for 循环虽然很长，不过也很好理解，想想该位置没有任何元素和已经存在一个链表这两种情况
                 for (HashEntry<K,V> e = first;;) {
                     if (e != null) {
                         K k;
@@ -389,22 +394,32 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                             (e.hash == hash && key.equals(k))) {
                             oldValue = e.value;
                             if (!onlyIfAbsent) {
+                                // 覆盖旧值
                                 e.value = value;
                                 ++modCount;
                             }
                             break;
                         }
+                        // 继续顺着链表走
                         e = e.next;
                     }
                     else {
+
+                        // node 到底是不是 null，这个要看获取锁的过程，不过和这里都没有关系。
+                        // 如果不为 null，那就直接将它设置为链表表头；如果是null，初始化并设置为链表表头。
+
+
                         if (node != null)
                             node.setNext(first);
                         else
                             node = new HashEntry<K,V>(hash, key, value, first);
                         int c = count + 1;
+                        // 如果超过了该 segment 的阈值，这个 segment 需要扩容
                         if (c > threshold && tab.length < MAXIMUM_CAPACITY)
-                            rehash(node);
+                            rehash(node); // 扩容后面也会具体分析
                         else
+                            // 没有达到阈值，将 node 放到数组 tab 的 index 位置，
+                            // 其实就是将新的节点设置成原链表的表头
                             setEntryAt(tab, index, node);
                         ++modCount;
                         count = c;
@@ -421,6 +436,17 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
         /**
          * Doubles size of table and repacks entries, also adding the
          * given node to new table
+         *
+         * 重复一下，【segment 数组不能扩容，扩容是 segment 数组某个位置内部的数组】
+         * HashEntry<K,V>[] 进行扩容，扩容后，容量为原来的 2 倍。
+         *
+         * 首先，我们要回顾一下触发扩容的地方，put 的时候，如果判断该值的插入会导致该
+         * segment 的元素个数超过阈值，那么先进行扩容，再插值，读者这个时候可以回去
+         * put 方法看一眼。
+         *
+         * 该方法不需要考虑并发，因为到这里的时候，是持有该 segment 的独占锁的。
+         *
+         * node ： 方法参数上的 node 是这次扩容后，需要添加到新的数组中的数据。
          */
         @SuppressWarnings("unchecked")
         private void rehash(HashEntry<K,V> node) {
@@ -442,21 +468,32 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
              */
             HashEntry<K,V>[] oldTable = table;
             int oldCapacity = oldTable.length;
-            int newCapacity = oldCapacity << 1;
+            int newCapacity = oldCapacity << 1; // 2 倍
             threshold = (int)(newCapacity * loadFactor);
+            // 创建新数组
             HashEntry<K,V>[] newTable =
                 (HashEntry<K,V>[]) new HashEntry<?,?>[newCapacity];
+            // 新的掩码，如从 16 扩容到 32，那么 sizeMask 为 31，对应二进制 ‘000...00011111’
             int sizeMask = newCapacity - 1;
+
+            // 遍历原数组，老套路，将原数组位置 i 处的链表拆分到 新数组位置 i 和 i+oldCap 两个位置
             for (int i = 0; i < oldCapacity ; i++) {
+                // e 是链表的第一个元素
                 HashEntry<K,V> e = oldTable[i];
                 if (e != null) {
                     HashEntry<K,V> next = e.next;
+                    // 计算应该放置在新数组中的位置，
+                    // 假设原数组长度为 16，e 在 oldTable[3] 处，那么 idx 只可能是 3 或者是 3 + 16 = 19
                     int idx = e.hash & sizeMask;
+                    // 该位置处只有一个元素，那比较好办
                     if (next == null)   //  Single node on list
                         newTable[idx] = e;
                     else { // Reuse consecutive sequence at same slot
+                        // e 是链表表头
                         HashEntry<K,V> lastRun = e;
-                        int lastIdx = idx;
+                        int lastIdx = idx; // idx 是当前链表的头节点 e 的新位置
+
+                        // 下面这个 for 循环会找到一个 lastRun 节点，这个节点之后的所有元素是将要放到一起的
                         for (HashEntry<K,V> last = next;
                              last != null;
                              last = last.next) {
@@ -466,8 +503,11 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                                 lastRun = last;
                             }
                         }
+                        // 将 lastRun 及其之后的所有节点组成的这个链表放到 lastIdx 这个位置
                         newTable[lastIdx] = lastRun;
                         // Clone remaining nodes
+                        // 下面的操作是处理 lastRun 之前的节点，
+                        //    这些节点可能分配在另一个链表中，也可能分配到上面的那个链表中
                         for (HashEntry<K,V> p = e; p != lastRun; p = p.next) {
                             V v = p.value;
                             int h = p.hash;
@@ -478,6 +518,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                     }
                 }
             }
+            // 将新来的 node 放到新数组中刚刚的 两个链表之一 的 头部
             int nodeIndex = node.hash & sizeMask; // add the new node
             node.setNext(newTable[nodeIndex]);
             newTable[nodeIndex] = node;
@@ -493,31 +534,53 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
          * up the associated code and accesses as well.
          *
          * @return a new node if key not found, else null
+         *
+         * 在往某个 segment 中 put 的时候，首先会调用
+         * node = tryLock() ? null : scanAndLockForPut(key, hash, value)，
+         * 也就是说先进行一次 tryLock() 快速获取该 segment 的独占锁，如果失败，那么进入到
+         * scanAndLockForPut 这个方法来获取锁。
+         *
+         * 这个方法有两个出口，一个是 tryLock() 成功了，循环终止，另一个就是重试次数超过了
+         * MAX_SCAN_RETRIES，进到 lock() 方法，此方法会阻塞等待，直到成功拿到独占锁。
+         *
+         * 这个方法就是看似复杂，但是其实就是做了一件事，那就是获取该 segment 的独占锁，
+         * 如果需要的话顺便实例化了一下 node。
          */
         private HashEntry<K,V> scanAndLockForPut(K key, int hash, V value) {
             HashEntry<K,V> first = entryForHash(this, hash);
             HashEntry<K,V> e = first;
             HashEntry<K,V> node = null;
             int retries = -1; // negative while locating node
+            // 循环获取锁
             while (!tryLock()) {
                 HashEntry<K,V> f; // to recheck first below
                 if (retries < 0) {
                     if (e == null) {
                         if (node == null) // speculatively create node
-                            node = new HashEntry<K,V>(hash, key, value, null);
+
+                        // 进到这里说明数组该位置的链表是空的，没有任何元素
+                        // 当然，进到这里的另一个原因是 tryLock() 失败，所以该槽存在并发，不一定是该位置
+
+                        node = new HashEntry<K,V>(hash, key, value, null);
                         retries = 0;
                     }
                     else if (key.equals(e.key))
                         retries = 0;
                     else
+                        // 顺着链表往下走
                         e = e.next;
                 }
+                // 重试次数如果超过 MAX_SCAN_RETRIES(单核1多核64)，那么不抢了，进入到阻塞队列等待锁
+                //    lock() 是阻塞方法，直到获取锁后返回
                 else if (++retries > MAX_SCAN_RETRIES) {
                     lock();
                     break;
                 }
                 else if ((retries & 1) == 0 &&
-                         (f = entryForHash(this, hash)) != first) {
+                    // 这个时候是有大问题了，那就是有新的元素进到了链表，成为了新的表头
+                    //     所以这边的策略是，相当于重新走一遍这个 scanAndLockForPut 方法
+
+                (f = entryForHash(this, hash)) != first) {
                     e = first = f; // re-traverse if entry changed
                     retries = -1;
                 }
@@ -678,6 +741,12 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      *
      * 这里可能会有并发问题，多个线程都去生成segment，所以要看看是怎么做的
      *
+     * ConcurrentHashMap 初始化的时候会初始化第一个槽 segment[0]，对于其他槽来说，
+     * 在插入第一个值的时候进行初始化。
+     *
+     * 这里需要考虑并发，因为很可能会有多个线程同时进来初始化同一个槽 segment[k]，
+     * 不过只要有一个成功了就可以。
+     *
      * @param k the index
      * @return the segment
      */
@@ -690,19 +759,22 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
         // 如果取值之后，还是为空，那么进入到if方法之内
         if ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u)) == null) {
             // 这里使用了模板，在构造方法中初始化了一个0位置的segment
+            // 这里看到为什么之前要初始化 segment[0] 了，
+            // 使用当前 segment[0] 处的数组长度和负载因子来初始化 segment[k]
+            // 为什么要用“当前”，因为 segment[0] 可能早就扩容过了
             Segment<K,V> proto = ss[0]; // use segment 0 as prototype
             // cap是容量大小
             int cap = proto.table.length;
             float lf = proto.loadFactor;
             int threshold = (int)(cap * lf);
-            // 构造一个 HashEntry 的时候 需要指定容量，默认好像是2个
+            // 初始化 segment[k] 内部的数组.构造一个 HashEntry 的时候 需要指定容量，默认好像是2个
             HashEntry<K,V>[] tab = (HashEntry<K,V>[])new HashEntry<?,?>[cap];
             // 这里再次判断是否为空，不为空就返回，否则进入if方法
             if ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u))
-                == null) { // recheck
+                == null) { // recheck // 再次检查一遍该槽是否被其他线程初始化了。
                 // 创建一个segment
                 Segment<K,V> s = new Segment<K,V>(lf, threshold, tab);
-                // 这里cas 自旋 如果为空
+                // 这里cas 自旋 如果为空,使用 while 循环，内部用 CAS，当前线程成功设值或其他线程成功设值后，退出
                 while ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u))
                        == null) {
                     // 那么就将 segment 放入对应的数组位置，对 ss 位置的数据进行赋值
@@ -753,6 +825,19 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * @throws IllegalArgumentException if the initial capacity is
      * negative or the load factor or concurrencyLevel are
      * nonpositive.
+     *
+     * initialCapacity: 初始容量，这个值指的是整个 ConcurrentHashMap 的初始容量，
+     * 实际操作的时候需要平均分给每个 Segment。
+     *
+     * loadFactor: 负载因子，之前我们说了，Segment 数组不可以扩容，所以这个负载因子
+     * 是给每个 Segment 内部使用的
+     *
+     * 假设我们就当是用 new ConcurrentHashMap() 无参构造函数进行初始化的，那么初始化完成后:
+     *   Segment 数组长度为 16，不可以扩容 Segment[i] 的默认大小为 2，负载因子是 0.75，得出初始阈值为 1.5，
+     *   也就是以后插入第一个元素不会触发扩容，插入第二个会进行第一次扩容
+     *   这里初始化了 segment[0]，其他位置还是 null，至于为什么要初始化 segment[0]，
+     *   后面的代码会介绍 当前 segmentShift 的值为 32 - 4 = 28，segmentMask 为 16 - 1 = 15，
+     *   姑且把它们简单翻译为移位数和掩码，这两个值马上就会用到
      */
     @SuppressWarnings("unchecked")
     public ConcurrentHashMap(int initialCapacity,
@@ -767,26 +852,41 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
          */
         int sshift = 0;
         int ssize = 1;
+        // 计算并行级别 ssize，因为要保持并行级别是 2 的 n 次方
         while (ssize < concurrencyLevel) {
             ++sshift;
             ssize <<= 1;
         }
         // concurrencyLevel 的值如果是 16 的话，那么 sshift 就是4 然后 segmentShift 就是28
+        // 我们这里先不要那么烧脑，用默认值，concurrencyLevel 为 16，sshift 为 4
+        // 那么计算出 segmentShift 为 28，segmentMask 为 15，后面会用到这两个值
         this.segmentShift = 32 - sshift;
         this.segmentMask = ssize - 1;
         if (initialCapacity > MAXIMUM_CAPACITY)
             initialCapacity = MAXIMUM_CAPACITY;
+
+
+        // initialCapacity 是设置整个 map 初始的大小，
+        // 这里根据 initialCapacity 计算 Segment 数组中每个位置可以分到的大小
+        // 如 initialCapacity 为 64，那么每个 Segment 或称之为"槽"可以分到 4 个
         int c = initialCapacity / ssize;
         if (c * ssize < initialCapacity)
             ++c;
+
+        // 默认 MIN_SEGMENT_TABLE_CAPACITY 是 2，这个值也是有讲究的，因为这样的话，对于具体的槽上，
+        // 插入一个元素不至于扩容，插入第二个的时候才会扩容
         int cap = MIN_SEGMENT_TABLE_CAPACITY;
         while (cap < c)
             cap <<= 1;
         // create segments and segments[0]
+        // 创建 Segment 数组，
+        // 并创建数组的第一个元素 segment[0] 这个是模板 segment 省的后面扩容的时候重新计算
+        // 直接参考第一个s0就可以了
         Segment<K,V> s0 =
             new Segment<K,V>(loadFactor, (int)(cap * loadFactor),
                              (HashEntry<K,V>[])new HashEntry<?,?>[cap]);
         Segment<K,V>[] ss = (Segment<K,V>[])new Segment<?,?>[ssize];
+        // 往数组写入 segment[0]
         UNSAFE.putOrderedObject(ss, SBASE, s0); // ordered write of segments[0]
         this.segments = ss;
     }
@@ -942,15 +1042,22 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * {@code null}.  (There can be at most one such mapping.)
      *
      * @throws NullPointerException if the specified key is null
+     *
+     * 相对于 put 来说，get 就很简单了。
+     * 1. 计算 hash 值，找到 segment 数组中的具体位置，或我们前面用的“槽”
+     * 2. 槽中也是一个数组，根据 hash 找到数组中具体的位置
+     * 3. 到这里是链表了，顺着链表进行查找即可
      */
     @SuppressWarnings("unchecked")
     public V get(Object key) {
         Segment<K,V> s; // manually integrate access methods to reduce overhead
         HashEntry<K,V>[] tab;
-        int h = hash(key);
+        int h = hash(key); // 1. hash 值
         long u = (((h >>> segmentShift) & segmentMask) << SSHIFT) + SBASE;
+        // 2. 根据 hash 找到对应的 segment
         if ((s = (Segment<K,V>)UNSAFE.getObjectVolatile(segments, u)) != null &&
             (tab = s.table) != null) {
+            // 3. 找到segment 内部数组相应位置的链表，遍历
             for (HashEntry<K,V> e = (HashEntry<K,V>) UNSAFE.getObjectVolatile
                      (tab, ((long)(((tab.length - 1) & h)) << TSHIFT) + TBASE);
                  e != null; e = e.next) {
@@ -1084,7 +1191,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
         Segment<K,V> s;
         if (value == null)
             throw new NullPointerException();
-        int hash = hash(key);
+        int hash = hash(key);  // 1. 计算 key 的 hash 值
         /**
          * hash >>> segmentShift
          * 假设hash值是
@@ -1092,10 +1199,13 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
          * 00000000 00000000 00000000 00000101
          */
         int j = (hash >>> segmentShift) & segmentMask;
+        // 刚刚说了，初始化的时候初始化了 segment[0]，但是其他位置还是 null，
+        // ensureSegment(j) 对 segment[j] 进行初始化
         if ((s = (Segment<K,V>)UNSAFE.getObject          // nonvolatile; recheck
              (segments, (j << SSHIFT) + SBASE)) == null) //  in ensureSegment
             // 生成新的segment
             s = ensureSegment(j);
+        // 3. 插入新值到 槽 s 中
         return s.put(key, hash, value, false);
     }
 
