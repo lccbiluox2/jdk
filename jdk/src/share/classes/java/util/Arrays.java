@@ -3204,12 +3204,17 @@ public class Arrays {
      *     <tt>original</tt> is not of a runtime type that can be stored in
      *     an array of class <tt>newType</tt>
      * @since 1.6
+     *
+     * 该函数用于复制指定的数组，截取或用 null 填充(如有必要)，以使副本具有指定的长度。
      */
     public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
+        // 确定copy的类型(将newType转化为Object类型，将Object[].class转化为Object类型，判断两者是否相等，若相等，则生成指定长度的Object数组
+        // 否则,生成指定长度的新类型的数组)
         @SuppressWarnings("unchecked")
         T[] copy = ((Object)newType == (Object)Object[].class)
             ? (T[]) new Object[newLength]
             : (T[]) Array.newInstance(newType.getComponentType(), newLength);
+        // 将original数组从下标0开始，复制长度为(original.length和newLength的较小者),复制到copy数组中(也从下标0开始)
         System.arraycopy(original, 0, copy, 0,
                          Math.min(original.length, newLength));
         return copy;
