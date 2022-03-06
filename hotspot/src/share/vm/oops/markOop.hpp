@@ -97,6 +97,29 @@
 //
 //    We assume that stack/thread pointers have the lowest two bits cleared.
 
+// 参考：https://bugstack.cn/md/java/interview/2020-10-28-%E9%9D%A2%E7%BB%8F%E6%89%8B%E5%86%8C%20%C2%B7%20%E7%AC%AC15%E7%AF%87%E3%80%8A%E7%A0%81%E5%86%9C%E4%BC%9A%E9%94%81%EF%BC%8Csynchronized%20%E8%A7%A3%E6%AF%92%EF%BC%8C%E5%89%96%E6%9E%90%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90%EF%BC%81%E3%80%8B.html
+/**
+  * mark-word：对象标记字段占4个字节，用于存储一些列的标记位，比如：哈希值、轻量级锁的标记位，
+    偏向锁标记位、分代年龄等。
+
+    Klass Pointer：Class对象的类型指针，Jdk1.8默认开启指针压缩后为4字节，关闭指针压缩
+     （-XX:-UseCompressedOops）后，长度为8字节。其指向的位置是对象对应的Class对象（其
+     对应的元数据对象）的内存地址。
+
+     对象实际数据：包括对象的所有成员变量，大小由各个成员变量决定，比如：byte占1个字节8比特位、
+     int占4个字节32比特位。
+
+     对齐：最后这段空间补全并非必须，仅仅为了起到占位符的作用。由于HotSpot虚拟机的内存
+     管理系统要求对象起始地址必须是8字节的整数倍，所以对象头正好是8字节的倍数。因此当对象
+     实例数据部分没有对齐的话，就需要通过对齐填充来补全。
+
+     在mark-word锁类型标记中，无锁，偏向锁，轻量锁，重量锁，以及GC标记，5种类中没法用
+     2比特标记（2比特最终有4种组合00、01、10、11），所以无锁、偏向锁，前又占了一位偏向
+     锁标记。最终：001为无锁、101为偏向锁。
+
+
+  */
+
 class BasicLock;
 class ObjectMonitor;
 class JavaThread;
