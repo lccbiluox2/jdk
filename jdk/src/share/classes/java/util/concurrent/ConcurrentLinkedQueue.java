@@ -101,6 +101,19 @@ import java.util.function.Consumer;
  * @since 1.5
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ *
+ * @Desribe
+ *
+ * 链接：https://www.pdai.tech/md/java/thread/java-thread-x-juc-collection-ConcurrentLinkedQueue.html
+ *
+ * ConcurerntLinkedQueue一个基于链接节点的无界线程安全队列。此队列按照 FIFO(先进先出)原则对元素进行排序。
+ * 队列的头部是队列中时间最长的元素。队列的尾部 是队列中时间最短的元素。新的元素插入到
+ * 队列的尾部，队列获取操作从队列头部获得元素。当多个线程共享访问一个公共 collection 时，
+ * ConcurrentLinkedQueue是一个恰当的选择。此队列不允许使用null元素。
+ *
+ * 说明: ConcurrentLinkedQueue继承了抽象类AbstractQueue，AbstractQueue定义了对队列的
+ * 基本操作；同时实现了Queue接口，Queue定义了对队列的基本操作，同时，还实现了Serializable
+ * 接口，表示可以被序列化。
  */
 public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         implements Queue<E>, java.io.Serializable {
@@ -177,34 +190,48 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * optimization.
      */
 
+    /**
+     * 说明: Node类表示链表结点，用于存放元素，包含item域和next域，item域表示元素，
+     * next域表示下一个结点，其利用反射机制和CAS机制来更新item域和next域，保证原子性。
+     * @param <E>
+     */
     private static class Node<E> {
-        volatile E item;
-        volatile Node<E> next;
+        volatile E item; // 元素
+        volatile Node<E> next; // next域
 
         /**
          * Constructs a new node.  Uses relaxed write because item can
          * only be seen after publication via casNext.
+         *
+         * // 构造函数
          */
         Node(E item) {
+            // 设置item的值
             UNSAFE.putObject(this, itemOffset, item);
         }
 
+        // 比较并替换item值
         boolean casItem(E cmp, E val) {
             return UNSAFE.compareAndSwapObject(this, itemOffset, cmp, val);
         }
 
         void lazySetNext(Node<E> val) {
+            // 设置next域的值，并不会保证修改对其他线程立即可见
             UNSAFE.putOrderedObject(this, nextOffset, val);
         }
 
+        // 比较并替换next域的值
         boolean casNext(Node<E> cmp, Node<E> val) {
             return UNSAFE.compareAndSwapObject(this, nextOffset, cmp, val);
         }
 
         // Unsafe mechanics
 
+        // 反射机制
         private static final sun.misc.Unsafe UNSAFE;
+        // item域的偏移量
         private static final long itemOffset;
+        // next域的偏移量
         private static final long nextOffset;
 
         static {
@@ -251,6 +278,9 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
 
     /**
      * Creates a {@code ConcurrentLinkedQueue} that is initially empty.
+     *
+     * 说明: 该构造函数用于创建一个最初为空的 ConcurrentLinkedQueue，头节点与尾结点
+     * 指向同一个结点，该结点的item域为null，next域也为null。
      */
     public ConcurrentLinkedQueue() {
         head = tail = new Node<E>(null);
@@ -264,23 +294,27 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * @param c the collection of elements to initially contain
      * @throws NullPointerException if the specified collection or any
      *         of its elements are null
+     *
+     * 说明: 该构造函数用于创建一个最初包含给定 collection 元素的 ConcurrentLinkedQueue，
+     * 按照此 collection 迭代器的遍历顺序来添加元素。
      */
     public ConcurrentLinkedQueue(Collection<? extends E> c) {
         Node<E> h = null, t = null;
-        for (E e : c) {
-            checkNotNull(e);
-            Node<E> newNode = new Node<E>(e);
-            if (h == null)
-                h = t = newNode;
+        for (E e : c) { // 遍历c集合
+            checkNotNull(e); // 保证元素不为空
+            Node<E> newNode = new Node<E>(e); // 新生一个结点
+            if (h == null) // 头节点为null
+                h = t = newNode;  // 赋值头节点与尾结点
             else {
-                t.lazySetNext(newNode);
-                t = newNode;
+                t.lazySetNext(newNode); // 直接头节点的next域
+                t = newNode;  // 重新赋值头节点 【头插法】
             }
         }
+        // 头节点为null
         if (h == null)
-            h = t = new Node<E>(null);
-        head = h;
-        tail = t;
+            h = t = new Node<E>(null);  // 新生头节点与尾结点
+        head = h; // 赋值头节点
+        tail = t; // 赋值尾结点
     }
 
     // Have to override just to update the javadoc
@@ -310,9 +344,14 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * Returns the successor of p, or the head node if p.next has been
      * linked to self, which will only be true if traversing with a
      * stale pointer that is now off the list.
+     *
+     * 说明: succ用于获取结点的下一个结点。如果结点的next域指向自身，则返回head头节点，
+     * 否则，返回next结点。
      */
     final Node<E> succ(Node<E> p) {
+        // p结点的next域
         Node<E> next = p.next;
+        // 如果next域为自身，则返回头节点，否则，返回next
         return (p == next) ? head : next;
     }
 
@@ -322,57 +361,80 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      *
      * @return {@code true} (as specified by {@link Queue#offer})
      * @throws NullPointerException if the specified element is null
+     *
+     * 说明: offer函数用于将指定元素插入此队列的尾部。
      */
     public boolean offer(E e) {
-        checkNotNull(e);
-        final Node<E> newNode = new Node<E>(e);
+        checkNotNull(e); // 元素不为null
+        final Node<E> newNode = new Node<E>(e);  // 新生一个结点
 
+        // 无限循环
         for (Node<E> t = tail, p = t;;) {
-            Node<E> q = p.next;
-            if (q == null) {
+            Node<E> q = p.next;  // q为p结点的下一个结点
+            if (q == null) { // q结点为null
                 // p is last node
+                // 比较并进行替换p结点的next域
                 if (p.casNext(null, newNode)) {
                     // Successful CAS is the linearization point
                     // for e to become an element of this queue,
                     // and for newNode to become "live".
                     if (p != t) // hop two nodes at a time
+                        // p不等于t结点，不一致
+                        // 比较并替换尾结点
                         casTail(t, newNode);  // Failure is OK.
+                    // 返回
                     return true;
                 }
                 // Lost CAS race to another thread; re-read next
             }
+            // p结点等于q结点
             else if (p == q)
                 // We have fallen off list.  If tail is unchanged, it
                 // will also be off-list, in which case we need to
                 // jump to head, from which all live nodes are always
                 // reachable.  Else the new tail is a better bet.
+                // 原来的尾结点与现在的尾结点是否相等，若相等，则p赋值为head，否则，赋值为现在的尾结点
                 p = (t != (t = tail)) ? t : head;
             else
                 // Check for tail updates after two hops.
+                // 重新赋值p结点
                 p = (p != t && t != (t = tail)) ? t : q;
         }
     }
 
+    /**
+     * 说明: 此函数用于获取并移除此队列的头，如果此队列为空，则返回null。
+     * @return
+     */
     public E poll() {
         restartFromHead:
-        for (;;) {
-            for (Node<E> h = head, p = h, q;;) {
-                E item = p.item;
+        for (;;) {  // 无限循环
+            for (Node<E> h = head, p = h, q;;) { // 保存头节点
+                E item = p.item; // item项
 
+                // item不为null并且比较并替换item成功
                 if (item != null && p.casItem(item, null)) {
                     // Successful CAS is the linearization point
                     // for item to be removed from this queue.
+                    // p不等于h
                     if (p != h) // hop two nodes at a time
+                        // 更新头节点
                         updateHead(h, ((q = p.next) != null) ? q : p);
+                    // 返回item
                     return item;
                 }
+                // q结点为null
                 else if ((q = p.next) == null) {
+                    // 更新头节点
                     updateHead(h, p);
                     return null;
                 }
+                // p等于q
                 else if (p == q)
+                    // 继续循环
                     continue restartFromHead;
                 else
+                    // p赋值为q
                     p = q;
             }
         }
@@ -402,19 +464,27 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * first(), but that would cost an extra volatile read of item,
      * and the need to add a retry loop to deal with the possibility
      * of losing a race to a concurrent poll().
+     *
+     * 说明: first函数用于找到链表中第一个存活的结点
      */
     Node<E> first() {
         restartFromHead:
-        for (;;) {
+        for (;;) { // 无限循环，确保成功
             for (Node<E> h = head, p = h, q;;) {
+                // p结点的item域是否为null
                 boolean hasItem = (p.item != null);
+                // item不为null或者next域为null
                 if (hasItem || (q = p.next) == null) {
-                    updateHead(h, p);
+                    updateHead(h, p); // 更新头节点
+                    // 返回结点
                     return hasItem ? p : null;
                 }
+                // p等于q
                 else if (p == q)
+                    // 继续从头节点开始
                     continue restartFromHead;
                 else
+                    // p赋值为q
                     p = q;
             }
         }
@@ -444,14 +514,20 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * applications.
      *
      * @return the number of elements in this queue
+     *
+     *
+     * 说明: 此函数用于返回ConcurrenLinkedQueue的大小，从第一个存活的结点(first)开始，往后遍历链表，
+     * 当结点的item域不为null时，增加计数，之后返回大小
      */
     public int size() {
-        int count = 0;
+        int count = 0; // 计数
+        // 从第一个存活的结点开始往后遍历
         for (Node<E> p = first(); p != null; p = succ(p))
-            if (p.item != null)
+            if (p.item != null)  // 结点的item域不为null
                 // Collection.size() spec says to max out
-                if (++count == Integer.MAX_VALUE)
+                if (++count == Integer.MAX_VALUE) // 增加计数，若达到最大值，则跳出循环
                     break;
+        // 返回大小
         return count;
     }
 
@@ -487,9 +563,12 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
     public boolean remove(Object o) {
         if (o != null) {
             Node<E> next, pred = null;
+            // 获取第一个存活的结点
             for (Node<E> p = first(); p != null; pred = p, p = next) {
                 boolean removed = false;
+                // 第一个存活结点的item值
                 E item = p.item;
+                // 找到item相等的结点，并且将该结点的item设置为null
                 if (item != null) {
                     if (!o.equals(item)) {
                         next = succ(p);
@@ -498,8 +577,11 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
                     removed = p.casItem(item, null);
                 }
 
+                // p的后继结点
                 next = succ(p);
+                // pred不为null并且next不为null
                 if (pred != null && next != null) // unlink
+                    // 比较并替换next域
                     pred.casNext(p, next);
                 if (removed)
                     return true;
