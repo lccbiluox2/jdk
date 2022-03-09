@@ -108,6 +108,17 @@ import java.util.regex.PatternSyntaxException;
  * @since   JDK1.0
  */
 
+/**
+ * final 不可变类 不会变化
+ *
+ * 对于这样设计的好处，Java培言心James Gosling的回合定。
+ * 他会更倾向于使用final,因为它能够缓存结果，当你在传参时不需要考虑谁会修改它的值
+ * 如果是可变类的话，则有可能需要重新拷贝出来一个新值进行传参，这样在性能上就会有-定的损失
+ * 迫使String类设计成不可变的另一个原因是安全
+ *
+ *
+ *
+ */
 public final class String
     implements java.io.Serializable, Comparable<String>, CharSequence {
     /** The value is used for character storage. */
@@ -974,17 +985,22 @@ public final class String
      * @see  #equalsIgnoreCase(String)
      */
     public boolean equals(Object anObject) {
+        // 对象引用相同直接返回
         if (this == anObject) {
             return true;
         }
+        // 判断是不是字符串类型 如果不是 直接返回
         if (anObject instanceof String) {
             String anotherString = (String)anObject;
             int n = value.length;
             if (n == anotherString.value.length) {
+                // 把两个字符串都转换成char数组进行比较
                 char v1[] = value;
                 char v2[] = anotherString.value;
                 int i = 0;
+                // 循环对比两个字符串中的每一个字符
                 while (n-- != 0) {
+                    // 只要有一个不相同那么就返回
                     if (v1[i] != v2[i])
                         return false;
                     i++;
@@ -1162,6 +1178,7 @@ public final class String
             char c1 = v1[k];
             char c2 = v2[k];
             if (c1 != c2) {
+                // 不相等的时候 返回差值
                 return c1 - c2;
             }
             k++;

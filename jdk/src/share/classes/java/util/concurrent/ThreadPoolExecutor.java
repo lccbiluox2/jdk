@@ -624,6 +624,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * 允许poll()为其返回null，即使稍后在延迟过期时返回非null。
      *
      * 存放任务的阻塞队列
+     *
+     * 这里只有 Runnable 的？ 哪如果是 FutureTask呢？
+     * 这里直接说了，在抽象类中，会直接将 FutureTask 封装成 Runnable对象
      */
     private final BlockingQueue<Runnable> workQueue;
 
@@ -862,6 +865,10 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
          * @param firstTask the first task (null if none)
          */
         Worker(Runnable firstTask) {
+            /**
+             * todo: 这里为何将AQS的state设置为-1 ，而不设置为0 呢，是为了
+             * 在初始化期间不接受中断信号，直到runWork开始运行
+             */
             setState(-1); // inhibit interrupts until runWorker
             // 我们的任务
             this.firstTask = firstTask;
@@ -1393,14 +1400,17 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         tryTerminate();
 
         int c = ctl.get();
+        //  ctl和状态常量比较，判断是否小于s 当前状态是否小于STOP，小于Stop状态的只有running
         if (runStateLessThan(c, STOP)) {
             if (!completedAbruptly) {
+                // 如果 allowCoreThreadTimeOut 这个为true 那么核心线程也能被回收
                 int min = allowCoreThreadTimeOut ? 0 : corePoolSize;
                 if (min == 0 && ! workQueue.isEmpty())
                     min = 1;
                 if (workerCountOf(c) >= min)
                     return; // replacement not needed
             }
+            // todo: 这里可以看到就是线程复用的机制
             addWorker(null, false);
         }
     }
@@ -1567,6 +1577,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
              * task != null 如果任务不为空，那么执行任务
              * task = getTask() 如果任务为空，那么调用getTask()获取任务 这里就体现了线程的复用，如果是核心线程那么就会阻塞在这里
              * (task = getTask()) != null 只有为空就会一直循环，直到不循环才进去
+             *
+             * getTask() 为空的时候，就会执行线程 回收动作
              */
             while (task != null || (task = getTask()) != null) {
                 // 加锁，避免你shutdown 我任务也不会中断，我正在工作呢，我拿了全局锁 你关不掉我
@@ -1789,6 +1801,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * 了线程池状态后线程池状态就改变了。判断是否将command加入workque是线程池之前的状态。
      * 倘若没有double check，万一线程池处于非running状态(在多线程环境下很有可能发生)，
      * 那么command永远不会执行。
+     *
+     * 此处参考视频：https://www.bilibili.com/video/BV11A411V78m?from=search&seid=9894092365322891724&spm_id_from=333.337.0.0
+     * 讲解比较清楚
      */
     public void execute(Runnable command) {
         if (command == null) // 判断命令（任务）对象非空
@@ -2087,6 +2102,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     /**
      * Same as prestartCoreThread except arranges that at least one
      * thread is started even if corePoolSize is 0.
+     *
+     * ensurePrestart是父类 ThreadPoolExecutor 的方法，用于启动一个新
+     * 的工作线程等待执行任务，即使corePoolSize为0也会安排一个新线程。
      */
     void ensurePrestart() {
         int wc = workerCountOf(ctl.get());

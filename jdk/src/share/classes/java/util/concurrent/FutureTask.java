@@ -266,18 +266,23 @@ public class FutureTask<V> implements RunnableFuture<V> {
                                          null, Thread.currentThread()))
             return;
         try {
+            // 将用户的线程赋值给局部变量
             Callable<V> c = callable;
             if (c != null && state == NEW) {
                 V result;
                 boolean ran;
                 try {
+                    // 执行用户的call方法，这个方法会有返回值是用户的返回值
                     result = c.call();
+                    // 如果调用用户代码没有出错，那么设置标志位为true
                     ran = true;
                 } catch (Throwable ex) {
                     result = null;
                     ran = false;
                     setException(ex);
                 }
+                // 如果调用用户代码没有出错，标志位为true，那么将结果保存起来
+                // 既然都设置了，那么一定能get 这就能获取到现场返回值了呀
                 if (ran)
                     set(result);//设置执行结果
             }
