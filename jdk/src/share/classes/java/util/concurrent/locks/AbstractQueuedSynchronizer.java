@@ -409,7 +409,9 @@ public abstract class AbstractQueuedSynchronizer
         // 值为0，表示当前节点在sync队列中，等待着获取锁
         /** waitStatus value to indicate thread has cancelled */
         static final int CANCELLED =  1;
-        /** waitStatus value to indicate successor's thread needs unparking */
+        /** waitStatus value to indicate successor's thread needs unparking
+         *  SIGNAL，值为-1，表示当前节点的后继节点包含的线程需要运行，也就是unpark
+         * */
         static final int SIGNAL    = -1;
         /** waitStatus value to indicate thread is waiting on condition */
         static final int CONDITION = -2;
@@ -722,6 +724,11 @@ public abstract class AbstractQueuedSynchronizer
         // 获取node结点的等待状态
         int ws = node.waitStatus;
         // 状态值小于0，为SIGNAL -1 或 CONDITION -2 或 PROPAGATE -3
+        // CANCELLED，值为1，表示当前的线程被取消
+        // SIGNAL，值为-1，表示当前节点的后继节点包含的线程需要运行，也就是unpark
+        // CONDITION，值为-2，表示当前节点在等待condition，也就是在condition队列中
+        // PROPAGATE，值为-3，表示当前场景下后续的acquireShared能够得以执行
+        // 值为0，表示当前节点在sync队列中，等待着获取锁
         if (ws < 0)
             // 比较并且设置结点等待状态，设置为0
             compareAndSetWaitStatus(node, ws, 0);
@@ -751,6 +758,9 @@ public abstract class AbstractQueuedSynchronizer
      * Release action for shared mode -- signals successor and ensures
      * propagation. (Note: For exclusive mode, release just amounts
      * to calling unparkSuccessor of head if it needs signal.)
+     *
+     * 共享模式的释放动作——信号后继，保证传播。(注:对于独占模式，如果需要信号，
+     * 释放相当于调用head的unpark继任者。)
      */
     private void doReleaseShared() {
         /*
@@ -763,20 +773,39 @@ public abstract class AbstractQueuedSynchronizer
          * while we are doing this. Also, unlike other uses of
          * unparkSuccessor, we need to know if CAS to reset status
          * fails, if so rechecking.
+         *
+         * 确保一个发布得到传播，即使有其他正在进行的获取/发布。如果需要信号，
+         * 这将以通常的方式试图解除头部的继任者。但是如果没有，状态被设置为PROPAGATE，
+         * 以确保在发布时继续传播。此外，如果在执行此操作时添加了新节点，则必须进行循环。
+         * 另外，与unpark继任的其他用途不同，我们需要知道CAS重置状态是否失败，如果失败，
+         * 则重新检查。
          */
+        // 无限循环
         for (;;) {
+            // 保存头节点
             Node h = head;
+            // 头节点不为空并且头节点不为尾结点
             if (h != null && h != tail) {
+                // 获取头节点的等待状态
                 int ws = h.waitStatus;
+                // 状态为SIGNAL，SIGNAL，值为-1，表示当前节点的后继节点包含的线程需要运行，也就是unpark
+                // 需要让还在等待的线程开始运行
                 if (ws == Node.SIGNAL) {
+                    // 不成功就继续，设置线程处于可运行状态
                     if (!compareAndSetWaitStatus(h, Node.SIGNAL, 0))
                         continue;            // loop to recheck cases
+                    // 上面设置可运行，如果不成功会一直重试，不会走到下面
+
+                    // 【重要】释放后继结点
+                    // 【反正最终调用 LockSupport.unpark(s.thread) 使所有的线程可运行】
                     unparkSuccessor(h);
                 }
                 else if (ws == 0 &&
+                        // 状态为0并且不成功，继续
                          !compareAndSetWaitStatus(h, 0, Node.PROPAGATE))
                     continue;                // loop on failed CAS
             }
+            // 若头节点改变，继续循环
             if (h == head)                   // loop if head changed
                 break;
         }
@@ -791,7 +820,9 @@ public abstract class AbstractQueuedSynchronizer
      * @param propagate the return value from a tryAcquireShared
      */
     private void setHeadAndPropagate(Node node, int propagate) {
+        // 获取头节点
         Node h = head; // Record old head for check below
+        // 设置头节点
         setHead(node);
         /*
          * Try to signal next queued node if:
@@ -809,10 +840,14 @@ public abstract class AbstractQueuedSynchronizer
          * racing acquires/releases, so most need signals now or soon
          * anyway.
          */
+        // 进行判断
         if (propagate > 0 || h == null || h.waitStatus < 0 ||
             (h = head) == null || h.waitStatus < 0) {
+            // 获取节点的后继
             Node s = node.next;
+            // 后继为空或者为共享模式
             if (s == null || s.isShared())
+                // 以共享模式进行释放
                 doReleaseShared();
         }
     }
@@ -1131,22 +1166,41 @@ public abstract class AbstractQueuedSynchronizer
      */
     private void doAcquireSharedInterruptibly(int arg)
         throws InterruptedException {
+        // 添加节点至等待队列
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {
+            // 无限循环
             for (;;) {
+                // 获取node的前驱节点
                 final Node p = node.predecessor();
+                // 前驱节点为头节点
                 if (p == head) {
+
+
+                    // 并且尝试获取资源成功，也就是每一轮循环都会调用tryAcquireShared尝试获取资源
+                    // （r >= 0意味获取成功），除非阻塞或者跳出循环
+                    // 由前文可知，CountDownLatch中只有当state = 0的情况下，r才会大于等于0
                     int r = tryAcquireShared(arg);
+                    // 获取成功
                     if (r >= 0) {
+                        // 设置头结点，并且传播获取资源成功的状态，这个方法的作用是确保唤醒状态传播到所有的后继节点
+                        // 然后任意一个节点晋升为头节点都会唤醒其第一个有效的后继节点，起到一个链式释放和解除阻塞的动作
                         setHeadAndPropagate(node, r);
+                        // 由于节点晋升，原来的位置需要断开，置为NULL便于GC
                         p.next = null; // help GC
                         failed = false;
                         return;
                     }
                 }
+                // shouldParkAfterFailedAcquire ->  判断获取资源失败是否需要阻塞，这里会把前驱节点的等待状态CAS更新为Node.SIGNAL
+                // parkAndCheckInterrupt -> 判断到获取资源失败并且需要阻塞，调用LockSupport.park()阻塞节点中的线程实例，
+                // （解除阻塞后）清空中断状态位并且返回该中断状态
                 if (shouldParkAfterFailedAcquire(p, node) &&
+                        // 在获取失败后是否需要禁止线程并且进行中断检查
+                        // 【这个方法会调用LockSupport.park(this) 进行阻塞线程】
                     parkAndCheckInterrupt())
+                    // 抛出异常
                     throw new InterruptedException();
             }
         } finally {
@@ -1266,6 +1320,12 @@ public abstract class AbstractQueuedSynchronizer
      * may queue the thread, if it is not already queued, until it is
      * signalled by a release from some other thread.
      *
+     * 尝试以共享模式获取。这个方法应该查询对象的状态是否允许以共享模式获取它，如果允许，
+     * 则获取它。
+     *
+     * 这个方法总是由执行acquire的线程调用。如果这个方法报告了失败，acquire方法可能
+     * 会让还没有进入队列的线程进入队列，直到其他线程发出释放的信号。
+     *
      * <p>The default implementation throws {@link
      * UnsupportedOperationException}.
      *
@@ -1273,6 +1333,10 @@ public abstract class AbstractQueuedSynchronizer
      *        passed to an acquire method, or is the value saved on entry
      *        to a condition wait.  The value is otherwise uninterpreted
      *        and can represent anything you like.
+     *
+     *        获取参数。这个值总是传递给acquire方法的值，或者是条件等待入口时保存的值。
+     *        否则，该值是未解释的，可以表示任何您喜欢的值。
+     *
      * @return a negative value on failure; zero if acquisition in shared
      *         mode succeeded but no subsequent shared-mode acquire can
      *         succeed; and a positive value if acquisition in shared
@@ -1282,6 +1346,14 @@ public abstract class AbstractQueuedSynchronizer
      *         return values enables this method to be used in contexts
      *         where acquires only sometimes act exclusively.)  Upon
      *         success, this object has been acquired.
+     *
+     *         获取失败返回负值;
+     *         1. 如果在共享模式下获取成功，但后续的共享模式获取不能成功，则为0;
+     *         2. 如果共享模式下的获取成功，并且随后的共享模式获取也可能成功，则为正值，
+     *            在这种情况下，随后的等待线程必须检查可用性。
+     *
+     *         (对三种不同返回值的支持使此方法可以用于acquire有时仅起排他作用的上下文中。)
+     *         一旦成功，这个目标就被获得了。
      * @throws IllegalMonitorStateException if acquiring would place this
      *         synchronizer in an illegal state. This exception must be
      *         thrown in a consistent fashion for synchronization to work
@@ -1467,7 +1539,16 @@ public abstract class AbstractQueuedSynchronizer
             throws InterruptedException {
         if (Thread.interrupted())
             throw new InterruptedException();
+        /** 尝试去拿共享锁，这里是判断所有的线程是否到达可执行的结尾了
+         *
+         * state是 你创建 CountDownLatch(int count)传递的值，代表你要等几个线程完成
+         * 这里 getState() == 0 开始假设是12 然后各个线程调用 countDown() 的时候，会对这个值
+         * 进行-1操作，如果等于0 那么证明，所有的线程都可以唤醒了会返回1，否则就是还要继续碎觉，返回-1
+         *
+         * 如果返回-1，那么就是小于0的，需要继续睡觉的
+         */
         if (tryAcquireShared(arg) < 0)
+            // 这里正常就需要阻塞线程了
             doAcquireSharedInterruptibly(arg);
     }
 
@@ -1507,6 +1588,7 @@ public abstract class AbstractQueuedSynchronizer
      * @return the value returned from {@link #tryReleaseShared}
      */
     public final boolean releaseShared(int arg) {
+        // 如果state=0了，证明需要唤醒所有的线程了
         if (tryReleaseShared(arg)) {
             doReleaseShared();
             return true;

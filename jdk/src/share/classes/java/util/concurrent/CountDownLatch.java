@@ -152,6 +152,9 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  *
  * @since 1.5
  * @author Doug Lea
+ *
+ * todo：参考 【高并发】JUC中等待多线程完成的工具类CountDownLatch
+ *     https://blog.csdn.net/qq_21383435/article/details/110248728
  */
 public class CountDownLatch {
     /**
@@ -165,22 +168,67 @@ public class CountDownLatch {
             setState(count);
         }
 
+        // 返回当前计数
         int getCount() {
             return getState();
         }
 
+        /**
+         *  试图在共享模式下获取对象状态，该函数只是简单的判断AQS的state是否为0，
+         *  为0则返回1，不为0则返回-1。
+         *
+         *  共享模式下获取资源，这里无视共享模式下需要获取的资源数，只判断当前的state值是否为0，为0的时候，
+         *  意味资源获取成功，闭锁已经释放，所有等待线程需要解除阻塞
+         *
+         *  如果state当前已经为0，那么线程完全不会加入AQS同步队列中等待，表现为直接运行
+         *
+         * state 是什么？我开始居然搞混了 我搞成 ThreadPoolExecutor 中 AtomicInteger ctl
+         *
+         * state是 你创建 CountDownLatch(int count)传递的值，代表你要等几个线程完成
+         * 这里 getState() == 0 开始假设是12 然后各个线程调用 countDown() 的时候，会对这个值
+         * 进行-1操作，如果等于0 那么证明，所有的线程都可以唤醒了，否则就是还要继续碎觉
+         *
+         */
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
 
+        /**
+         * 共享模式下释放资源，这里也无视共享模式下需要释放的资源数，每次让状态值通过CAS减少1，
+         * 当减少到0的时候，返回true
+         *
+         * 试图设置状态来反映共享模式下的一个释放
+         *
+         * state是 你创建 CountDownLatch(int count)传递的值，代表你要等几个线程完成
+         * 每个线程运行完毕，都会调用 countDown 方法，导致 state -1
+         * 当 state = 0 的时候，就需要唤醒所有的线程，内部肯定有这样的方法
+         *
+         * 所以这里一个线程运行完毕后，会先看看状态是不是为0了，为0，那么就要唤醒所有线程
+         * 不为0，需要将state - 1 操作，然后再次判断 state是不是为0了
+         *
+         * state 为 0 返回 true  否则 返回 false
+         */
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
+            // 无限循环
             for (;;) {
-                int c = getState();
+                int c = getState(); // 获取状态
+                // 没有被线程占有
                 if (c == 0)
+                    // 这里为啥返回 false呢？与下面的不符合，估计是 线程调用countDown就应该-1操作。
+                    // 但是我还没操作呢。你就返回-1了。很奇怪，除非是初始化的时候，还没调用 CountDownLatch(int count)
+                    // 这个操作的时候
+
+                    // 这种情况下说明了当前state为0，从tryAcquireShared方法来看，线程不会加入AQS同步
+                    // 队列进行阻塞，所以也无须释放
                     return false;
+
+                // state的快照值减少1，并且通过CAS设置快照值更新为state，如果state减少为0
+                // 则返回true，意味着需要唤醒阻塞线程
                 int nextc = c-1;
+                // 比较并且设置成功
                 if (compareAndSetState(c, nextc))
+                    // sate == 0的时候 返回 true
                     return nextc == 0;
             }
         }
@@ -191,12 +239,16 @@ public class CountDownLatch {
     /**
      * Constructs a {@code CountDownLatch} initialized with the given count.
      *
+     * 说明: 该构造函数可以构造一个用给定计数初始化的CountDownLatch，并且构造函数内完成了
+     * sync的初始化，并设置了状态数。
+     *
      * @param count the number of times {@link #countDown} must be invoked
      *        before threads can pass through {@link #await}
      * @throws IllegalArgumentException if {@code count} is negative
      */
     public CountDownLatch(int count) {
         if (count < 0) throw new IllegalArgumentException("count < 0");
+        // 初始化状态数
         this.sync = new Sync(count);
     }
 
@@ -226,8 +278,11 @@ public class CountDownLatch {
      *
      * @throws InterruptedException if the current thread is interrupted
      *         while waiting
+     *
+     * 此函数将会使当前线程在锁存器倒计数至零之前一直等待，除非线程被中断。
      */
     public void await() throws InterruptedException {
+        // 转发到sync对象上,因为你是多个线程调用await方法，所以拿到的是共享锁
         sync.acquireSharedInterruptibly(1);
     }
 
@@ -286,8 +341,20 @@ public class CountDownLatch {
      * thread scheduling purposes.
      *
      * <p>If the current count equals zero then nothing happens.
+     *
+     * 减少闩锁的计数，如果计数为零，则释放所有等待线程。
+     *
+     * 如果当前计数大于0，则该计数将递减。如果新计数为零，那么为了线程调度目的，
+     * 将重新启用所有等待的线程。
+     *
+     * 如果当前计数等于0，那么什么也不会发生。
      */
     public void countDown() {
+        /**
+         * state是 你创建 CountDownLatch(int count)传递的值，代表你要等几个线程完成
+         * 每个线程运行完毕，都会调用 countDown 方法，导致 state -1
+         * 当 state = 0 的时候，就需要唤醒所有的线程，内部肯定有这样的方法
+         */
         sync.releaseShared(1);
     }
 

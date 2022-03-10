@@ -117,6 +117,8 @@ import java.util.regex.PatternSyntaxException;
  * 迫使String类设计成不可变的另一个原因是安全
  *
  *
+ * 【java】String 类型真是不可变的吗
+ *  https://blog.csdn.net/qq_21383435/article/details/123390007
  *
  */
 public final class String

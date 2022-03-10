@@ -102,6 +102,8 @@ import java.util.Arrays;
     /**
      * A cache of the last value returned by toString. Cleared
      * whenever the StringBuffer is modified.
+     *
+     * 这里体现了字符串可变
      */
     private transient char[] toStringCache;
 

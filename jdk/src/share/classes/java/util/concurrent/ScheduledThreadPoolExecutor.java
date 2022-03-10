@@ -341,6 +341,9 @@ public class ScheduledThreadPoolExecutor
          *
          * 说明: ScheduledFutureTask 的run方法重写了 FutureTask 的版本，以便执行周期任务时重置/重排序任务。
          * 任务的执行通过父类 FutureTask 的run实现。
+         *
+         * 【java】java 定时任务线程池 ScheduledThreadPoolExecutor 源码阅读
+         *   https://blog.csdn.net/qq_21383435/article/details/123399136
          */
         public void run() {
             boolean periodic = isPeriodic();//是否为周期任务
@@ -436,33 +439,52 @@ public class ScheduledThreadPoolExecutor
     /**
      * Cancels and clears the queue of all tasks that should not be run
      * due to shutdown policy.  Invoked within super.shutdown.
+     *
+     * 取消并清除由于关闭策略不应该运行的所有任务
+     *
+     * 说明: 池关闭方法调用了父类ThreadPoolExecutor的shutdown，具体分析见
+     *   ThreadPoolExecutor 篇。这里主要介绍以下在shutdown方法中调用的关闭钩子
+     *   onShutdown方法，它的主要作用是在关闭线程池后取消并清除由于关闭策略不应该
+     *   运行的所有任务，这里主要是根据 run-after-shutdown 参数
+     *   (continueExistingPeriodicTasksAfterShutdown和
+     *   executeExistingDelayedTasksAfterShutdown)来决定线程池关闭后是否关闭
+     *   已经存在的任务。
      */
     @Override void onShutdown() {
         BlockingQueue<Runnable> q = super.getQueue();
+        //获取run-after-shutdown参数
         boolean keepDelayed =
             getExecuteExistingDelayedTasksAfterShutdownPolicy();
         boolean keepPeriodic =
             getContinueExistingPeriodicTasksAfterShutdownPolicy();
+        //池关闭后不保留任务
         if (!keepDelayed && !keepPeriodic) {
+            //依次取消任务
             for (Object e : q.toArray())
                 if (e instanceof RunnableScheduledFuture<?>)
                     ((RunnableScheduledFuture<?>) e).cancel(false);
-            q.clear();
+            //清除等待队列
+                q.clear();
         }
         else {
+            //池关闭后保留任务
+
             // Traverse snapshot to avoid iterator exceptions
+            //遍历快照以避免迭代器异常
             for (Object e : q.toArray()) {
                 if (e instanceof RunnableScheduledFuture) {
                     RunnableScheduledFuture<?> t =
                         (RunnableScheduledFuture<?>)e;
                     if ((t.isPeriodic() ? !keepPeriodic : !keepDelayed) ||
                         t.isCancelled()) { // also remove if already cancelled
+                        //如果任务已经取消，移除队列中的任务
                         if (q.remove(t))
                             t.cancel(false);
                     }
                 }
             }
         }
+        //终止线程池
         tryTerminate();
     }
 
@@ -680,6 +702,13 @@ public class ScheduledThreadPoolExecutor
      * 创建一个周期执行的任务，第一次执行延期时间为initialDelay，
      *  * 在第一次执行完之后延迟delay后开始下一次执行
      *
+     * 说明: scheduleAtFixedRate和scheduleWithFixedDelay方法的逻辑与schedule类似。
+     *
+     * 注意scheduleAtFixedRate和scheduleWithFixedDelay的区别:
+     *   乍一看两个方法一模一样，其实，在unit.toNanos这一行代码中还是有区别的。没错，
+     *   scheduleAtFixedRate传的是正值，而scheduleWithFixedDelay传的则是负值，
+     *   这个值就是 ScheduledFutureTask 的period属性。
+     *
      * @throws RejectedExecutionException {@inheritDoc}
      * @throws NullPointerException       {@inheritDoc}
      * @throws IllegalArgumentException   {@inheritDoc}
@@ -692,13 +721,19 @@ public class ScheduledThreadPoolExecutor
             throw new NullPointerException();
         if (delay <= 0)
             throw new IllegalArgumentException();
+        //构建RunnableScheduledFuture任务类型
         ScheduledFutureTask<Void> sft =
             new ScheduledFutureTask<Void>(command,
                                           null,
+                    //计算任务的延迟时间
                                           triggerTime(initialDelay, unit),
+                    //计算任务的执行周期
                                           unit.toNanos(-delay));
+        //执行用户自定义逻辑
         RunnableScheduledFuture<Void> t = decorateTask(command, sft);
+        //赋值给outerTask，准备重新入队等待下一次执行
         sft.outerTask = t;
+        //执行任务
         delayedExecute(t);
         return t;
     }
