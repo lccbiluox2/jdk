@@ -1884,6 +1884,7 @@ public abstract class AbstractQueuedSynchronizer
      *
      * 整个方法是判断我要不要去排队。
      * 视频：https://www.bilibili.com/video/BV19J411Q7R5?p=20
+     * 一句话就是等待队列中有没有节点
      */
     public final boolean hasQueuedPredecessors() {
         // The correctness of this depends on head being initialized
