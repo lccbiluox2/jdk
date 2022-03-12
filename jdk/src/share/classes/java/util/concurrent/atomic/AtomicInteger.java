@@ -217,9 +217,13 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      */
     public final int getAndUpdate(IntUnaryOperator updateFunction) {
         int prev, next;
+        // 死循环
         do {
+            // 获取值 要更改的值
             prev = get();
+            // 更改后的值
             next = updateFunction.applyAsInt(prev);
+            // 尝试设置，设置不成功 继续循环
         } while (!compareAndSet(prev, next));
         return prev;
     }

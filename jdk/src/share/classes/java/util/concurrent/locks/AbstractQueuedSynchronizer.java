@@ -300,6 +300,8 @@ import sun.misc.Unsafe;
  * CLH(Craig,Landin,and Hagersten)队列是一个虚拟的双向队列(虚拟的双向队列即不存在
  * 队列实例，仅存在结点之间的关联关系)。AQS是将每条请求共享资源的线程封装成一个CLH锁队列
  * 的一个结点(Node)来实现锁的分配。
+ *
+ * todo: 这个视频讲解的也不错 https://www.bilibili.com/video/BV14P4y177pw/?spm_id_from=333.788
  */
 public abstract class AbstractQueuedSynchronizer
     extends AbstractOwnableSynchronizer
@@ -455,7 +457,53 @@ public abstract class AbstractQueuedSynchronizer
          * CONDITION for condition nodes.  It is modified using CAS
          * (or when possible, unconditional volatile writes).
          *
-         * // 结点状态
+         * 状态字段，仅取以下值:
+         *
+         * 以下状态通常是由next节点来设置前一个节点，比如队列中的node2设置node1的状态
+         *   node3设置node2状态。。。
+         *   【举个栗子，因为自己睡在了，自己是没法给自己挂个牌照说自己睡着了，只能
+         *     后面的节点看到你睡着了，给你挂个牌照休息中。】
+         *
+         * SIGNAL:
+         *    等待状态是等待唤醒。当前线程释放的锁，或者当前线程取消后，需要唤醒后续的线程，
+         *    通常是由next节点来设置前一个节点，【举个栗子，因为自己睡在了，自己是没法给自己挂个拍照说
+         *    自己睡着了，只能后面的节点看到你睡着了，给你挂个拍照休息中。】
+         *
+         *    这个节点的后继节点被(或即将被)阻塞(通过park)，所以当前节点在释放或取消它的
+         *    后继节点时必须解除park。为了避免竞争，acquire方法必须首先表明它们需要一个
+         *    信号，然后重试原子获取，然后，在失败时阻塞。
+         *
+         * CANCELLED:
+         *     该节点由于超时或中断而被取消。节点永远不会离开这个状态。特别是，带有被取消节点
+         *     的线程不会再阻塞。
+         *
+         * CONDITION:
+         *      这个表示等待状态为条件等待，表示这个节点在Condition队列中。节点在等待Condition通知。
+         *
+         *      该节点当前在条件队列中。它将不会被用作一个同步队列节点，直到传输，此时状态
+         *      将被设置为0。(这里使用这个值与字段的其他用途无关，只是简化了机制。)
+         *
+         * PROPAGATE:
+         *    这个表示等待状态为传播状态，这个主要是将唤醒后续线程的能力传递下去。主要是用在共享模式下。
+         *    比如队列如下 都是共享的  node1 <- node2 <- node3....
+         *    当node1被唤醒的时候，如果状态是PROPAGATE，那么就会唤醒node2，如果Node2也是PROPAGATE
+         *    那么node2也会唤醒node3，如果node3不是PROPAGATE状态，那么就不会唤醒node4
+         *
+         *    原先是没有这个状态的，但是在共享模式下，有个bug会导致共享模式的线程一直挂在那儿了，所以
+         *    添加这个状态，为了解决这个问题。
+         *
+         *    一个releasshared应该被传播到其他节点。在doreleasshared中设置(仅用于头节点)，
+         *    以确保传播继续进行，即使其他操作已经介入。
+         *
+         *  0:          None of the above
+         *
+         *  这些值按数字排列以简化使用。非负值意味着节点不需要发出信号。因此，大多数代码不需要
+         *  检查特定的值，只需要检查符号。
+         *
+         * 对于普通同步节点，该字段被初始化为0，对于条件节点，该字段被初始化为CONDITION。
+         * 使用CAS(或者在可能的情况下，使用无条件volatile写操作)修改它。
+         *
+         * 结点状态，等待状态 默认值是0  代表没有状态
          */
         volatile int waitStatus;
 
@@ -495,7 +543,8 @@ public abstract class AbstractQueuedSynchronizer
          * The thread that enqueued this node.  Initialized on
          * construction and nulled out after use.
          *
-         *  // 结点所对应的线程
+         * 进入该节点队列的线程。在构造时初始化，使用后为空。
+         * 结点所对应的线程
          */
         volatile Thread thread;
 
@@ -509,7 +558,12 @@ public abstract class AbstractQueuedSynchronizer
          * we save a field by using special value to indicate shared
          * mode.
          *
-         *  // 下一个等待者
+         *  下一个等待者
+         *
+         *  链接到下一个等待条件的节点，或者特殊值SHARED。因为只有在独占模式下才会访问
+         *  条件队列，所以我们只需要一个简单的链接队列来在节点等待条件时保存节点。然后它们
+         *  被转移到队列中重新获取。由于条件只能是排他的，所以我们通过使用特殊值来表示共享
+         *  模式来保存字段。
          */
         Node nextWaiter;
 
@@ -620,6 +674,8 @@ public abstract class AbstractQueuedSynchronizer
      * The number of nanoseconds for which it is faster to spin
      * rather than to use timed park. A rough estimate suffices
      * to improve responsiveness with very short timeouts.
+     *
+     * 自旋的超时时间  比使用计时park的纳秒数。粗略的估计足以在很短的时间内提高响应能力。
      */
     static final long spinForTimeoutThreshold = 1000L;
 
@@ -739,7 +795,15 @@ public abstract class AbstractQueuedSynchronizer
          * traverse backwards from tail to find the actual
          * non-cancelled successor.
          *
-         *  // 获取node节点的下一个结点
+         *  获取node节点的下一个结点
+         *
+         *  head                                    tail
+         *  node1  ->  node2 ->  node3 ->  node4 ->  node5
+         *         <-
+         *  运行中      取消       队列       取消      队列
+         *  循环运行结束就是找到了 node1后面，第一个不是取消状态的节点
+         *  t=node2
+         *  s=node3
          */
         Node s = node.next;
         // 下一个结点为空或者下一个节点的等待状态大于0，即为CANCELLED
@@ -816,8 +880,12 @@ public abstract class AbstractQueuedSynchronizer
      * in shared mode, if so propagating if either propagate > 0 or
      * PROPAGATE status was set.
      *
+     * 设置队列的头，并检查继任者是否可以在共享模式下等待，如果是，如果设置了 propagate > 0
+     * 或propagate状态，则传播。
+     *
      * @param node the node
      * @param propagate the return value from a tryAcquireShared
+     *                  propagate 传播的意思
      */
     private void setHeadAndPropagate(Node node, int propagate) {
         // 获取头节点
@@ -839,8 +907,22 @@ public abstract class AbstractQueuedSynchronizer
          * unnecessary wake-ups, but only when there are multiple
          * racing acquires/releases, so most need signals now or soon
          * anyway.
+         *
+         * 如果符合下面的条件尝试向下一个排队节点发送信号:
+         *   Propagation由调用者指示，或者由之前的操作记录(例如h.waitStatus在setHead之前
+         *    或之后)(注意:这使用了waitStatus的符号检查，因为PROPAGATE状态可能会转换为SIGNAL)。
+         * 而且
+         *  下一个节点在共享模式下等待，或者我们不知道，因为它看起来是空的
+         *
+         *
+         * 进行判断 这里注意
+         * h == null || h.waitStatus < 0 ||
+         * (h = head) == null || h.waitStatus < 0
+         * 这里猛一看是不是有点懵逼，为啥这里判断条件写了2次。注意这里是不一样的
+         *
+         * 第一个h 是头节点
+         * 第二个h 是方法的传参，然后被设置成头节点了
          */
-        // 进行判断
         if (propagate > 0 || h == null || h.waitStatus < 0 ||
             (h = head) == null || h.waitStatus < 0) {
             // 获取节点的后继
@@ -870,6 +952,16 @@ public abstract class AbstractQueuedSynchronizer
 
         // Skip cancelled predecessors
         Node pred = node.prev;  // 保存node的前驱结点
+        // 如果节点的前置节点也被取消了，反正就是从这个节点往前找，一直到找到不是取消的节点
+        /**
+         * head -> node1 -> node2 -> node3  -> node4
+         *         未取消    取消      取消      节点
+         * 会变成如下
+         * head -> node1  -> node4
+         *         未取消    节点
+         *
+         * 可以看到一次可能越过多个节点
+         */
         while (pred.waitStatus > 0)
             // 找到node前驱结点中第一个状态小于0的结点，即不为CANCELLED状态的结点
             node.prev = pred = pred.prev;
@@ -887,7 +979,7 @@ public abstract class AbstractQueuedSynchronizer
         node.waitStatus = Node.CANCELLED;
 
         // If we are the tail, remove ourselves.
-        // node结点为尾结点，则设置尾结点为pred结点
+        // node == tail node结点为尾结点，则设置尾结点为pred结点
         if (node == tail && compareAndSetTail(node, pred)) {
             // 比较并设置pred结点的next节点为null
             compareAndSetNext(pred, predNext, null);
@@ -1082,6 +1174,7 @@ public abstract class AbstractQueuedSynchronizer
                 }
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
+                    // 这个与acquire的区别是这个会抛出异常
                     throw new InterruptedException();
             }
         } finally {
@@ -1101,21 +1194,40 @@ public abstract class AbstractQueuedSynchronizer
             throws InterruptedException {
         if (nanosTimeout <= 0L)
             return false;
+        // 系统时间 + 超时时间 = 未来的一个时间
         final long deadline = System.nanoTime() + nanosTimeout;
+        // 加入队列
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
             for (;;) {
+                // 拿出节点
                 final Node p = node.predecessor();
+                // 如果是头结点 那么尝试去获取锁，如果获取到了，那么返回true
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
                     failed = false;
                     return true;
                 }
+                // 未来时间 - 当前时间 = 距离超时结束还剩下的时间
                 nanosTimeout = deadline - System.nanoTime();
+                // 小于0 证明已经超时了
                 if (nanosTimeout <= 0L)
                     return false;
+                /**
+                 * 如果前面的shouldParkAfterFailedAcquire(p, node)返回true
+                 * 那么判断 你剩余的超时时间 nanosTimeout 是否大于 spinForTimeoutThreshold
+                 *
+                 * 这里假设你调用 tryAcquireNanos(int arg, long nanosTimeout) 传参超时时间是 20秒
+                 * 然后现在剩余时间是 nanosTimeout = 18秒，因为你一次没获取到，可能下次还获取不到，这里如果
+                 * 不执行 LockSupport.parkNanos（this,18） 秒，你就会执行这个for循环，在这里耗费cpu
+                 * 使劲的转圈。 所以这里让你先暂停一段时间。
+                 *
+                 * 这里我有个疑问？nanosTimeout = 18秒 的时候 打印 spinForTimeoutThreshold 我就暂停
+                 * 18秒，然后这不就直接醒来后超时了，下轮循环就结束了？而且假设我过了一秒后，就能获取了，我是不是
+                 * 傻傻的停止了 18秒？ 有疑问呀
+                 */
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     nanosTimeout > spinForTimeoutThreshold)
                     LockSupport.parkNanos(this, nanosTimeout);
@@ -1133,13 +1245,17 @@ public abstract class AbstractQueuedSynchronizer
      * @param arg the acquire argument
      */
     private void doAcquireShared(int arg) {
+        // 加入等待队列
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {
             boolean interrupted = false;
             for (;;) {
+                // 拿出前驱节点
                 final Node p = node.predecessor();
+                // 如果前驱节点是头节点
                 if (p == head) {
+                    // 尝试拿到共享锁
                     int r = tryAcquireShared(arg);
                     if (r >= 0) {
                         setHeadAndPropagate(node, r);
@@ -1474,8 +1590,11 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final boolean tryAcquireNanos(int arg, long nanosTimeout)
             throws InterruptedException {
+        // 线程是否中断了，如果中断了 那么就抛出异常
         if (Thread.interrupted())
             throw new InterruptedException();
+        // 先尝试获取锁tryAcquire(arg)  如果获取到了 直接返回
+        // 否则才会调用 doAcquireNanos
         return tryAcquire(arg) ||
             doAcquireNanos(arg, nanosTimeout);
     }
@@ -1511,13 +1630,16 @@ public abstract class AbstractQueuedSynchronizer
      * repeatedly blocking and unblocking, invoking {@link
      * #tryAcquireShared} until success.
      *
-     * //共享方式。尝试获取资源。负数表示失败；0表示成功，但没有剩余可用资源；正数表示成功，且有剩余资源。
+     * 共享方式。尝试获取资源。
+     * 负数表示失败；0表示成功，但没有剩余可用资源；
+     * 正数表示成功，且有剩余资源。
      *
      * @param arg the acquire argument.  This value is conveyed to
      *        {@link #tryAcquireShared} but is otherwise uninterpreted
      *        and can represent anything you like.
      */
     public final void acquireShared(int arg) {
+        // 小于0 就是没有获取到锁
         if (tryAcquireShared(arg) < 0)
             doAcquireShared(arg);
     }

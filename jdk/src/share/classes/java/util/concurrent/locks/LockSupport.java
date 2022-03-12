@@ -40,6 +40,8 @@ import sun.misc.Unsafe;
  * Basic thread blocking primitives for creating locks and other
  * synchronization classes.
  *
+ * 创建锁和其他同步类的基本线程阻塞原语。
+ *
  * <p>This class associates, with each thread that uses it, a permit
  * (in the sense of the {@link java.util.concurrent.Semaphore
  * Semaphore} class). A call to {@code park} will return immediately
@@ -47,6 +49,11 @@ import sun.misc.Unsafe;
  * it <em>may</em> block.  A call to {@code unpark} makes the permit
  * available, if it was not already available. (Unlike with Semaphores
  * though, permits do not accumulate. There is at most one.)
+ *
+ * 这个类与每个使用它的线程关联一个permit(在{@link java.util.concurrent.Semaphore
+ * Semaphore}类的意义上)。如果许可可用，调用{@code park}将立即返回，并在进程中使用它;
+ * 否则，可能会块。调用{@code unpark}使许可可用，如果它已经不可用。(与信号量不同，许可证
+ * 不会累积。最多只有一个。)
  *
  * <p>Methods {@code park} and {@code unpark} provide efficient
  * means of blocking and unblocking threads that do not encounter the
@@ -116,12 +123,22 @@ import sun.misc.Unsafe;
  *     LockSupport.unpark(waiters.peek());
  *   }
  * }}</pre>
+ *
+ *
+ * 和wait/notify很类似，park/unpark 具有这样的优点:。
+ * 1 : park/unpark是以thread为操作对象，语义更 直观。
+ * 2 :操作更为精准、灵活，可以准确的去唤醒某-个线程。
+
+ * wait/notify和synchronized 联系在一起的，wait 过后，线程是进入Blocked状
+ * 态;。
+ * park方法使当前线程挂起，进入到waiting状态。
  */
 public class LockSupport {
     private LockSupport() {} // Cannot be instantiated.
 
     private static void setBlocker(Thread t, Object arg) {
         // Even though volatile, hotspot doesn't need a write barrier here.
+        // 即使hotspot是不稳定的，它也不需要写屏障。
         UNSAFE.putObject(t, parkBlockerOffset, arg);
     }
 
@@ -135,6 +152,7 @@ public class LockSupport {
      *
      * @param thread the thread to unpark, or {@code null}, in which case
      *        this operation has no effect
+     *               要接触对那个线程的阻塞
      */
     public static void unpark(Thread thread) {
         if (thread != null)
@@ -172,6 +190,7 @@ public class LockSupport {
     public static void park(Object blocker) {
         Thread t = Thread.currentThread();
         setBlocker(t, blocker);
+        // 第一个参数是 是否是绝对时间  第二个是阻塞多久
         UNSAFE.park(false, 0L);
         setBlocker(t, null);
     }
@@ -205,7 +224,9 @@ public class LockSupport {
      *
      * @param blocker the synchronization object responsible for this
      *        thread parking
+     *                线程阻塞原因
      * @param nanos the maximum number of nanoseconds to wait
+     *              阻塞的时长
      * @since 1.6
      */
     public static void parkNanos(Object blocker, long nanos) {
@@ -248,6 +269,7 @@ public class LockSupport {
      *        thread parking
      * @param deadline the absolute time, in milliseconds from the Epoch,
      *        to wait until
+     *                 到什么时间为止
      * @since 1.6
      */
     public static void parkUntil(Object blocker, long deadline) {
