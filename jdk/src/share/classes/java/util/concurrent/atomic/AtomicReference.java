@@ -45,6 +45,9 @@ import sun.misc.Unsafe;
  * @since 1.5
  * @author Doug Lea
  * @param <V> The type of object referred to by this reference
+ *
+ * todo: 这里记住一句话针对引用类型，是将引用类型当做一个值，整体更新，不是对其中的
+ *       一个值，所以和AtominInteger就没有什么区别了
  */
 public class AtomicReference<V> implements java.io.Serializable {
     private static final long serialVersionUID = -1848883965231344442L;

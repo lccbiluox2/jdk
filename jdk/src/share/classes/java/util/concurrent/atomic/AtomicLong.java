@@ -50,6 +50,18 @@ import sun.misc.Unsafe;
  *
  * @since 1.5
  * @author Doug Lea
+ *
+ * 为何要引入LongAdder???。
+ *  AtomicLong是使用自旋+CAS方式来实现线程安全的。所有如果是超高并发，会有很多CPU空转
+ *
+ * 那么，是不是Atomiclong就没啥用了呢?????。
+ *
+ * AtomicLong.还是非常有用的，原因:
+ * 1 : AtomicLong.的功能更为丰富
+ * 2 : 实际应用中，超高并发的场景并不是太多，。
+ * 4 绝大多数情况下，使用AtomicLong就足够了。
+ *
+ * LongAdder 相比 Atomiclong 耗费更多的内存，有点空间换时间的感觉。
  */
 public class AtomicLong extends Number implements java.io.Serializable {
     private static final long serialVersionUID = 1927816293512124184L;
@@ -63,12 +75,18 @@ public class AtomicLong extends Number implements java.io.Serializable {
      * compareAndSwap for longs. While the Unsafe.compareAndSwapLong
      * method works in either case, some constructions should be
      * handled at Java level to avoid locking user-visible locks.
+     *
+     * 记录底层JVM是否支持无锁的compareAndSwap用于长队列。虽然在这两种情况下
+     * 都可以使用Unsafe.compareAndSwapLong方法，但一些构造应该在Java级别进行处理，
+     * 以避免锁定用户可见的锁。
      */
     static final boolean VM_SUPPORTS_LONG_CAS = VMSupportsCS8();
 
     /**
      * Returns whether underlying JVM supports lockless CompareAndSet
      * for longs. Called only once and cached in VM_SUPPORTS_LONG_CAS.
+     *
+     * 返回底层JVM是否支持长队列的无锁CompareAndSet。只调用一次，并缓存在VM_SUPPORTS_LONG_CAS中。
      */
     private static native boolean VMSupportsCS8();
 

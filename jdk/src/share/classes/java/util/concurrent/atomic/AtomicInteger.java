@@ -65,6 +65,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
         } catch (Exception ex) { throw new Error(ex); }
     }
 
+    // 封装了一个 volatile 值
     private volatile int value;
 
     /**

@@ -66,6 +66,33 @@ import java.io.Serializable;
  *
  * @since 1.8
  * @author Doug Lea
+ *
+ * 为何要引入LongAdder???。
+ *  AtomicLong是使用自旋+CAS方式来实现线程安全的。所有如果是超高并发，会有很多CPU空转
+ *
+ * 那么，是不是Atomiclong就没啥用了呢?????。
+ *
+ * AtomicLong.还是非常有用的，原因:
+ * 1 : AtomicLong.的功能更为丰富
+ * 2 : 实际应用中，超高并发的场景并不是太多，。
+ * 4 绝大多数情况下，使用AtomicLong就足够了。
+ *
+ * LongAdder 相比 Atomiclong 耗费更多的内存，有点空间换时间的感觉。
+ *
+ * todo: 设计思路
+ *  先看看 AtominLong 是怎么设计的？
+ *  AtominLong 采用一个int的值value 来存储值，如果超过并发的时候，几万个线程同时操作，那么就会
+ *  产生代码热点，都来修改这个值，所以会慢。
+ *
+ *  如何解决呢？分散压力
+ *  将这个值分散在多个槽位里
+ *
+ *  线程1  线程2  线程3  线程4  线程5 。。。。
+ *
+ *   都去操作一个数组  【1】【4】【3】【7】
+ *
+ *  想获取所有的时候，把槽位累加就好了
+ *
  */
 public class LongAdder extends Striped64 implements Serializable {
     private static final long serialVersionUID = 7249069246863182397L;

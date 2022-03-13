@@ -44,6 +44,8 @@ import sun.misc.Unsafe;
  * for description of the properties of atomic variables.
  * @since 1.5
  * @author Doug Lea
+ *
+ * todo: 这里记住一句话针对数组类型，针对的是对其中的某个元素，所以和AtominInteger就没有什么区别了
  */
 public class AtomicLongArray implements java.io.Serializable {
     private static final long serialVersionUID = -2308431214976778248L;
