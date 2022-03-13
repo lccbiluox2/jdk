@@ -465,7 +465,9 @@ public class CopyOnWriteArrayList<E>
             int len = elements.length; // 数组长度
             // 复制数组
             Object[] newElements = Arrays.copyOf(elements, len + 1);
+            //3、将元素加入到新数组中
             newElements[len] = e;  // 存放元素e
+            //4、将array引用指向到新数组
             setArray(newElements);  // 设置数组
             return true;
         } finally {
