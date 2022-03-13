@@ -175,6 +175,9 @@ import java.util.Date;
  *
  * @since 1.5
  * @author Doug Lea
+ *
+ * todo: 源码分析 【java】java 并发编程 Condition 源码分析
+ *     https://blog.csdn.net/qq_21383435/article/details/123455432
  */
 public interface Condition {
 
