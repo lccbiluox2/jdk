@@ -78,6 +78,10 @@ import java.util.Spliterator;
  * @since 1.5
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ *
+ *
+ * todo:【java】java 并发编程 ArrayBlockingQueue
+ *       https://blog.csdn.net/qq_21383435/article/details/115675144
  */
 public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable {
@@ -90,36 +94,55 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
     private static final long serialVersionUID = -817911632652898426L;
 
-    /** The queued items */
+    /** The queued items 数据数组*/
     final Object[] items;
 
-    /** items index for next take, poll, peek or remove */
+    /** items index for next take, poll, peek or remove
+     * 下一个要操作数据的Index，, poll, peek or remove 等方法
+     * */
     int takeIndex;
 
-    /** items index for next put, offer, or add */
+    /** items index for next put, offer, or add
+     * put 或者 add 方法将要操作的下一个索引位置
+     * */
     int putIndex;
 
-    /** Number of elements in the queue */
+    /** Number of elements in the queue
+     *
+     * 队列中的总元素
+     * */
     int count;
 
     /*
      * Concurrency control uses the classic two-condition algorithm
      * found in any textbook.
+     *
+     * 并发控制使用任何教科书中都能找到的经典双条件算法。
      */
 
     /** Main lock guarding all access */
     final ReentrantLock lock;
 
-    /** Condition for waiting takes */
+    /** Condition for waiting takes
+     *
+     * 拿数据等等待队列，既然等待说明拿不到数据或者排队拿数据
+     * 非空等待队列，当队列中数据不为空的时候，线程操作就要在这个队列中等待
+     *
+     * */
     private final Condition notEmpty;
 
-    /** Condition for waiting puts */
+    /** Condition for waiting puts
+     *
+     * 用来给队列添加数据的等待队列
+     * */
     private final Condition notFull;
 
     /**
      * Shared state for currently active iterators, or null if there
      * are known not to be any.  Allows queue operations to update
      * iterator state.
+     *
+     * 当前活动迭代器的共享状态，如果已知没有，则为空。允许队列操作更新迭代器状态。
      */
     transient Itrs itrs = null;
 
@@ -158,10 +181,14 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         // assert lock.getHoldCount() == 1;
         // assert items[putIndex] == null;
         final Object[] items = this.items;
+        // 将x添加到”队列“中
         items[putIndex] = x;
+        // ++putIndex 设置”下一个被取出元素的索引“，先加一，然后判断是不是到达数组的末尾，如果到了，那么从头开始
         if (++putIndex == items.length)
             putIndex = 0;
+        // 将”队列中的元素个数”+1
         count++;
+        // 唤醒notEmpty上的等待线程
         notEmpty.signal();
     }
 
@@ -172,15 +199,20 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     private E dequeue() {
         // assert lock.getHoldCount() == 1;
         // assert items[takeIndex] != null;
-        final Object[] items = this.items;
+        final Object[] items = this.items;// 先取出来元素
         @SuppressWarnings("unchecked")
-        E x = (E) items[takeIndex];
+        E x = (E) items[takeIndex];  // 强制将元素转换为“泛型E”
+        // 将第takeIndex元素设为null，即删除。同时，帮助GC回收。
         items[takeIndex] = null;
+        // ++takeIndex 设置“下一个被取出元素的索引”
         if (++takeIndex == items.length)
             takeIndex = 0;
+        // 将“队列中元素数量”-1
         count--;
         if (itrs != null)
             itrs.elementDequeued();
+        // 唤醒notFull上的等待线程。因为删除了一个元素，所以这里需要告诉
+        // 哪些阻塞写入的线程，嗨，写入者们，我空闲了，你看看能不能写入了
         notFull.signal();
         return x;
     }
@@ -253,6 +285,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         if (capacity <= 0)
             throw new IllegalArgumentException();
         this.items = new Object[capacity];
+        // 创建公平 或者 非公平 的  ReentrantLock
         lock = new ReentrantLock(fair);
         notEmpty = lock.newCondition();
         notFull =  lock.newCondition();
@@ -322,13 +355,17 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
+        // 创建插入的元素是否为null，是的话抛出NullPointerException异常
         checkNotNull(e);
+        // 获取“该阻塞队列的独占锁”
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 如果队列已满，则返回false。
             if (count == items.length)
                 return false;
             else {
+                // 如果队列未满，则插入e，并返回true。
                 enqueue(e);
                 return true;
             }
@@ -349,6 +386,9 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
         try {
+            // 如果满了，那么就循环，然后等待，这里一定要用while循环，因为一旦数据被拿走一个
+            // 空闲1个，但是可能多线程环境下，立马又被填满，因此需要醒过来后，立马再次判断是否
+            // 队列满了
             while (count == items.length)
                 notFull.await();
             enqueue(e);
@@ -396,11 +436,15 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     }
 
     public E take() throws InterruptedException {
+        // 获取“队列的独占锁”
         final ReentrantLock lock = this.lock;
+        // 获取“锁”，若当前线程是中断状态，则抛出InterruptedException异常
         lock.lockInterruptibly();
         try {
+            // 若“队列为空”，则一直等待。
             while (count == 0)
                 notEmpty.await();
+            // 取出元素
             return dequeue();
         } finally {
             lock.unlock();
@@ -1020,39 +1064,68 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * expected element to remove, in lastItem.  Yes, we may fail to
      * remove lastItem from the queue if it moved due to an interleaved
      * interior remove while in detached mode.
+     *
+     * ArrayBlockingQueue的迭代器。
+     *
+     * 为了保持相对于put和take的弱一致性，我们提前读取一个槽位，以便不报告hasNext为真，
+     * 但随后没有返回元素。
+     *
+     * 当所有索引都为负值，或者当hasNext第一次返回false时，我们切换到“分离”模式(允许在
+     * 没有GC帮助的情况下提示解除与itrs的链接)。这允许迭代器完全准确地跟踪并发更新，除了
+     * 在hasNext()返回false后，用户调用iterator .remove()的极端情况。即使在这种情况
+     * 下，我们也要通过跟踪lasttitem中预期要删除的元素来确保不会删除错误的元素。是的，
+     * 如果lasttitem在分离模式下由于交叉内部移除而移动，我们可能无法从队列中移除它。
      */
     private class Itr implements Iterator<E> {
         /** Index to look for new nextItem; NONE at end */
         private int cursor;
 
-        /** Element to be returned by next call to next(); null if none */
+        /** Element to be returned by next call to next(); null if none
+         *  下一次调用next()返回的元素
+         * */
         private E nextItem;
 
-        /** Index of nextItem; NONE if none, REMOVED if removed elsewhere */
+        /** Index of nextItem; NONE if none, REMOVED if removed elsewhere
+         * 下一次调用next()返回的元素的索引
+         * */
         private int nextIndex;
 
-        /** Last element returned; null if none or not detached. */
+        /** Last element returned; null if none or not detached.
+         * 上一次调用next()返回的元素
+         * */
         private E lastItem;
 
-        /** Index of lastItem, NONE if none, REMOVED if removed elsewhere */
+        /** Index of lastItem, NONE if none, REMOVED if removed elsewhere
+         * 上一次调用next()返回的元素的索引
+         * */
         private int lastRet;
 
-        /** Previous value of takeIndex, or DETACHED when detached */
+        /** Previous value of takeIndex, or DETACHED when detached
+         * 以前的takeIndex值，或分离时的DETACHED值
+         * */
         private int prevTakeIndex;
 
-        /** Previous value of iters.cycles */
+        /** Previous value of iters.cycles
+         * 先前iters.cycles的值
+         * */
         private int prevCycles;
 
-        /** Special index value indicating "not available" or "undefined" */
+        /** Special index value indicating "not available" or "undefined"
+         * 指示“不可用”或“未定义”的特殊索引值
+         * */
         private static final int NONE = -1;
 
         /**
          * Special index value indicating "removed elsewhere", that is,
          * removed by some operation other than a call to this.remove().
+         *
+         * 指示“在别处删除”的特殊索引值，也就是说，被某些操作而不是调用this.remove()删除。
          */
         private static final int REMOVED = -2;
 
-        /** Special value for prevTakeIndex indicating "detached mode" */
+        /** Special value for prevTakeIndex indicating "detached mode"
+         * 表示“分离模式”的prevTakeIndex的特殊值
+         * */
         private static final int DETACHED = -3;
 
         Itr() {
@@ -1215,6 +1288,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
 
         public E next() {
             // assert lock.getHoldCount() == 0;
+            // 获取“阻塞队列”的锁
             final E x = nextItem;
             if (x == null)
                 throw new NoSuchElementException();

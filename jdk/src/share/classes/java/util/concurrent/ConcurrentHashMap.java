@@ -507,24 +507,33 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * bounds for power of two table sizes, and is further required
      * because the top two bits of 32bit hash fields are used for
      * control purposes.
+     *
+     * 最大的可能的表容量。这个值必须正好是1<<30，以保持在Java数组分配和索引边界内，
+     * 以两个表大小的幂，而且还需要进一步使用，因为32位哈希字段的前两位用于控制目的。
      */
     private static final int MAXIMUM_CAPACITY = 1 << 30;
 
     /**
      * The default initial table capacity.  Must be a power of 2
      * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
+     *
+     * 默认的初始表容量。必须是2的幂(即至少1)，且最大值为MAXIMUM_CAPACITY。
      */
     private static final int DEFAULT_CAPACITY = 16;
 
     /**
      * The largest possible (non-power of two) array size.
      * Needed by toArray and related methods.
+     *
+     * 可能的最大数组大小(非2的幂次)。需要的toArray和相关方法。
      */
     static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
     /**
      * The default concurrency level for this table. Unused but
      * defined for compatibility with previous versions of this class.
+     *
+     * 此表的默认并发级别。未使用，但为与该类的以前版本兼容而定义。
      */
     private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
 
@@ -534,6 +543,9 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * actual floating point value isn't normally used -- it is
      * simpler to use expressions such as {@code n - (n >>> 2)} for
      * the associated resizing threshold.
+     *
+     * 该表的负载系数。在构造函数中重写此值只影响初始表容量。通常不使用实际的浮点值
+     * ——使用表达式(例如{@code n - (n >>> 2)})作为相关的调整阈值会更简单。
      */
     private static final float LOAD_FACTOR = 0.75f;
 
@@ -544,6 +556,12 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * than 2, and should be at least 8 to mesh with assumptions in
      * tree removal about conversion back to plain bins upon
      * shrinkage.
+     *
+     * 使用树而不是列表的容器计数阈值。当向至少有这么多节点的容器中添加元素时，
+     * 容器会转换为树。该值必须大于2，并且应该至少为8，以便与树删除中关于在
+     * 收缩时转换回普通容器的假设相啮合。
+     *
+     * 链表转换成树的条件。节点大于8个会转成树
      */
     static final int TREEIFY_THRESHOLD = 8;
 
@@ -551,6 +569,11 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * The bin count threshold for untreeifying a (split) bin during a
      * resize operation. Should be less than TREEIFY_THRESHOLD, and at
      * most 6 to mesh with shrinkage detection under removal.
+     *
+     * 在调整大小操作期间取消(分割)bin树化的bin计数阈值。应小于TREEIFY_THRESHOLD，
+     * 且在不超过6的情况下进行收缩检测。
+     *
+     * 树转换成链的条件。节点小于6个会转成链表
      */
     static final int UNTREEIFY_THRESHOLD = 6;
 
@@ -559,6 +582,11 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * (Otherwise the table is resized if too many nodes in a bin.)
      * The value should be at least 4 * TREEIFY_THRESHOLD to avoid
      * conflicts between resizing and treeification thresholds.
+     *
+     * 容器可以树状化的最小表容量。(否则，如果一个bin中节点太多，表的大小就会被调整。)
+     * 该值应该至少为4 * TREEIFY_THRESHOLD，以避免调整大小和树化阈值之间的冲突。
+     *
+     * 链表转成树的最小容量，也就是键值对最少要有64个，链表长度大于8 才进行转换成树
      */
     static final int MIN_TREEIFY_CAPACITY = 64;
 
@@ -568,23 +596,34 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * serves as a lower bound to avoid resizers encountering
      * excessive memory contention.  The value should be at least
      * DEFAULT_CAPACITY.
+     *
+     * 每个转移步骤的最小重新分组数。范围被细分以允许多个调整大小线程。这个值作为一个下界，
+     * 以避免resizer遇到过多的内存争用。该值至少为DEFAULT_CAPACITY。
+     *
+     * 树转换成链表，总数据少于16的时候，才进行转换
      */
     private static final int MIN_TRANSFER_STRIDE = 16;
 
     /**
      * The number of bits used for generation stamp in sizeCtl.
      * Must be at least 6 for 32bit arrays.
+     *
+     * 在sizeCtl中用于生成戳的比特数。对于32位数组必须至少为6。
      */
     private static int RESIZE_STAMP_BITS = 16;
 
     /**
      * The maximum number of threads that can help resize.
      * Must fit in 32 - RESIZE_STAMP_BITS bits.
+     *
+     * 可以帮助调整大小的最大线程数。必须符合32 - RESIZE_STAMP_BITS位。
      */
     private static final int MAX_RESIZERS = (1 << (32 - RESIZE_STAMP_BITS)) - 1;
 
     /**
      * The bit shift for recording size stamp in sizeCtl.
+     *
+     * 在sizeCtl中记录大小戳的位移位。
      */
     private static final int RESIZE_STAMP_SHIFT = 32 - RESIZE_STAMP_BITS;
 
@@ -596,7 +635,9 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     static final int RESERVED  = -3; // hash for transient reservations
     static final int HASH_BITS = 0x7fffffff; // usable bits of normal node hash
 
-    /** Number of CPUS, to place bounds on some sizings */
+    /** Number of CPUS, to place bounds on some sizings
+     * CPU的核心数
+     * */
     static final int NCPU = Runtime.getRuntime().availableProcessors();
 
     /** For serialization compatibility. */
@@ -769,11 +810,15 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     /**
      * The array of bins. Lazily initialized upon first insertion.
      * Size is always a power of two. Accessed directly by iterators.
+     *
+     * 容器数组。第一次插入时延迟初始化。大小总是2的幂。直接由迭代器访问。
      */
     transient volatile Node<K,V>[] table;
 
     /**
      * The next table to use; non-null only while resizing.
+     *
+     * 扩容的时候 下一个数据
      */
     private transient volatile Node<K,V>[] nextTable;
 
@@ -781,6 +826,10 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * Base counter value, used mainly when there is no contention,
      * but also as a fallback during table initialization
      * races. Updated via CAS.
+     *
+     * 基础的count,没有竞争的时候 直接在这个上面累加
+     *
+     * 基计数器值，主要在没有争用时使用，但也可以在表初始化竞争时用作回退。通过中科院更新。
      */
     private transient volatile long baseCount;
 
@@ -791,21 +840,31 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * when table is null, holds the initial table size to use upon
      * creation, or 0 for default. After initialization, holds the
      * next element count value upon which to resize the table.
+     *
+     * 控制table的初始化和扩容，如果是0就是初始的默认值
+     * 如果是-1的话，就说明有线程正在对线程进行扩容
+     * 如果大于0，那么就是扩容后的容量
      */
     private transient volatile int sizeCtl;
 
     /**
      * The next table index (plus one) to split while resizing.
+     *
+     * 扩容的时候需要用到的一个下标变量
      */
     private transient volatile int transferIndex;
 
     /**
      * Spinlock (locked via CAS) used when resizing and/or creating CounterCells.
+     *
+     * 自旋标志位 自旋的时候使用
      */
     private transient volatile int cellsBusy;
 
     /**
      * Table of counter cells. When non-null, size is a power of 2.
+     *
+     * 计数的数组，主要是出现并发冲突的时候使用
      */
     private transient volatile CounterCell[] counterCells;
 
@@ -961,6 +1020,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
             // 遍历链表
             while ((e = e.next) != null) {
                 if (e.hash == h &&
+                        //判断是否key相同
                     ((ek = e.key) == key || (ek != null && key.equals(ek))))
                     return e.val;
             }
@@ -1027,13 +1087,13 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     final V putVal(K key, V value, boolean onlyIfAbsent) {
         if (key == null || value == null) throw new NullPointerException();
         int hash = spread(key.hashCode());// 得到 hash 值
-        int binCount = 0; // 用于记录相应链表的长度
+        int binCount = 0; // 用于记录相应链表的长度【如果是红黑树，默认为2写死】
         for (Node<K,V>[] tab = table;;) {
             Node<K,V> f; int n, i, fh;
             // 如果数组"空"，进行数组初始化
             if (tab == null || (n = tab.length) == 0)
                 tab = initTable(); // 初始化数组
-            else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+            else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {// 用你给的hash去取值，结果发现是空的，那么需要直接把值放到这里
                 // 找该 hash 值对应的数组下标，得到第一个节点 f
 
 
@@ -1044,13 +1104,20 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                              new Node<K,V>(hash, key, value, null)))
                     break;                   // no lock when adding to empty bin
             }
-            // hash 居然可以等于 MOVED，这个需要到后面才能看明白，不过从名字上也能猜到，肯定是因为在扩容
+            // 到这里说明你要放入数据的下标节点上面有数据
+
+            // 【正在扩容】hash 居然可以等于 MOVED，这个需要到后面才能看明白，不过从名字上也能猜到，肯定是因为在扩容
             else if ((fh = f.hash) == MOVED)
                 // 帮助数据迁移，这个等到看完数据迁移部分的介绍后，再理解这个就很简单了
                 tab = helpTransfer(tab, f);
-            else { // 到这里就是说，f 是该位置的头节点，而且不为空
+            else {
+                // 此时可能是链表节点 也可能是树节点
+
+                // 到这里就是说，f 是该位置的头节点，而且不为空
                 V oldVal = null;
+                // 加锁处理，防止和别人冲突
                 synchronized (f) { // 获取数组该位置的头节点的监视器锁
+                    // 判断取出来的节点是不是第一个节点【要么是一个链表 要么是一个树】
                     if (tabAt(tab, i) == f) {
                         if (fh >= 0) { // 头节点的 hash 值大于 0，说明是链表
                             binCount = 1;  // 用于累加，记录链表的长度
@@ -1069,7 +1136,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                                     break;
                                 }
 
-                                // 到了链表的最末端，将这个新值放到链表的最后面
+                                // 【尾插法】到了链表的最末端，将这个新值放到链表的最后面
                                 Node<K,V> pred = e;
                                 if ((e = e.next) == null) {
                                     pred.next = new Node<K,V>(hash, key,
@@ -2197,6 +2264,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
     /**
      * A node inserted at head of bins during transfer operations.
+     *
+     * 临时节点，只有在扩容的时候，查询的时候，会将查询指向新的节点
      */
     static final class ForwardingNode<K,V> extends Node<K,V> {
         final Node<K,V>[] nextTable;
@@ -2234,6 +2303,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
     /**
      * A place-holder node used in computeIfAbsent and compute
+     *
+     * 保留节点，给特殊方法使用的，不存储数据
      */
     static final class ReservationNode<K,V> extends Node<K,V> {
         ReservationNode() {

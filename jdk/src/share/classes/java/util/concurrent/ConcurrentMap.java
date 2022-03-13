@@ -314,6 +314,8 @@ public interface ConcurrentMap<K, V> extends Map<K, V> {
      * @throws ClassCastException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
+     *
+     * 根据你的key获取到元素，如果没有找到，那么根据你传入的函数进行插入
      */
     @Override
     default V computeIfAbsent(K key,
@@ -357,6 +359,8 @@ public interface ConcurrentMap<K, V> extends Map<K, V> {
      * @throws ClassCastException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
+     *
+     * 根据你的key获取到元素，如果有找到，那么根据你传入的函数进行插入
      */
     @Override
     default V computeIfPresent(K key,
@@ -411,6 +415,8 @@ public interface ConcurrentMap<K, V> extends Map<K, V> {
      * @throws ClassCastException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
+     *
+     * 根据你的key获取到元素，并且根据你传入的函数进行更新
      */
     @Override
     default V compute(K key,
@@ -490,6 +496,8 @@ public interface ConcurrentMap<K, V> extends Map<K, V> {
      * @throws ClassCastException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
+     *
+     * 不存在插入，存在那么修改
      */
     @Override
     default V merge(K key, V value,
