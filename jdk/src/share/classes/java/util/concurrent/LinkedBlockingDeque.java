@@ -73,6 +73,17 @@ import java.util.function.Consumer;
  * @since 1.6
  * @author  Doug Lea
  * @param <E> the type of elements held in this collection
+ *
+ *  LinkedBlockingDeque是双向链表实现的双向并发阻塞队列。该阻塞队列同时支持FIFO和FILO
+ *  =两种操作方式，即可以从队列的头和尾同时操作(插入/删除)；并且，该阻塞队列是支持线程安全。
+ *
+ * 此外，LinkedBlockingDeque还是可选容量的(防止过度膨胀)，即可以指定队列的容量。如果不指定，
+ * 默认容量大小等于Integer.MAX_VALUE。
+ *
+ *  todo: 【java】java 并发编程 LinkedBlockingDeque
+ *         https://blog.csdn.net/qq_21383435/article/details/115675177
+ *
+ *
  */
 public class LinkedBlockingDeque<E>
     extends AbstractQueue<E>
@@ -138,6 +149,8 @@ public class LinkedBlockingDeque<E>
      * Pointer to first node.
      * Invariant: (first == null && last == null) ||
      *            (first.prev == null && first.item != null)
+     *
+     * first是双向链表的表头。
      */
     transient Node<E> first;
 
@@ -145,22 +158,42 @@ public class LinkedBlockingDeque<E>
      * Pointer to last node.
      * Invariant: (first == null && last == null) ||
      *            (last.next == null && last.item != null)
+     *
+     * last是双向链表的表尾。
      */
     transient Node<E> last;
 
-    /** Number of items in the deque */
+    /** Number of items in the deque
+     *
+     * count是LinkedBlockingDeque的实际大小，即双向链表中当前节点个数。
+     * */
     private transient int count;
 
-    /** Maximum number of items in the deque */
+    /** Maximum number of items in the deque
+     *
+     * capacity是LinkedBlockingDeque的容量，它是在创建LinkedBlockingDeque时指定的。
+     * */
     private final int capacity;
 
-    /** Main lock guarding all access */
+    /** Main lock guarding all access
+     *
+     * lock是控制对LinkedBlockingDeque的互斥锁，当多个线程竞争同时访问LinkedBlockingDeque时，
+     * 某线程获取到了互斥锁lock，其它线程则需要阻塞等待，直到该线程释放lock，其它线程才有机会
+     * 获取lock从而获取cpu执行权。
+     *
+     * */
     final ReentrantLock lock = new ReentrantLock();
 
-    /** Condition for waiting takes */
+    /** Condition for waiting takes
+     *
+     * 取数据的阻塞线程
+     * */
     private final Condition notEmpty = lock.newCondition();
 
-    /** Condition for waiting puts */
+    /** Condition for waiting puts
+     *
+     * 写数据的阻塞线程
+     * */
     private final Condition notFull = lock.newCondition();
 
     /**
@@ -235,8 +268,10 @@ public class LinkedBlockingDeque<E>
      */
     private boolean linkLast(Node<E> node) {
         // assert lock.isHeldByCurrentThread();
+        // 如果“双向链表的节点数量” > “容量”，则返回false，表示插入失败
         if (count >= capacity)
             return false;
+        // 将“node添加到链表末尾”，并设置node为新的尾节点
         Node<E> l = last;
         node.prev = l;
         last = node;
@@ -244,7 +279,9 @@ public class LinkedBlockingDeque<E>
             first = node;
         else
             l.next = node;
+        // 将“节点数量”+1
         ++count;
+        // 插入节点之后，唤醒notEmpty上的等待线程。告诉取数据线程 你们可以取出来数据了
         notEmpty.signal();
         return true;
     }
@@ -257,6 +294,7 @@ public class LinkedBlockingDeque<E>
         Node<E> f = first;
         if (f == null)
             return null;
+        // 删除并更新“第一个节点”
         Node<E> n = f.next;
         E item = f.item;
         f.item = null;
@@ -266,7 +304,12 @@ public class LinkedBlockingDeque<E>
             last = null;
         else
             n.prev = null;
+
+        // 将“节点数量”-1
         --count;
+
+        // 删除节点之后，唤醒notFull上的等待线程。因为取出来一个数据，所以这里要告诉写数据线程
+        //  你们可以写入数据了
         notFull.signal();
         return item;
     }
@@ -355,11 +398,12 @@ public class LinkedBlockingDeque<E>
      */
     public boolean offerLast(E e) {
         if (e == null) throw new NullPointerException();
+        // 新建节点
         Node<E> node = new Node<E>(e);
         final ReentrantLock lock = this.lock;
-        lock.lock();
+        lock.lock();  // 获取锁
         try {
-            return linkLast(node);
+            return linkLast(node); // 将“新节点”添加到双向链表的末尾
         } finally {
             lock.unlock();
         }
@@ -485,9 +529,10 @@ public class LinkedBlockingDeque<E>
 
     public E takeFirst() throws InterruptedException {
         final ReentrantLock lock = this.lock;
-        lock.lock();
+        lock.lock();  // 获取锁
         try {
             E x;
+            // 若“队列为空”，则一直等待。否则，通过unlinkFirst()删除第一个节点。
             while ( (x = unlinkFirst()) == null)
                 notEmpty.await();
             return x;
@@ -1037,6 +1082,8 @@ public class LinkedBlockingDeque<E>
     private abstract class AbstractItr implements Iterator<E> {
         /**
          * The next node to return in next()
+         *
+         * next是下一次调用next()会返回的节点。
          */
         Node<E> next;
 
@@ -1045,24 +1092,32 @@ public class LinkedBlockingDeque<E>
          * an element exists in hasNext(), we must return item read
          * under lock (in advance()) even if it was in the process of
          * being removed when hasNext() was called.
+         *
+         * nextItem是next()返回节点对应的数据。
          */
         E nextItem;
 
         /**
          * Node returned by most recent call to next. Needed by remove.
          * Reset to null if this element is deleted by a call to remove.
+         *
+         * 上一次next()返回的节点。
          */
         private Node<E> lastRet;
 
+        // 返回第一个节点
         abstract Node<E> firstNode();
+        // 返回下一个节点
         abstract Node<E> nextNode(Node<E> n);
 
         AbstractItr() {
             // set to initial position
             final ReentrantLock lock = LinkedBlockingDeque.this.lock;
-            lock.lock();
+            lock.lock();  // 获取“LinkedBlockingDeque的互斥锁”
             try {
+                // 获取“双向队列”的表头
                 next = firstNode();
+                // 获取表头对应的数据
                 nextItem = (next == null) ? null : next.item;
             } finally {
                 lock.unlock();
@@ -1072,6 +1127,8 @@ public class LinkedBlockingDeque<E>
         /**
          * Returns the successor node of the given non-null, but
          * possibly previously deleted, node.
+         *
+         *  获取n的后继节点
          */
         private Node<E> succ(Node<E> n) {
             // Chains of deleted nodes ending in null or self-links
@@ -1091,6 +1148,8 @@ public class LinkedBlockingDeque<E>
 
         /**
          * Advances next.
+         *
+         *  更新next和nextItem。
          */
         void advance() {
             final ReentrantLock lock = LinkedBlockingDeque.this.lock;
