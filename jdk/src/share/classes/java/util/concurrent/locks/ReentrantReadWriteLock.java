@@ -42,6 +42,10 @@ import java.util.Collection;
  * semantics to {@link ReentrantLock}.
  * <p>This class has the following properties:
  *
+ * {@link ReadWriteLock}的实现支持与{@link ReentrantLock}类似的语义。
+ *
+ * 这个类有以下属性:
+ *
  * <ul>
  * <li><b>Acquisition order</b>
  *
@@ -49,21 +53,32 @@ import java.util.Collection;
  * ordering for lock access.  However, it does support an optional
  * <em>fairness</em> policy.
  *
+ * 这个类不强制锁访问的reader或writer偏好排序。但是，它确实支持一个可选的公平性策略。
+ *
  * <dl>
- * <dt><b><i>Non-fair mode (default)</i></b>
+ * <dt><b><i>Non-fair mode (default)</i></b>  非公平模式 默认
+ *
  * <dd>When constructed as non-fair (the default), the order of entry
  * to the read and write lock is unspecified, subject to reentrancy
  * constraints.  A nonfair lock that is continuously contended may
  * indefinitely postpone one or more reader or writer threads, but
  * will normally have higher throughput than a fair lock.
  *
- * <dt><b><i>Fair mode</i></b>
+ * 当构造为非公平锁(默认值)时，读和写锁的入口顺序是不指定的，受重入约束。持续争用
+ * 的非公平锁可以无限期地推迟一个或多个读线程或写线程，但通常会比公平锁具有更高的吞吐量。
+ *
+ * <dt><b><i>Fair mode</i></b> 公平模式
+ *
  * <dd>When constructed as fair, threads contend for entry using an
  * approximately arrival-order policy. When the currently held lock
  * is released, either the longest-waiting single writer thread will
  * be assigned the write lock, or if there is a group of reader threads
  * waiting longer than all waiting writer threads, that group will be
  * assigned the read lock.
+ *
+ * 当被构造为公平时，线程使用近似到达顺序策略来争夺入口。当当前持有的锁被释放时，
+ * 要么为等待时间最长的单个写线程分配写锁，要么为一组等待时间超过所有等待写线程的
+ * 读线程分配读锁。
  *
  * <p>A thread that tries to acquire a fair read lock (non-reentrantly)
  * will block if either the write lock is held, or there is a waiting
@@ -74,6 +89,11 @@ import java.util.Collection;
  * in the queue with the write lock free, then those readers will be
  * assigned the read lock.
  *
+ * 试图获得公平读锁(不可重入)的线程，如果持有写锁，或者有一个正在等待的写线程，则会阻塞。
+ * 在当前等待的最老的写线程获得并释放写锁之后，线程才会获得读锁。当然，如果一个正在等待
+ * 的写线程放弃了它的等待，留下一个或多个读线程作为队列中最长的等待线程，并且没有写锁，
+ * 那么这些读线程将被分配读锁。
+ *
  * <p>A thread that tries to acquire a fair write lock (non-reentrantly)
  * will block unless both the read lock and write lock are free (which
  * implies there are no waiting threads).  (Note that the non-blocking
@@ -83,6 +103,10 @@ import java.util.Collection;
  * <p>
  * </dl>
  *
+ * 试图获得公平写锁(非重入)的线程将阻塞，除非读锁和写锁都是空闲的(这意味着没有等待线程)。
+ * (注意，非阻塞的{@link ReadLock#tryLock()}和{@link WriteLock#tryLock()}方法
+ * 不尊重这种公平设置，如果可能，将立即获取锁，无论等待线程。)
+ *
  * <li><b>Reentrancy</b>
  *
  * <p>This lock allows both readers and writers to reacquire read or
@@ -90,47 +114,78 @@ import java.util.Collection;
  * readers are not allowed until all write locks held by the writing
  * thread have been released.
  *
+ * 这个锁允许读取器和写入器重新获得{@link ReentrantLock}风格的读或写锁。在写
+ * 线程持有的所有写锁被释放之前，不允许不可重入的读取器。
+ *
  * <p>Additionally, a writer can acquire the read lock, but not
  * vice-versa.  Among other applications, reentrancy can be useful
  * when write locks are held during calls or callbacks to methods that
  * perform reads under read locks.  If a reader tries to acquire the
  * write lock it will never succeed.
  *
- * <li><b>Lock downgrading</b>
+ * 此外，一个写入器可以获得读锁，但反之则不行。在其他应用程序中，当在调用或回调在读锁
+ * 下执行读操作的方法期间持有写锁时，可重入性可能很有用。如果读取器试图获取写锁，它将
+ * 永远不会成功。
+ *
+ * <li><b>Lock downgrading</b>  锁降级
+ *
  * <p>Reentrancy also allows downgrading from the write lock to a read lock,
  * by acquiring the write lock, then the read lock and then releasing the
  * write lock. However, upgrading from a read lock to the write lock is
  * <b>not</b> possible.
  *
- * <li><b>Interruption of lock acquisition</b>
+ * 重入性还允许将写锁降级为读锁，方法是先获取写锁，然后获取读锁，然后释放写锁。但是，
+ * 从读锁升级到写锁是而不是可能。
+ *
+ * <li><b>Interruption of lock acquisition</b>  锁获取中断
+ *
  * <p>The read lock and write lock both support interruption during lock
  * acquisition.
  *
- * <li><b>{@link Condition} support</b>
+ * 读锁和写锁在获取锁时都支持中断。
+ *
+ * <li><b>{@link Condition} support</b> Condition 支持
+ *
  * <p>The write lock provides a {@link Condition} implementation that
  * behaves in the same way, with respect to the write lock, as the
  * {@link Condition} implementation provided by
  * {@link ReentrantLock#newCondition} does for {@link ReentrantLock}.
  * This {@link Condition} can, of course, only be used with the write lock.
  *
+ * 写锁提供了一个{@link Condition}的实现，它的行为与{@link ReentrantLock#newCondition}
+ * 提供的{@link Condition}实现的{@link ReentrantLock}的行为相同。当然，这个{@link
+ * Condition}只能用于写锁。
+ *
  * <p>The read lock does not support a {@link Condition} and
  * {@code readLock().newCondition()} throws
  * {@code UnsupportedOperationException}.
  *
- * <li><b>Instrumentation</b>
+ * 读锁不支持{@link Condition}和{@code readLock().newcondition()}
+ * throws {@code UnsupportedOperationException}。
+ *
+ * <li><b>Instrumentation</b> 仪表
+ *
  * <p>This class supports methods to determine whether locks
  * are held or contended. These methods are designed for monitoring
  * system state, not for synchronization control.
  * </ul>
  *
+ * 该类支持确定锁是被持有还是被争用的方法。这些方法是为了监控系统状态而设计的，
+ * 而不是为了同步控制。
+ *
  * <p>Serialization of this class behaves in the same way as built-in
  * locks: a deserialized lock is in the unlocked state, regardless of
  * its state when serialized.
+ *
+ * 该类的序列化行为与内置锁相同:反序列化的锁处于解锁状态，而不管它在序列化时的状态如何。
  *
  * <p><b>Sample usages</b>. Here is a code sketch showing how to perform
  * lock downgrading after updating a cache (exception handling is
  * particularly tricky when handling multiple locks in a non-nested
  * fashion):
+ *
+ * 示例用法。下面是一个代码草图，展示了如何在更新缓存后执行锁降级(异常处理在非嵌套方式
+ * 处理多个锁时特别棘手):
  *
  * <pre> {@code
  * class CachedData {
@@ -174,6 +229,10 @@ import java.util.Collection;
  * is a class using a TreeMap that is expected to be large and
  * concurrently accessed.
  *
+ * reentrtreadwritelocks可以用于在某些类型的集合的某些使用中提高并发性。这通常只在以下
+ * 情况下是值得的:期望集合很大，由更多的读线程访问而不是写线程，并且需要操作的开销大于同步
+ * 开销。例如，这里有一个使用TreeMap的类，它被认为是大的并且可以并发访问的。
+ *
  *  <pre> {@code
  * class RWDictionary {
  *   private final Map<String, Data> m = new TreeMap<String, Data>();
@@ -209,6 +268,8 @@ import java.util.Collection;
  * and 65535 read locks. Attempts to exceed these limits result in
  * {@link Error} throws from locking methods.
  *
+ * 最大支持65535个递归写锁和65535个读锁。试图超过这些限制会导致锁方法抛出{@link Error}。
+ *
  * @since 1.5
  * @author Doug Lea
  *
@@ -217,6 +278,19 @@ import java.util.Collection;
  * 表示可以进行序列化，在源代码中可以看到ReentrantReadWriteLock实现了自己的序列化逻辑。
  *
  *
+ * 写锁的降级，降级成为 读锁
+ * 1. 如果一个线程持有写锁，在不释放写锁的情况下，它还可以继续持有读锁，
+ *    这种情况就是写锁的降级，降级成为读锁
+ * 2. 规则遵循:先获取写锁，然后获取读锁，再释放写锁的次序
+ * 3. 如果释放了写锁，那么就完全转换为读锁
+ *
+ * todo: 不支持锁的升级
+ *
+ * 读锁、与锁的互斥规则:
+ * 1:读-读共享，意味着他们都可以拿到锁，也就是共享锁。
+ * 2:读-写互斥
+ * 3:写-读互斥
+ * 4:写-写互斥
  */
 public class ReentrantReadWriteLock
         implements ReadWriteLock, java.io.Serializable {
@@ -267,15 +341,43 @@ public class ReentrantReadWriteLock
          * Lock state is logically divided into two unsigned shorts:
          * The lower one representing the exclusive (writer) lock hold count,
          * and the upper the shared (reader) hold count.
+         *
+         * 读vs写计数提取常量和函数。锁状态在逻辑上分为两个unsigned short:
+         * 下一个代表独占(写)锁保持计数，上一个代表共享(读)锁保持计数。
          */
 
+        /***
+         * 先看看这个类需要保存哪些状态？
+         * 1 :写锁的重入次数
+         * 2 :读锁的个数
+         * 3 :每个读锁重入的次数
+         *
+         * 这看起来要有三个值呀，但是AQS框架是只有一个值来表达状态，这矛盾就来了呀。
+         *
+         * 这里为啥做的这么麻烦？为毛要分为2个部分，1部分不行吗？
+         * 原因就是AQS框架是只有一个值来表达状态。volatile int state  这个值是int类型的。
+         * 然后如果不使用这个的话，自己需要自己实现一套AQS，但是相当于代码复写了一遍，没有什么
+         * 特别有用的，然后Doug Lea老爷子就想到了把int分开来使用。而这里恰好发现可以分为高低16位来表示。
+         * 这里不得不说 Doug Lea老爷子 牛逼  牛逼  牛逼  牛逼 。。。九师兄  牛逼
+         *
+         *
+         * Int state 32位，
+         * 表示成二进制，前面16位表示读锁的同步状态【读锁个数+重入次数】,后面16位表示写锁的同步状态【写锁个数+重入次数】
+         *
+         * 1     ---      0000 0000 0000 0000 0000 0000 0000 0001
+         *
+         * 65536 2的16次方
+         * 1 <<16     --- 0000 0000 0000 0001 0000 0000 0000 0000
+         * 655354
+         * (1<<16) -1 --- 0000 0000 0000 0000 1111 1111 1111 1111
+         */
         // 高16位为读锁，低16位为写锁
         static final int SHARED_SHIFT   = 16;
-        // 读锁单位
+        // 读锁单位                        0000 0000 0000 0001   0000 0000 0000 0000
         static final int SHARED_UNIT    = (1 << SHARED_SHIFT);
-        // 读锁最大数量
+        // 读锁最大数量                     0000 0000 0000 0000   1111 1111 1111 1111  65535
         static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
-        // 写锁最大数量
+        // 写锁最大数量                     0000 0000 0000 0000   1111 1111 1111 1111  65535
         static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
 
         /** Returns the number of shared holds represented in count
@@ -442,9 +544,9 @@ public class ReentrantReadWriteLock
             // 判断是否伪独占线程,判断当前线程是否为独占线程
             if (!isHeldExclusively())
                 throw new IllegalMonitorStateException();
-            // 计算释放资源后的写锁的数量
+            // 计算释放资源后的写锁的数量  = 当前状态 - 你这次要释放的状态
             int nextc = getState() - releases;
-            // 是否释放成功
+            // 是否释放成功,如果等于0 代码写锁减完了 意味着没有写锁了
             boolean free = exclusiveCount(nextc) == 0;
             if (free)
                 setExclusiveOwnerThread(null);// 设置独占线程为空
@@ -493,16 +595,35 @@ public class ReentrantReadWriteLock
             int w = exclusiveCount(c);// 写线程数量 互斥线程的个数
             if (c != 0) { // 状态不为0 代表有写锁竞争
                 // (Note: if c != 0 and w == 0 then shared count != 0)
-                // 写线程数量为0或者当前线程没有占有独占资源，怎么感觉和If条件冲突了
+                /**
+                 * 写线程数量为0或者当前线程没有占有独占资源，怎么感觉和If条件冲突了
+                 * 上面 c != 0 说明有读锁或者写锁
+                 * 那么 w == 0 代表有读锁，有读锁的时候，是不允许获取写锁的，所以直接返回
+                 * 如果 w != 0 那么就意味着有写锁，就会判断 current != getExclusiveOwnerThread() 这
+                 *     个说当前线程还不是当前持有锁的线程，说明不是持有锁的线程重入这个锁，说明是其他的线程
+                 *     因为是写锁，是独占锁，直接返回、【你厕所拉粑粑的时候是不希望别人进来的】
+                  */
                 if (w == 0 || current != getExclusiveOwnerThread())
                     return false;
+                /**
+                 * 如果上面的那个if过了，说明线程持有写锁，并且是重入
+                 */
+
                 // 判断是否超过最高写线程数量
                 if (w + exclusiveCount(acquires) > MAX_COUNT)
                     throw new Error("Maximum lock count exceeded");
                 // Reentrant acquire
+                // c + acquires 一般都是 c+1 重入次数加1
                 setState(c + acquires); // 设置AQS状态
                 return true;
             }
+
+            // 走到这里说明 c == 0  代表没有锁竞争，读锁和写锁都是空的
+
+            /**
+             * writerShouldBlock() 先判读是不是需要阻塞
+             * 非公平锁 writerShouldBlock 一直是false 一定会执行后面的
+             */
             if (writerShouldBlock() ||
                 !compareAndSetState(c, c + acquires)) // 写线程是否应该被阻塞
                 return false;
@@ -525,6 +646,7 @@ public class ReentrantReadWriteLock
          *
          *   无论何种情况，都会进入无限循环，该循环可以确保成功设置状态state。其流程图如下
          *
+         * unused ： 注意这个参数  意思是这个参数是有没有使用的
          */
         protected final boolean tryReleaseShared(int unused) {
             Thread current = Thread.currentThread(); // 获取当前线程
@@ -578,6 +700,8 @@ public class ReentrantReadWriteLock
          *   否则，将设置当前线程对应的HoldCounter对象的值。
          *
          * doc/images/lock/java-thread-x-readwritelock-5.png
+         *
+         * 视频：https://www.bilibili.com/video/BV1Zq4y1k7TH/?spm_id_from=pageDriver
          */
         protected final int tryAcquireShared(int unused) {
             /*
@@ -614,7 +738,7 @@ public class ReentrantReadWriteLock
                 if (r == 0) { // 读锁数量为0
                     firstReader = current; // 设置第一个读线程
                     firstReaderHoldCount = 1; // 读线程占用的资源数为1
-                } else if (firstReader == current) { // 当前线程为第一个读线程
+                } else if (firstReader == current) { // 当前线程为第一个读线程【判断是不是第一个线程的重入】
                     firstReaderHoldCount++; // 占用资源数加1
                 } else {
                     // 读锁数量不为0并且不为当前线程
@@ -628,6 +752,7 @@ public class ReentrantReadWriteLock
                         readHolds.set(rh); // 设置
                     rh.count++;
                 }
+                // 返回1 表示拿到锁
                 return 1;
             }
             return fullTryAcquireShared(current);
@@ -657,9 +782,16 @@ public class ReentrantReadWriteLock
                         return -1;
                     // else we hold the exclusive lock; blocking here
                     // would cause deadlock.
-                } else if (readerShouldBlock()) { // 写线程数量为0并且读线程被阻塞
+                } else if (readerShouldBlock()) {
+                    /**
+                     * 写线程数量为0并且读线程被阻塞
+                     *
+                     * 这一段的总体作用，就是如果是新的线程来请求读锁的话，那么对不起直接返回
+                     * 但是老的线程来的话，可重入
+                     */
                     // Make sure we're not acquiring read lock reentrantly
-                    if (firstReader == current) { // 当前线程为第一个读线程
+                    // 当前线程为第一个读线程 ，如果是第一个线程，无论是读锁还是写锁都可以重入
+                    if (firstReader == current) {
                         // assert firstReaderHoldCount > 0;
                     } else {
                         // 当前线程不为第一个读线程
@@ -680,11 +812,12 @@ public class ReentrantReadWriteLock
                 if (sharedCount(c) == MAX_COUNT)
                     throw new Error("Maximum lock count exceeded");
                 if (compareAndSetState(c, c + SHARED_UNIT)) { // 比较并且设置成功
+                    // 表示是第一个线程
                     if (sharedCount(c) == 0) { // 读线程数量为0
                         // 设置第一个读线程
                         firstReader = current;
                         firstReaderHoldCount = 1;
-                    } else if (firstReader == current) {
+                    } else if (firstReader == current) { // 表示重入
                         firstReaderHoldCount++;
                     } else {
                         if (rh == null)
@@ -693,7 +826,7 @@ public class ReentrantReadWriteLock
                             rh = readHolds.get();
                         else if (rh.count == 0)
                             readHolds.set(rh);
-                        rh.count++;
+                        rh.count++;// 重入数量+1
                         cachedHoldCounter = rh; // cache for release
                     }
                     return 1;
@@ -836,6 +969,13 @@ public class ReentrantReadWriteLock
              * only a probabilistic effect since a new reader will not
              * block if there is a waiting writer behind other enabled
              * readers that have not yet drained from the queue.
+             *
+             * 作为一种避免无限期写入器饥饿的启发式方法，如果暂时出现在队列头的线程
+             * (如果存在)是一个等待写入器，则阻塞该线程。这只是一个概率效应，因为如果
+             * 在其他启用的读器后面有一个等待的写器，而这个读器还没有从队列中抽干，那么
+             * 一个新的读器就不会阻塞。
+             *
+             * 大概是明显的看你第一个节点是独占节点
              */
             return apparentlyFirstQueuedIsExclusive();
         }
@@ -847,9 +987,11 @@ public class ReentrantReadWriteLock
     static final class FairSync extends Sync {
         private static final long serialVersionUID = -2274990926593161451L;
         final boolean writerShouldBlock() {
+            // 一句话就是等待队列中有没有节点 有的话就去排队去
             return hasQueuedPredecessors();
         }
         final boolean readerShouldBlock() {
+            // 一句话就是等待队列中有没有节点 有的话就去排队去
             return hasQueuedPredecessors();
         }
     }

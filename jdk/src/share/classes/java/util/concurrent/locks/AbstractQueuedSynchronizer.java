@@ -1830,9 +1830,21 @@ public abstract class AbstractQueuedSynchronizer
      * #tryAcquireShared}) then it is guaranteed that the current thread
      * is not the first queued thread.  Used only as a heuristic in
      * ReentrantReadWriteLock.
+     *
+     * 如果明显的第一个队列线程(如果存在)正在排他模式下等待，则返回{@code true}。
+     * 如果这个方法返回{@code true}，并且当前线程正在尝试以共享模式获取(也就是说，
+     * 这个方法是从{@link #tryAcquireShared}调用的)，那么可以保证当前线程不是
+     * 队列中的第一个线程。仅在reentrtreadwritelock中用作启发式。
      */
     final boolean apparentlyFirstQueuedIsExclusive() {
         Node h, s;
+        /**
+         *  (h = head) != null 先把排队的head取出来 看看是不是Null
+         *  如果不为空，那么取出来头结点的后继节点 判断是不是不为空
+         *  !s.isShared()  判断s后继节点是不是shared如果是 返回false
+         *     如果不是,那么说明s是独占锁，返回true，然后继续判断s.thread != null s的线程是不是为空
+         *     为空返回false 不为空 返回true
+         */
         return (h = head) != null &&
             (s = h.next)  != null &&
             !s.isShared()         &&
