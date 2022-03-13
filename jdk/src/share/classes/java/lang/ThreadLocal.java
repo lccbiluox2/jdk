@@ -81,6 +81,8 @@ public class ThreadLocal<T> {
      * in the common case where consecutively constructed ThreadLocals
      * are used by the same threads, while remaining well-behaved in
      * less common cases.
+     *
+     * //ThreadLocalMap是ThreadLocal的静态内部类
      */
     private final int threadLocalHashCode = nextHashCode();
 
@@ -157,9 +159,12 @@ public class ThreadLocal<T> {
      * @return the current thread's value of this thread-local
      */
     public T get() {
+        //从当前线程取出ThreadLocalMap
         Thread t = Thread.currentThread();
         ThreadLocalMap map = getMap(t);
+        // 第一次是为空的
         if (map != null) {
+            //以当前ThreadLocal对象为key取出ThreadLocalMap.Entry
             ThreadLocalMap.Entry e = map.getEntry(this);
             if (e != null) {
                 @SuppressWarnings("unchecked")
@@ -167,6 +172,7 @@ public class ThreadLocal<T> {
                 return result;
             }
         }
+        //如果这个ThreadLocal对象没有赋值直接get，会给它赋值为null并返回。
         return setInitialValue();
     }
 
@@ -197,11 +203,15 @@ public class ThreadLocal<T> {
      *        this thread-local.
      */
     public void set(T value) {
+        //拿到当前线程
         Thread t = Thread.currentThread();
+        //取出线程维护的ThreadLocalMap
         ThreadLocalMap map = getMap(t);
         if (map != null)
+            //ThreadLocalMap的key为当前ThreadLocal对象，value就是我们需要存储的变量
             map.set(this, value);
         else
+            //该线程第一次使用ThreadLocal.set时创建ThreadLocalMap对象,并赋值。
             createMap(t, value);
     }
 
@@ -215,6 +225,9 @@ public class ThreadLocal<T> {
      * {@code initialValue} method in the current thread.
      *
      * @since 1.5
+     *
+     * todo： 重要方法，如果后续不使用 那么及时删除
+     *      因为这个是根据线程生命周期的，如果线程一直不退出，而且产生很多线程会OOM
      */
      public void remove() {
          ThreadLocalMap m = getMap(Thread.currentThread());
