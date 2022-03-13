@@ -110,8 +110,25 @@ public class LongAdder extends Striped64 implements Serializable {
      */
     public void add(long x) {
         Cell[] as; long b, v; int m; Cell a;
+        // 如果判断cells是否为空，cells ！= null 代表有竞争，有竞争才会初始化
+        // 没有竞争的情况下，casBase(b = base, b + x) 直接调用这个就将数据累加了
+        // if里面的不会进去
+        // 当时我们这个类就是专门用在高并发的情况下，所以以后肯定有竞争，casBase(b = base, b + x)这个一般是失败的
+        // 然后会进去
         if ((as = cells) != null || !casBase(b = base, b + x)) {
             boolean uncontended = true;
+            /**
+             * as == null 如果 as == null 那么说明 cells 还没初始化
+             * (m = as.length - 1) < 0 这个说明初始化了，但是还没赋值
+             * 前面两个标志 cells 数组还没准备好
+             *
+             * getProbe() 这个可以当成当前线程对应的hash值，因为我们这个类的设计思路：就是要把线程和槽位对应上的响应的槽位
+             *     怎么才能对应呢，那么就是线程的Hash值
+             * [getProbe() & m] 这个就是要拿我们要操作的槽位索引
+             * (a = as[getProbe() & m]) == null 代表这个线程对应的槽位上没有值
+             * a.cas(v = a.value, v + x) 这个是尝试将a.value赋值给v，然后将v + x 修改，如果修改成功，那么返回
+             *    如果失败，那么继续往下走，如果竞争超高，那么就会进入if方法内
+             */
             if (as == null || (m = as.length - 1) < 0 ||
                 (a = as[getProbe() & m]) == null ||
                 !(uncontended = a.cas(v = a.value, v + x)))
@@ -141,8 +158,12 @@ public class LongAdder extends Striped64 implements Serializable {
      * incorporated.
      *
      * @return the sum
+     *
+     * todo: 这里注意你取值是一个瞬时值，取完可能数据就变化了
+     *     这里不是一个绝对准确值
      */
     public long sum() {
+        // 这里 Cell[] as = cells 是赋值，相当于一个快照
         Cell[] as = cells; Cell a;
         long sum = base;
         if (as != null) {

@@ -274,25 +274,56 @@ abstract class Striped64 extends Number {
     final void longAccumulate(long x, LongBinaryOperator fn,
                               boolean wasUncontended) {
         int h;
+        // 如果你的现场Hash为0，那么不可以，这里必须让你不等于0
         if ((h = getProbe()) == 0) {
+            // 必须给你这个线程找到一个hash值，不然没法算索引
             ThreadLocalRandom.current(); // force initialization
             h = getProbe();
             wasUncontended = true;
         }
+        // 如果这个值为true,代表当前的槽位不够用了，需要进行扩容
         boolean collide = false;                // True if last slot nonempty
+        // 自旋
         for (;;) {
             Cell[] as; Cell a; int n; long v;
+            /**
+             * 第一种情况
+             * (as = cells) != null 说明槽位数组已经有了
+             * (n = as.length) > 0 说明这个槽位数组已经被初始化了
+             *
+             * 这里核心就是 要么加到位置上，要么加到槽位，别人在槽位上放了东西，他就把自己加上去
+             * 如果别人没加上，自己就放上去
+             */
             if ((as = cells) != null && (n = as.length) > 0) {
+                /**
+                 * 如果初始化完成，那么我们就要找我们的数据究竟应该放到哪里
+                 *
+                 * (n - 1) & h 求索引，将这个索引对应的槽位赋值给a
+                 * (a = as[(n - 1) & h]) == null 如果等于空，说明我要添加的值锁对应的槽位上面为空
+                 *     说明我压根不用管现有的值，直接放进去就好了
+                 */
                 if ((a = as[(n - 1) & h]) == null) {
+                    // 判断cellsBusy是不是为0 如果不为0，那么说明别的地方可能在进行扩容
+                    // 因为这里如果进不去，会一直循环，所以这里我们默认为0
                     if (cellsBusy == 0) {       // Try to attach new Cell
                         Cell r = new Cell(x);   // Optimistically create
+                        // 这里也默认为0，然后尝试过加锁，因为真的要放值了
                         if (cellsBusy == 0 && casCellsBusy()) {
                             boolean created = false;
                             try {               // Recheck under lock
                                 Cell[] rs; int m, j;
+                                /**
+                                 * (rs = cells) != null &&  (m = rs.length) > 0 表示槽位已经准备好了
+                                 * rs[j = (m - 1) & h] == null 又检测了一下槽位上对应的值是否为空，不为空要累加的
+                                 *
+                                 * 为什么这么多检测呢？因为高并发下，可能上一步操作还是空的，下一次就被放值了，
+                                 * 所以要先加锁后，再次判断
+                                 */
                                 if ((rs = cells) != null &&
                                     (m = rs.length) > 0 &&
                                     rs[j = (m - 1) & h] == null) {
+                                    // 能进来说明为空
+
                                     rs[j] = r;
                                     created = true;
                                 }
@@ -306,19 +337,41 @@ abstract class Striped64 extends Number {
                     }
                     collide = false;
                 }
+                // 如果槽位中有值
+                // wasUncontended 这个表示前一次 cas更改cells是否成功
                 else if (!wasUncontended)       // CAS already known to fail
                     wasUncontended = true;      // Continue after rehash
+                /**
+                 * 尝试cas的操作改值，走到这里意味着槽位有值
+                 * 需要将原来的值取出来，然后加上本次要添加的值，然后cas修改
+                 */
                 else if (a.cas(v = a.value, ((fn == null) ? v + x :
                                              fn.applyAsLong(v, x))))
                     break;
+                /**
+                 * n >= NCPU 这个代表 cells的长度大于cpu的核数，说明不能扩容了
+                 * 或者 cells != as 不一致了
+                 */
                 else if (n >= NCPU || cells != as)
                     collide = false;            // At max size or stale
+                /**
+                 * collide
+                 */
                 else if (!collide)
                     collide = true;
+                /**
+                 * 上面那么多重试都不可以，那么只能扩容试试了
+                 * 扩容逻辑
+                 * 扩容后，线程对应的hash值，可能变了，原先你是插入cells[0]=10
+                 * 但是扩容后可能你对应的位置变成cells[4]=null
+                 * 所以你可能是累加或者放置到空的值
+                 */
                 else if (cellsBusy == 0 && casCellsBusy()) {
                     try {
                         if (cells == as) {      // Expand table unless stale
+                            // 左移动1位 代表翻倍 初始值是2
                             Cell[] rs = new Cell[n << 1];
+                            // 旧的值 只有 n的长度 这里是循环赋值 迁移到新的数组
                             for (int i = 0; i < n; ++i)
                                 rs[i] = as[i];
                             cells = rs;
@@ -331,21 +384,49 @@ abstract class Striped64 extends Number {
                 }
                 h = advanceProbe(h);
             }
+
+            /**
+             * 第2种情况
+             * 到了这里说明 槽位数组 不存在或者没有准备好
+             *
+             * cellsBusy == 0 说明没有线程抢占
+             * cells == as 因为在判断第一种情况的时候赋值了吗，这里都是Null
+             * casCellsBusy() 尝试加锁
+             *
+             * 假设三个条件都成功，那么进入if条件进行初始化
+             */
             else if (cellsBusy == 0 && cells == as && casCellsBusy()) {
                 boolean init = false;
                 try {                           // Initialize table
                     if (cells == as) {
+                        // 初始化桶 默认是2
                         Cell[] rs = new Cell[2];
+                        // h & 1 计算的位置
                         rs[h & 1] = new Cell(x);
                         cells = rs;
+                        // 告诉外面初始化成功
                         init = true;
                     }
                 } finally {
+                    // 做完之后，改成0 让别的线程可以操作
                     cellsBusy = 0;
                 }
+                // 初始化完毕就可以结束了
                 if (init)
                     break;
             }
+            /**
+             * 第3种情况
+             * 到了这里说明 槽位数组 不存在或者没有准备好，而且尝试初始化加锁也不成功
+             *
+             * 自己拿不到锁，也不能去做初始化
+             *
+             * 为什么不成功呢？说明有竞争，说明有线程正在第二种情况if条件里面进行初始化
+             *
+             * fn.applyAsLong(v, x) 这个是看你有没有计算函数
+             *
+             * 因为还在初始化，我只能先把值记录到base上，等你初始化后，加到相应的槽位中
+             */
             else if (casBase(v = base, ((fn == null) ? v + x :
                                         fn.applyAsLong(v, x))))
                 break;                          // Fall back on using base
