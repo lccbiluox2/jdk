@@ -814,6 +814,7 @@ public abstract class AbstractQueuedSynchronizer
                 if (t.waitStatus <= 0) // 找到等待状态小于等于0的结点，找到最前的状态小于等于0的结点
                     s = t;// 保存结点
         }
+        // 解除传入节点的后继节点的阻塞状态，唤醒后继节点所存放的线程
         if (s != null) // 该结点不为为空，释放许可
             LockSupport.unpark(s.thread);
     }
@@ -1030,23 +1031,42 @@ public abstract class AbstractQueuedSynchronizer
      *      比如 A 入队后，可能 队列如下：A      此时A随时可能运行
      *          B 入队后，可能 队列如下：A->B   此时A随时可能运行,如果B看到A在休眠，那么将A改成休眠，否则就是在运行
      *          C 入队后，可能 队列如下：A->B->C   此时A随时可能运行,因为C看到B在休眠，所以C一定不能直接运行【排队的前面还有人呢】，那么将A改成休眠
+     *
+     * 1. 如果前驱节点pred的waitStatus为SIGNAL，返回true，表示node节点应该park，等待它的前驱节点来唤醒。
+     * 2. 如果前驱节点pred的waitStatus>0，代表该节点为CANCELLED（取消）状态，需要跳过该节点。从pred节点
+     *    开始向前寻找，直到找到等待状态不为CANCELLED的，将其设置为node的前驱节点。
+     * 3. 否则，使用CAS尝试将pred节点的waitStatus修改为SIGNAL，然后返回false，这里直接返回false是为了
+     *    再执行一次acquireQueued方法for循环的“if (p == head && tryAcquire(arg))”代码，因为如果
+     *    能tryAcquire成功，则避免了当前线程阻塞，也就减少了上下文切换的开销（
+     *
+     *
      */
     private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
-        // 获取前驱结点的状态
+        // 获取前驱结点的状态,前驱节点的等待状态
         int ws = pred.waitStatus;
-        if (ws == Node.SIGNAL) // 状态为SIGNAL，为-1
+        if (ws == Node.SIGNAL) // 如果前驱节点节点等待状态为SIGNA，为-1
             /*
              * This node has already set status asking a release
              * to signal it, so it can safely park.
-             * // SIGNAL 设置了前一个节点完结唤醒，安心干别的去了，这里是睡。
+             *
+             *  返回true，表示node节点应该park，等待它的前驱节点来唤醒
+             *
+             *  shouldParkAfterFailedAcquire: 校验node是否需要park(park：会将node的线程阻塞)
+              *  只有当前驱节点等待状态为SIGNAL，才能将node进行park，因为当前驱节点为SIGNAL时，
+              *  会保证来唤醒自己，因此可以安心park
+
              */
             return true; // 可以进行park操作
+        // 如果前驱节点的等待状态>0，代表该前驱节点为CANCELLED（取消）状态，需要跳过该节点
         if (ws > 0) { // 表示状态为CANCELLED，为1
             /*
              * Predecessor was cancelled. Skip over predecessors and
              * indicate retry.
+             *
+             * // 从pred节点开始向前寻找，直到找到等待状态不为CANCELLED的，
              */
             do {
+                // 将其设置为node的前驱节点
                 node.prev = pred = pred.prev;
             } while (pred.waitStatus > 0); // 找到pred结点前面最近的一个状态不为CANCELLED的结点
             // 赋值pred结点的next域
@@ -1057,6 +1077,9 @@ public abstract class AbstractQueuedSynchronizer
              * waitStatus must be 0 or PROPAGATE.  Indicate that we
              * need a signal, but don't park yet.  Caller will need to
              * retry to make sure it cannot acquire before parking.
+             *
+             *   pred节点使用CAS尝试将等待状态修改为SIGNAL（ws必须为PROPAGATE或0），
+             *   然后返回false（即再尝试一次能否不park直接acquire成功）
              */
             // 比较并设置前驱结点的状态为SIGNAL，把上一个节点改成-1
             compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
@@ -1130,7 +1153,7 @@ public abstract class AbstractQueuedSynchronizer
     final boolean acquireQueued(final Node node, int arg) {
         boolean failed = true;
         try {
-            boolean interrupted = false; // 中断标志
+            boolean interrupted = false; // 中断标志,用于判断是否被中断过
             for (;;) { // 无限循环
                 // 获取node节点的前驱结点
                 final Node p = node.predecessor();
@@ -1661,6 +1684,7 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final void acquireSharedInterruptibly(int arg)
             throws InterruptedException {
+        // 如果线程已经处于中断状态，则清空中断状态位，抛出InterruptedException
         if (Thread.interrupted())
             throw new InterruptedException();
         /** 尝试去拿共享锁，这里是判断所有的线程是否到达可执行的结尾了
@@ -1899,6 +1923,91 @@ public abstract class AbstractQueuedSynchronizer
      * 整个方法是判断我要不要去排队。
      * 视频：https://www.bilibili.com/video/BV19J411Q7R5?p=20
      * 一句话就是等待队列中有没有节点
+     *
+     *
+     * 下面提到的所有不需要排队，并不是字面意义，我实在想不出什么词语来描述这个“不需要排队”；不需要排队有两种情况
+     * 一：队列没有初始化，不需要排队，不需要排队，不需要排队；直接去加锁，但是可能会失败；为什么会失败呢？
+     * 假设两个线程同时来lock，都看到队列没有初始化，都认为不需要排队，都去进行CAS修改计数器；有一个必然失败
+     * 比如t1先拿到锁，那么另外一个t2则会CAS失败，这个时候t2就会去初始化队列，并排队
+     *
+     * 二：队列被初始化了，但是tc过来加锁，发觉队列当中第一个排队的就是自己；比如重入；
+     * 那么什么叫做第一个排队的呢？下面解释了，很重要往下看；
+     * 这个时候他也不需要排队，不需要排队，不需要排队；为什么不需要排对？
+     * 因为队列当中第一个排队的线程他会去尝试获取一下锁，因为有可能这个时候持有锁锁的那个线程可能释放了锁；
+     * 如果释放了就直接获取锁执行。但是如果没有释放他就会去排队，
+     * 所以这里的不需要排队，不是真的不需要排队
+     *
+     * h != t 判断首不等于尾这里要分三种情况
+     * 1、队列没有初始化，也就是第一个线程tf来加锁的时候那么这个时候队列没有初始化，
+     * h和t都是null，那么这个时候判断不等于则不成立（false）那么由于是&&运算后面的就不会走了，
+     * 直接返回false表示不需要排队，而前面又是取反（if (!hasQueuedPredecessors()），所以会直接去cas加锁。
+     * ----------第一种情况总结：队列没有初始化没人排队，那么我直接不排队，直接上锁；合情合理、有理有据令人信服；
+     * 好比你去火车站买票，服务员都闲的蛋疼，整个队列都没有形成；没人排队，你直接过去交钱拿票
+     *
+     * 2、队列被初始化了，后面会分析队列初始化的流程，如果队列被初始化那么h!=t则成立；（不绝对，还有第3中情况）
+     * h != t 返回true；但是由于是&&运算，故而代码还需要进行后续的判断
+     * （有人可能会疑问，比如队列初始化了；里面只有一个数据，那么头和尾都是同一个怎么会成立呢？
+     * 其实这是第3种情况--对头等于对尾；但是这里先不考虑，我们假设现在队列里面有大于1个数据）
+     * 大于1个数据则成立;继续判断把h.next赋值给s；s有是对头的下一个Node，
+     * 这个时候s则表示他是队列当中参与排队的线程而且是排在最前面的；
+     * 为什么是s最前面不是h嘛？诚然h是队列里面的第一个，但是不是排队的第一个；下文有详细解释
+     * 因为h也就是对头对应的Node对象或者线程他是持有锁的，但是不参与排队；
+     * 这个很好理解，比如你去买车票，你如果是第一个这个时候售票员已经在给你服务了，你不算排队，你后面的才算排队；
+     * 队列里面的h是不参与排队的这点一定要明白；参考下面关于队列初始化的解释；
+     * 因为h要么是虚拟出来的节点，要么是持有锁的节点；什么时候是虚拟的呢？什么时候是持有锁的节点呢？下文分析
+     * 然后判断s是否等于空，其实就是判断队列里面是否只有一个数据；
+     * 假设队列大于1个，那么肯定不成立（s==null---->false），因为大于一个Node的时候h.next肯定不为空；
+     * 由于是||运算如果返回false，还要判断s.thread != Thread.currentThread()；这里又分为两种情况
+     *        2.1 s.thread != Thread.currentThread() 返回true，就是当前线程不等于在排队的第一个线程s；
+     *              那么这个时候整体结果就是h!=t：true; （s==null false || s.thread != Thread.currentThread() true  最后true）
+     *              结果： true && true 方法最终放回true，所以需要去排队
+     *              其实这样符合情理，试想一下买火车票，队列不为空，有人在排队；
+     *              而且第一个排队的人和现在来参与竞争的人不是同一个，那么你就乖乖去排队
+     *        2.2 s.thread != Thread.currentThread() 返回false 表示当前来参与竞争锁的线程和第一个排队的线程是同一个线程
+     *             这个时候整体结果就是h!=t---->true; （s==null false || s.thread != Thread.currentThread() false-----> 最后false）
+     *            结果：true && false 方法最终放回false，所以不需要去排队
+     *            不需要排队则调用 compareAndSetState(0, acquires) 去改变计数器尝试上锁；
+     *            这里又分为两种情况（日了狗了这一行代码；有同学课后反应说子路老师老师老是说这个AQS难，
+     *            你现在仔细看看这一行代码的意义，真的不简单的）
+     *             2.2.1  第一种情况加锁成功？有人会问为什么会成功啊，如这个时候h也就是持有锁的那个线程执行完了
+     *                      释放锁了，那么肯定成功啊；成功则执行 setExclusiveOwnerThread(current); 然后返回true 自己看代码
+     *             2.2.2  第二种情况加锁失败？有人会问为什么会失败啊。假如这个时候h也就是持有锁的那个线程没执行完
+     *                       没释放锁，那么肯定失败啊；失败则直接返回false，不会进else if（else if是相对于 if (c == 0)的）
+     *                      那么如果失败怎么办呢？后面分析；
+     *
+     *----------第二种情况总结，如果队列被初始化了，而且至少有一个人在排队那么自己也去排队；但是有个插曲；
+     * ----------他会去看看那个第一个排队的人是不是自己，如果是自己那么他就去尝试加锁；尝试看看锁有没有释放
+     *----------也合情合理，好比你去买票，如果有人排队，那么你乖乖排队，但是你会去看第一个排队的人是不是你女朋友；
+     *----------如果是你女朋友就相当于是你自己（这里实在想不出现实世界关于重入的例子，只能用男女朋友来替代）；
+     * --------- 你就叫你女朋友看看售票员有没有搞完，有没有轮到你女朋友，因为你女朋友是第一个排队的
+     * 疑问：比如如果在在排队，那么他是park状态，如果是park状态，自己怎么还可能重入啊。
+     * 希望有同学可以想出来为什么和我讨论一下，作为一个菜逼，希望有人教教我
+     *
+     *
+     * 3、队列被初始化了，但是里面只有一个数据；什么情况下才会出现这种情况呢？ts加锁的时候里面就只有一个数据？
+     * 其实不是，因为队列初始化的时候会虚拟一个h作为头结点，tc=ts作为第一个排队的节点；tf为持有锁的节点
+     * 为什么这么做呢？因为AQS认为h永远是不排队的，假设你不虚拟节点出来那么ts就是h，
+     *  而ts其实需要排队的，因为这个时候tf可能没有执行完，还持有着锁，ts得不到锁，故而他需要排队；
+     * 那么为什么要虚拟为什么ts不直接排在tf之后呢，上面已经时说明白了，tf来上锁的时候队列都没有，他不进队列，
+     * 故而ts无法排在tf之后，只能虚拟一个thread=null的节点出来（Node对象当中的thread为null）；
+     * 那么问题来了；究竟什么时候会出现队列当中只有一个数据呢？假设原队列里面有5个人在排队，当前面4个都执行完了
+     * 轮到第五个线程得到锁的时候；他会把自己设置成为头部，而尾部又没有，故而队列当中只有一个h就是第五个
+     * 至于为什么需要把自己设置成头部；其实已经解释了，因为这个时候五个线程已经不排队了，他拿到锁了；
+     * 所以他不参与排队，故而需要设置成为h；即头部；所以这个时间内，队列当中只有一个节点
+     * 关于加锁成功后把自己设置成为头部的源码，后面会解析到；继续第三种情况的代码分析
+     * 记得这个时候队列已经初始化了，但是只有一个数据，并且这个数据所代表的线程是持有锁
+     * h != t false 由于后面是&&运算，故而返回false可以不参与运算，整个方法返回false；不需要排队
+     *
+     *
+     *-------------第三种情况总结：如果队列当中只有一个节点，而这种情况我们分析了，
+     *-------------这个节点就是当前持有锁的那个节点，故而我不需要排队，进行cas；尝试加锁
+     *-------------这是AQS的设计原理，他会判断你入队之前，队列里面有没有人排队；
+     *-------------有没有人排队分两种情况；队列没有初始化，不需要排队
+     *--------------队列初始化了，按时只有一个节点，也是没人排队，自己先也不排队
+     *--------------只要认定自己不需要排队，则先尝试加锁；加锁失败之后再排队；
+     *--------------再一次解释了不需要排队这个词的歧义性
+     *-------------如果加锁失败了，在去park，下文有详细解释这样设计源码和原因
+     *-------------如果持有锁的线程释放了锁，那么我能成功上锁
      */
     public final boolean hasQueuedPredecessors() {
         // The correctness of this depends on head being initialized
@@ -2028,8 +2137,13 @@ public abstract class AbstractQueuedSynchronizer
      * 判断节点是不是在队列中
      */
     final boolean isOnSyncQueue(Node node) {
+        //如果当前线程node的状态是CONDITION或者node.prev为null时说明已经在Condition队列中了，所以返回false；
+        //如果node添加到AQS阻塞队列中，那么他的waitstats会被初始化为0，或者被修改为-1，-3，肯定不是condition（-2）
+        //如果node添加到AQS阻塞队列中，那么他的prev肯定不为空，至少也是head节点
         if (node.waitStatus == Node.CONDITION || node.prev == null)
             return false;
+
+        //如果node有后继节点，那么他肯定在队列中。因为前面分析了，condition队列是不会设置next字段值的
         if (node.next != null) // If has successor, it must be on queue
             return true;
         /*
@@ -2039,6 +2153,14 @@ public abstract class AbstractQueuedSynchronizer
          * will always be near the tail in calls to this method, and
          * unless the CAS failed (which is unlikely), it will be
          * there, so we hardly ever traverse much.
+         *
+         *
+         * 执行到这里，说明node的waitStatus 不是CONDITION ，prev肯定也不是null。并且next肯定为null。
+         * 第一次看这个代码，肯定会蒙圈，怎么可能会出现这种不一致的情况呢
+         * 这种情况是因为在将node添加到AQS阻塞队列时，采用的CAS策略。CAS就有可能失败，所以会出现这种临时
+         * 的不一致行为。
+         * 在下面分析signal时会看到，signal会调用AbstractQueuedSynchronizer#enq方法，这个方法会先
+         * 设置prev，然后再CAS设置tail和next。
          */
         return findNodeFromTail(node);
     }
@@ -2046,6 +2168,9 @@ public abstract class AbstractQueuedSynchronizer
     /**
      * Returns true if node is on sync queue by searching backwards from tail.
      * Called only when needed by isOnSyncQueue.
+     *
+     * 新添加的节点都是加在队尾，所以从后向前找效率更高
+     *
      * @return true if present
      */
     private boolean findNodeFromTail(Node node) {
@@ -2272,14 +2397,16 @@ public abstract class AbstractQueuedSynchronizer
             // 保存尾结点
             Node t = lastWaiter;
             // If lastWaiter is cancelled, clean out.
-            // 尾结点不为空，并且尾结点的状态不为CONDITION
+            // 尾结点不为空，并且尾结点的状态不为CONDITION,
+            // 如果 lastWaiter 是取消状态（waitStatus != Node.CONDITION），那么将其清除
             if (t != null && t.waitStatus != Node.CONDITION) {
-                // 清除状态为CONDITION的结点
+                // 清除状态为CONDITION的结点,删除condition队列中所有被取消的节点
                 unlinkCancelledWaiters();
                 // 将最后一个结点重新赋值给t
                 t = lastWaiter;
             }
-            // 新建一个结点 节点参数当前线程
+            // 新建一个结点 节点参数当前线程,新建一个waitStatus是Node.CONDITION的节点，
+            // 表示当前节点（线程）的等待状态是condition。
             Node node = new Node(Thread.currentThread(), Node.CONDITION);
             if (t == null)
                 // 尾结点为空
@@ -2461,13 +2588,14 @@ public abstract class AbstractQueuedSynchronizer
          * // 等待，当前线程在接到信号之前一直处于等待状态，不响应中断
          */
         public final void awaitUninterruptibly() {
-            // 添加一个结点到等待队列
+            // 添加一个结点到等待队列，将waiter加入到condition等待队列（condition queue）
             Node node = addConditionWaiter();
-            // 获取释放的状态
+            // 获取释放的状态，将当前线程占用的state锁资源全部释放。目的是为了将该线程从AQS队列中移除。
             int savedState = fullyRelease(node);
             boolean interrupted = false;
+            // isOnSyncQueue：在AQS队列中返回true，否则返回false
             while (!isOnSyncQueue(node)) {
-                // 阻塞当前线程
+                // 阻塞当前线程,执行这里，说明当期线程不在AQS队列中，则需要被park挂起。
                 LockSupport.park(this);
                 // 当前线程被中断
                 if (Thread.interrupted())

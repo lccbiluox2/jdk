@@ -133,6 +133,57 @@ import java.util.Collection;
  *
  * @since 1.5
  * @author Doug Lea
+ *
+ *
+ * public interface ExecutorService extends Executor {
+ *
+ *     // 停止线程池
+ *     void shutdown();
+ *
+ *     // 立即停止线程池，返回尚未执行的任务列表
+ *     List<Runnable> shutdownNow();
+ *
+ *     // 线程池是否停止
+ *     boolean isShutdown();
+ *
+ *     // 线程池是否终结
+ *     boolean isTerminated();
+ *
+ *     // 等待线程池终结
+ *     boolean awaitTermination(long timeout, TimeUnit unit)
+ *         throws InterruptedException;
+ *
+ *     // 提交Callable类型任务
+ *     <T> Future<T> submit(Callable<T> task);
+ *
+ *     // 提交Runnable类型任务，预先知道返回值
+ *     <T> Future<T> submit(Runnable task, T result);
+ *
+ *     // 提交Runnable类型任务，对返回值无感知
+ *     Future<?> submit(Runnable task);
+ *
+ *     // 永久阻塞 - 提交和执行一个任务列表的所有任务
+ *     <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
+ *         throws InterruptedException;
+ *
+ *     // 带超时阻塞 - 提交和执行一个任务列表的所有任务
+ *     <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
+ *                                   long timeout, TimeUnit unit)
+ *         throws InterruptedException;
+ *
+ *     // 永久阻塞 - 提交和执行一个任务列表的某一个任务
+ *     <T> T invokeAny(Collection<? extends Callable<T>> tasks)
+ *         throws InterruptedException, ExecutionException;
+ *
+ *     // 带超时阻塞 - 提交和执行一个任务列表的某一个任务
+ *      <T> T invokeAny(Collection<? extends Callable<T>> tasks,
+ *                     long timeout, TimeUnit unit)
+ *         throws InterruptedException, ExecutionException, TimeoutException;
+ * }
+ *
+ * ExecutorService继承自Executor，主要提供了线程池的关闭、状态查询查询、可获取返回值的任务提交、
+ * 整个任务列表或者执行任务列表中任意一个任务（返回执行最快的任务的结果）等功能。
+ *
  */
 public interface ExecutorService extends Executor {
 

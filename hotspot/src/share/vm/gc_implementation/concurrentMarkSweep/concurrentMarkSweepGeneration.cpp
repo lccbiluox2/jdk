@@ -916,6 +916,14 @@ void ConcurrentMarkSweepGeneration::space_iterate(SpaceClosure* blk, bool usedOn
   blk->do_space(_cmsSpace);
 }
 
+/**
+著作权归https://pdai.tech所有。
+链接：https://www.pdai.tech/md/java/jvm/java-jvm-cms-gc.html
+
+在 JVM 的参数中 -Xms 和 -Xmx 设置的不一致，在初始化时只会初始 -Xms 大小的空间存储信息，
+每当空间不够用时再向操作系统申请，这样的话必然要进行一次 GC。具体是通过 ConcurrentMarkSweepGeneration::compute_new_size()
+方法计算新的空间大小：
+*/
 void ConcurrentMarkSweepGeneration::compute_new_size() {
   assert_locked_or_safepoint(Heap_lock);
 

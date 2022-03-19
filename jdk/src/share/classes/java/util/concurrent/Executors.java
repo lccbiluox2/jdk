@@ -122,6 +122,9 @@ public class Executors {
      * @since 1.8
      */
     public static ExecutorService newWorkStealingPool() {
+        /**
+         * Runtime.getRuntime().availableProcessors() 获取核数
+         */
         return new ForkJoinPool
             (Runtime.getRuntime().availableProcessors(),
              ForkJoinPool.defaultForkJoinWorkerThreadFactory,
@@ -168,6 +171,11 @@ public class Executors {
      * @return the newly created single-threaded Executor
      */
     public static ExecutorService newSingleThreadExecutor() {
+        /**
+         * 这里为什么包装一下？因为你是单线程，一些方法是不允许你调用的，比如setCore()
+         * 设置核心线程数之类的，如果不包装，你强转成 ThreadPoolExecutor 那么你可以
+         * 调用，为了防止，所以包装一下
+         */
         return new FinalizableDelegatedExecutorService
             (new ThreadPoolExecutor(1, 1,
                                     0L, TimeUnit.MILLISECONDS,
@@ -499,6 +507,11 @@ public class Executors {
 
     /**
      * A callable that runs given task and returns given result
+     *
+     *  Runnable和Callable的适配器，设计十分巧妙，实际上run()方法委托给传入的Runnable实例执行，
+     *  实现了Callable的call()方法，使用的是外部传入的值作为返回结果
+     *
+     * 链接: https://www.throwx.cn/2019/07/27/java-concurrency-executor-service/
      */
     static final class RunnableAdapter<T> implements Callable<T> {
         final Runnable task;
@@ -603,6 +616,7 @@ public class Executors {
             SecurityManager s = System.getSecurityManager();
             group = (s != null) ? s.getThreadGroup() :
                                   Thread.currentThread().getThreadGroup();
+            // todo: 默认的线程名称
             namePrefix = "pool-" +
                           poolNumber.getAndIncrement() +
                          "-thread-";

@@ -770,6 +770,14 @@ HeapWord* GenCollectorPolicy::mem_allocate_work(size_t size,
   }
 }
 
+/*
+* 著作权归https://pdai.tech所有。
+  链接：https://www.pdai.tech/md/java/jvm/java-jvm-cms-gc.html
+
+  如果空间剩余很多时也会进行缩容操作，JVM 通过 -XX:MinHeapFreeRatio 和 -XX:MaxHeapFreeRatio
+  来控制扩容和缩容的比例，调节这两个值也可以控制伸缩的时机，例如扩容便是使用 GenCollectedHeap::expand_heap_and_allocate()
+  来完成的，代码如下：
+*/
 HeapWord* GenCollectorPolicy::expand_heap_and_allocate(size_t size,
                                                        bool   is_tlab) {
   GenCollectedHeap *gch = GenCollectedHeap::heap();
