@@ -2188,8 +2188,12 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     void ensurePrestart() {
         int wc = workerCountOf(ctl.get());
         if (wc < corePoolSize)
+            // 如果核心线程没有满 那么创建核心线程
             addWorker(null, true);
         else if (wc == 0)
+            // 这个说名 你设置的核心线程数为0，此时，你只能在非核心线程池
+            //  至少要有一个任务的，为什么？因为如果没有一个任务，任务到了队列中
+            //  就没有线程去从队列中拉取线程了，那么任务就死在任务队列中了
             addWorker(null, false);
     }
 

@@ -71,6 +71,14 @@ public class FutureTask<V> implements RunnableFuture<V> {
      *
      * Style note: As usual, we bypass overhead of using
      * AtomicXFieldUpdaters and instead directly use Unsafe intrinsics.
+     *
+     * 修订说明:这与该类以前依赖于AbstractQueuedSynchronizer的版本不同，主要是
+     * 为了避免在取消竞赛期间保持中断状态的问题让用户感到意外。当前设计中的同步控制
+     * 依赖于通过CAS更新的“状态”字段来跟踪完成，以及一个简单的Treiber堆栈来保持等
+     * 待线程。
+     *
+     * 样式注释:像往常一样，我们绕过使用AtomicXFieldUpdaters的开销，而直接使用
+     * 不安全的intrinsic。
      */
 
     /**
@@ -88,6 +96,11 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * NEW -> COMPLETING -> EXCEPTIONAL
      * NEW -> CANCELLED
      * NEW -> INTERRUPTING -> INTERRUPTED
+     *
+     * 此任务的运行状态，最初为NEW。只有在方法set、setException和cancel中，
+     * 运行状态才会转换为终端状态。在完成过程中，状态可能呈现完成(当设置结果时)或
+     * 中断(仅当中断运行程序以满足取消时(true))的瞬态值。从这些中间状态到最终状态
+     * 的转换使用更便宜的有序/惰性写，因为值是唯一的，不能进一步修改。
      */
     // 状态
     private volatile int state;
@@ -107,11 +120,17 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * 异常执行完成，通过调用get()方法会抛出包装后的ExecutionException异常
      */
     private static final int EXCEPTIONAL  = 3; // 异常情况下的完成状态
+    /**
+     * 表示任务还没执行就被取消了，非中断方式 属于最终状态
+     */
     private static final int CANCELLED    = 4; // 取消状态
     /**
-     * 中断中状态，执行线程实例Thread#interrupt()之前会标记为此状态
+     * 表示任务还没执行就被取消了，中断中状态，执行线程实例Thread#interrupt()之前会标记为此状态
      */
     private static final int INTERRUPTING = 5; // 中断中状态
+    /**
+     * 表示任务还没执行就被取消了，已中断状态
+     */
     private static final int INTERRUPTED  = 6; // 已中断状态
 
     /** The underlying callable; nulled out after running */
@@ -290,6 +309,9 @@ public class FutureTask<V> implements RunnableFuture<V> {
               UNSAFE.compareAndSwapInt(this, stateOffset, NEW,
                   mayInterruptIfRunning ? INTERRUPTING : CANCELLED)))
             return false;
+
+        // 如果线程能取消
+
         try {    // in case call to interrupt throws exception
             // mayInterruptIfRunning为true，调用执行任务的线程实例的Thread#interrupt()进行中断，
             // 更新最终状态为INTERRUPTED(6)
@@ -297,6 +319,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
                 try {
                     Thread t = runner;
                     if (t != null)
+                        // 进行中断，这里说一下，你调用了中断，但是线程不一定响应你的中断
                         t.interrupt();
                 } finally { // final state
                     UNSAFE.putOrderedInt(this, stateOffset, INTERRUPTED);
@@ -453,6 +476,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
             // leaked interrupts
             // 记录新的状态值，因为run()方法执行的时候，状态值有可能被其他方法更新了
             int s = state;
+            // 如果状态大于中断状态
             if (s >= INTERRUPTING)
                 // 处理run()方法执行期间调用了cancel(true)方法的情况
                 handlePossibleCancellationInterrupt(s); //处理中断逻辑
@@ -654,11 +678,11 @@ public class FutureTask<V> implements RunnableFuture<V> {
                     removeWaiter(q);
                     return state;
                 }
-                // 如果状态为NEW(0)，则进行超时阻塞，阻塞的是当前的线程
+                // [核心] todo:如果状态为NEW(0)，则进行超时阻塞，阻塞的是当前的线程
                 LockSupport.parkNanos(this, nanos);
             }
             else
-                // 这种就是最后一个if分支，就是不命中任何条件的永久阻塞，阻塞的是当前的线程
+                // [核心] todo:这种就是最后一个if分支，就是不命中任何条件的永久阻塞，阻塞的是当前的线程
                 LockSupport.park(this);
         }
     }

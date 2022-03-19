@@ -136,11 +136,18 @@ public class ScheduledThreadPoolExecutor
     /*
      * This class specializes ThreadPoolExecutor implementation by
      *
+     * 该类通过以下方式专门实现ThreadPoolExecutor
+     *
      * 1. Using a custom task type, ScheduledFutureTask for
      *    tasks, even those that don't require scheduling (i.e.,
      *    those submitted using ExecutorService execute, not
      *    ScheduledExecutorService methods) which are treated as
      *    delayed tasks with a delay of zero.
+     *
+     * 1. 使用自定义任务类型，ScheduledFutureTask用于任务，甚至是那些不需要调度
+     *    的任务(例如，那些使用ExecutorService execute方法提交的任务，而不是
+     *    ScheduledExecutorService方法提交的任务)，这些任务被视为延迟为0的延迟
+     *    任务。
      *
      * 2. Using a custom queue (DelayedWorkQueue), a variant of
      *    unbounded DelayQueue. The lack of capacity constraint and
@@ -148,16 +155,27 @@ public class ScheduledThreadPoolExecutor
      *    effectively identical simplifies some execution mechanics
      *    (see delayedExecute) compared to ThreadPoolExecutor.
      *
+     * 2. 使用自定义队列(DelayedWorkQueue)，它是无界DelayQueue的变体。与
+     *   ThreadPoolExecutor相比，缺乏容量限制以及corePoolSize和maximumPoolSize
+     *   实际上相同的事实简化了一些执行机制(参见delayedExecute)。
+     *
      * 3. Supporting optional run-after-shutdown parameters, which
      *    leads to overrides of shutdown methods to remove and cancel
      *    tasks that should NOT be run after shutdown, as well as
      *    different recheck logic when task (re)submission overlaps
      *    with a shutdown.
      *
+     * 3.支持可选的run-after-shutdown参数，这会导致关闭方法的覆盖，以删除和
+     *   取消不应该在关闭后运行的任务，以及在任务(重新)提交与关闭重叠时不同的重新
+     *   检查逻辑。
+     *
      * 4. Task decoration methods to allow interception and
      *    instrumentation, which are needed because subclasses cannot
      *    otherwise override submit methods to get this effect. These
      *    don't have any impact on pool control logic though.
+     *
+     * 4. 任务装饰方法，以允许拦截和插装，这是必需的，因为子类不能重写提交方法以
+     *    获得这种效果。但这些对池控制逻辑没有任何影响。
      */
 
     /**
@@ -244,7 +262,7 @@ public class ScheduledThreadPoolExecutor
         /**
          * Index into delay queue, to support faster cancellation.
          *
-         * 延迟队列的索引，以支持更快的取消操作
+         * 在堆中的索引。延迟队列的索引，以支持更快的取消操作
          */
         int heapIndex;
 
@@ -273,8 +291,10 @@ public class ScheduledThreadPoolExecutor
          */
         ScheduledFutureTask(Callable<V> callable, long ns) {
             super(callable);
+            // 第一次执行的时间
             this.time = ns;
             this.period = 0;
+            // 自增的序号
             this.sequenceNumber = sequencer.getAndIncrement();
         }
 
@@ -282,16 +302,26 @@ public class ScheduledThreadPoolExecutor
             return unit.convert(time - now(), NANOSECONDS);
         }
 
+        /**
+         * 这个方法是一个用于排序的方法，因为我们把任务j加入到DelayQueue延迟队列
+         * 这个队列会将已经过期或者即将过期的任务排到队列顶部，这是因为如果任务运行的时候
+         * 可以最快的拿到即将过期或者过期的任务，然后就可以开始运行了
+         *
+         * @param other
+         * @return
+         */
         public int compareTo(Delayed other) {
             if (other == this) // compare zero if same object
                 return 0;
             if (other instanceof ScheduledFutureTask) {
                 ScheduledFutureTask<?> x = (ScheduledFutureTask<?>)other;
+                // 先比较时间
                 long diff = time - x.time;
                 if (diff < 0)
                     return -1;
                 else if (diff > 0)
                     return 1;
+                // 如果时间相同，比较 sequenceNumber
                 else if (sequenceNumber < x.sequenceNumber)
                     return -1;
                 else
@@ -643,6 +673,7 @@ public class ScheduledThreadPoolExecutor
         //构造ScheduledFutureTask任务
         RunnableScheduledFuture<?> t = decorateTask(command,
             new ScheduledFutureTask<Void>(command, null,
+                                          // 设置触发时间
                                           triggerTime(delay, unit)));
         ;//任务执行主方法
         delayedExecute(t);
@@ -658,7 +689,9 @@ public class ScheduledThreadPoolExecutor
                                            TimeUnit unit) {
         if (callable == null || unit == null)
             throw new NullPointerException();
+        // 包装一下
         RunnableScheduledFuture<V> t = decorateTask(callable,
+            // 具体实现 ScheduledFutureTask
             new ScheduledFutureTask<V>(callable,
                                        triggerTime(delay, unit)));
         delayedExecute(t);
@@ -951,7 +984,9 @@ public class ScheduledThreadPoolExecutor
      * 的一个延迟队列，继承了 AbstractQueue，为了契合 ThreadPoolExecutor 也实现了
      * BlockingQueue 接口。它内部只允许存储 RunnableScheduledFuture 类型的任务。
      * 与 DelayQueue 的不同之处就是它只允许存放 RunnableScheduledFuture 对象，并且
-     * 自己实现了二叉堆(DelayQueue 是利用了 PriorityQueue 的二叉堆结构)。 ¶
+     * 自己实现了二叉堆(DelayQueue 是利用了 PriorityQueue 的二叉堆结构)。
+     *
+     * 这是一个无界队列，如果队列满了，那么会自动扩容
      */
     static class DelayedWorkQueue extends AbstractQueue<Runnable>
         implements BlockingQueue<Runnable> {
@@ -1158,6 +1193,7 @@ public class ScheduledThreadPoolExecutor
             try {
                 int i = size;
                 if (i >= queue.length)
+                    // todo: 扩容操作
                     grow();
                 size = i + 1;
                 if (i == 0) {
@@ -1166,6 +1202,7 @@ public class ScheduledThreadPoolExecutor
                 } else {
                     siftUp(i, e);
                 }
+                // 堆顶元素就是你要的元素
                 if (queue[0] == e) {
                     leader = null;
                     available.signal();
