@@ -3490,12 +3490,20 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * for a table read.
      */
     static class Traverser<K,V> {
+        // 当前表;如果更新调整
         Node<K,V>[] tab;        // current table; updated if resized
+        // 下一个要访问的entry
         Node<K,V> next;         // the next entry to use
+        // 发现forwardingNode时，stack保存当前栈顶 table 相关信息
+        // spare 按照 stack 的出栈顺序保存table，栈顶保存最后一个出栈的table
         TableStack<K,V> stack, spare; // to save/restore on ForwardingNodes
+        // 下一个要访问的hash桶索引
         int index;              // index of bin to use next
+        // 当前正在访问的初始table的hash桶索引
         int baseIndex;          // current index of initial table
+        // 初始table的hash桶索引边界
         int baseLimit;          // index bound for initial table
+        // 初始table的长度
         final int baseSize;     // initial table size
 
         Traverser(Node<K,V>[] tab, int size, int index, int limit) {
@@ -3508,46 +3516,66 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
         /**
          * Advances if possible, returning next valid node, or null if none.
+         *
+         * 如果有可能，返回下一个有效节点，否则返回null。
          */
         final Node<K,V> advance() {
             Node<K,V> e;
+            //获取Node链表的下一个元素e
             if ((e = next) != null)
                 e = e.next;
             for (;;) {
                 Node<K,V>[] t; int i, n;  // must use locals in checks
+                // e不为空，返回e
                 if (e != null)
                     return next = e;
+
+                // e为空，说明此链表已经遍历完成，准备遍历下一个hash桶
                 if (baseIndex >= baseLimit || (t = tab) == null ||
                     (n = t.length) <= (i = index) || i < 0)
+                    // table 遍历完成，到达边界，返回null
                     return next = null;
                 if ((e = tabAt(t, i)) != null && e.hash < 0) {
+                    // 扩容节点,说明此hash桶中的节点已经迁移到了nextTable
                     if (e instanceof ForwardingNode) {
+                        // 当前遍历 table 换做 nextTable
                         tab = ((ForwardingNode<K,V>)e).nextTable;
                         e = null;
+                        // 保存当前table的遍历状态
                         pushState(t, i, n);
                         continue;
                     }
+                    //红黑树
                     else if (e instanceof TreeBin)
                         e = ((TreeBin<K,V>)e).first;
                     else
                         e = null;
                 }
                 if (stack != null)
+                    // 此时遍历的是迁移目标nextTable
+                    // 尝试回退到源table，继续遍历源table中的节点
                     recoverState(n);
                 else if ((index = i + baseSize) >= n)
+                    // 初始table的hash桶索引+1 ，即遍历下一个hash桶
                     index = ++baseIndex; // visit upper slots if present
             }
         }
 
         /**
          * Saves traversal state upon encountering a forwarding node.
+         *
+         * 在遇到扩容节点时保存遍历状态。
          */
         private void pushState(Node<K,V>[] t, int i, int n) {
+            // s 指向上一个出栈的 table 状态
             TableStack<K,V> s = spare;  // reuse if possible
             if (s != null)
+                // 如果存在上一个出栈 table 的引用
+                // 那么spare指向上上一个出栈 table
                 spare = s.next;
             else
                 s = new TableStack<K,V>();
+            // 保存当前 table 的遍历状态
             s.tab = t;
             s.length = n;
             s.index = i;
@@ -3558,20 +3586,37 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         /**
          * Possibly pops traversal state.
          *
+         * 可能会弹出遍历状态。
+         *
          * @param n length of current table
          */
         private void recoverState(int n) {
             TableStack<K,V> s; int len;
+            /**
+             (s = stack) != null :
+             stack不空，说明此时遍历的是nextTable
+             (index += (len = s.length)) >= n :
+             确保了按照index,index+table.length的顺序遍历nextTable，
+             条件成立表示nextTable已经遍历完毕
+             */
+
+            // 如果进入循环，nextTable中的桶遍历完毕
             while ((s = stack) != null && (index += (len = s.length)) >= n) {
+                // 弹出table，获取table的遍历状态，开始遍历table中的桶
                 n = len;
                 index = s.index;
                 tab = s.tab;
                 s.tab = null;
+                // 下面是简单的链栈操作
+                // 弹出 table，存入到 spare中
                 TableStack<K,V> next = s.next;
                 s.next = spare; // save for reuse
                 stack = next;
                 spare = s;
             }
+            // 和 advance 方法最后一段代码作用相似
+            // table的index桶链表遍历完，遍历下一个 hash桶
+            // index记录下一次访问索引（当前访问索引 baseIndex++）
             if (s == null && (index += baseSize) >= n)
                 index = ++baseIndex;
         }

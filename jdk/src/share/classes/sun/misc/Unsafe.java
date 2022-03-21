@@ -1031,7 +1031,9 @@ public final class Unsafe {
     public final int getAndAddInt(Object o, long offset, int delta) {
         int v;
         do {
+            // 获取JVM主内存中的值，实时获取
             v = getIntVolatile(o, offset);
+            // CAS 原子更改，如果更改不成功，重新从JVM主内存中的值，然后循环
         } while (!compareAndSwapInt(o, offset, v, v + delta));
         return v;
     }

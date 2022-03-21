@@ -134,6 +134,7 @@ class StubGenerator: public StubCodeGenerator {
 
   address generate_call_stub(address& return_address) {
     StubCodeMark mark(this, "StubRoutines", "call_stub");
+    //得到当前入口的内存地址
     address start = __ pc();
 
     // stub code parameters / addresses
@@ -141,10 +142,15 @@ class StubGenerator: public StubCodeGenerator {
     bool  sse_save = false;
     const Address rsp_after_call(rbp, -4 * wordSize); // same as in generate_catch_exception()!
     const int     locals_count_in_bytes  (4*wordSize);
+
+    //相当于 &result = 3N(%ebp),从内存中获取数据
+    //如下参数在被调用者内部.用于保存调用者的信息
     const Address mxcsr_save    (rbp, -4 * wordSize);
     const Address saved_rbx     (rbp, -3 * wordSize);
     const Address saved_rsi     (rbp, -2 * wordSize);
     const Address saved_rdi     (rbp, -1 * wordSize);
+
+    //如下参数在调用者内部
     const Address result        (rbp,  3 * wordSize);
     const Address result_type   (rbp,  4 * wordSize);
     const Address method        (rbp,  5 * wordSize);
@@ -155,16 +161,28 @@ class StubGenerator: public StubCodeGenerator {
     sse_save =  UseSSE > 0;
 
     // stub code
+    //保存调用者函数栈基地址,设置被调用者栈基地址
     __ enter();
+    //计算即将被调用java函数入参所需堆栈空间
+    //movl 0x20(%ebp) %ecx  将parameter_size值传给ecx寄存器
     __ movptr(rcx, parameter_size);              // parameter counter
+    //shl $0x2 %ecx          将ecx寄存器值左移2位,也就是*4,因为32平台,每个指针占用32内存,也就是4字节.
     __ shlptr(rcx, Interpreter::logStackElementSize); // convert parameter count to bytes
+
+     //add $0x10,%ecx   额外申请16字节空间,用于存储rdi,rsi,rbx,mxcsr4个寄存器值
     __ addptr(rcx, locals_count_in_bytes);       // reserve space for register saves
+     //sub %ecx,%esp 申请rcx大小堆栈空间
     __ subptr(rsp, rcx);
+     //and $0xfffffff0,%esp 堆栈按16位对齐,若不对齐则减去后4位值
     __ andptr(rsp, -(StackAlignmentInBytes));    // Align stack
 
     // save rdi, rsi, & rbx, according to C calling conventions
+    //保存rdi,rsi,rbx 调用者现场
+        //mov %edi,-0x4(%ebp)
     __ movptr(saved_rdi, rdi);
+     // mov %esi,-0x8(%ebp)  esi用于java字节码寻址
     __ movptr(saved_rsi, rsi);
+    // mov %ebx,-0xc(%ebp)
     __ movptr(saved_rbx, rbx);
     // save and initialize %mxcsr
     if (sse_save) {
@@ -196,7 +214,12 @@ class StubGenerator: public StubCodeGenerator {
     // pass parameters if any
     BLOCK_COMMENT("pass parameters if any");
     Label parameters_done;
+
+     //参数数量
+        //mov 0x20(%ebp),%ecx  将parameter_size存ecx
     __ movl(rcx, parameter_size);  // parameter counter
+    //测试parameter_size是否=0,若是则直接跳过参数处理
+        //test %ecx,ecx
     __ testl(rcx, rcx);
     __ jcc(Assembler::zero, parameters_done);
 
@@ -208,25 +231,36 @@ class StubGenerator: public StubCodeGenerator {
     // source is rdx[rcx: N-1..0]
     // dest   is rsp[rbx: 0..N-1]
 
+ //第一个入参地址
+    //mov 0x1c(%ebp),%edx  用edx记录第一个入参指针
     __ movptr(rdx, parameters);          // parameter pointer
     __ xorptr(rbx, rbx);
 
+  //循环将java函数参数压栈
     __ BIND(loop);
 
     // get parameter
+     // 获取第N个入参位置:edx+(N-1)*4
+        //mov -0x4(%edx,%ecx,4),%eax
     __ movptr(rax, Address(rdx, rcx, Interpreter::stackElementScale(), -wordSize));
     __ movptr(Address(rsp, rbx, Interpreter::stackElementScale(),
                     Interpreter::expr_offset_in_bytes(0)), rax);          // store parameter
     __ increment(rbx);
+    //dec %ecx 参数数量-1,也就是循环次数-1,这里主要采用逆序遍历
     __ decrement(rcx);
+    //jne 0x地址
     __ jcc(Assembler::notZero, loop);
 
     // call Java function
     __ BIND(parameters_done);
+     //mov 0x14(%ebp),%ebx  将method首地址传给ebx
     __ movptr(rbx, method);           // get Method*
+     //mov 0x18(%ebp),%eax  将entry_point传给eax
     __ movptr(rax, entry_point);      // get entry_point
+     //mov %esp,%esi 将当前栈顶保存esi中
     __ mov(rsi, rsp);                 // set sender sp
     BLOCK_COMMENT("call Java function");
+    //call *%eax    调用entry_point
     __ call(rax);
 
     BLOCK_COMMENT("call_stub_return_address:");

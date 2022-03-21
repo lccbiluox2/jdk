@@ -686,7 +686,9 @@ oop StringTable::basic_add(int index_arg, Handle string, jchar* name,
   unsigned int hashValue;
   int index;
   if (use_alternate_hashcode()) {
+    // 重新计算hash值，根据string的字符串内容和长度 计算 hash值
     hashValue = hash_string(name, len);
+    // 根据 hash 值 计算出来数组下标
     index = hash_to_index(hashValue);
   } else {
     hashValue = hashValue_arg;
@@ -696,12 +698,15 @@ oop StringTable::basic_add(int index_arg, Handle string, jchar* name,
   // Since look-up was done lock-free, we need to check if another
   // thread beat us in the race to insert the symbol.
 
+  // 通过index在数组中查询相应的字符串对应的oop,找到就返回
   oop test = lookup(index, name, len, hashValue); // calls lookup(u1*, int)
   if (test != NULL) {
     // Entry already added
     return test;
   }
 
+  //如果没找到，创建- -个HashtableEntry对象，key是hashvalue, 也就是通过String的内容和长度生成hash值
+  // value是由string( )生成的，也就是instanceoopDesc (筒称oop)
   HashtableEntry<oop, mtSymbol>* entry = new_entry(hashValue, string());
   add_entry(index, entry);
   return string();
@@ -737,15 +742,22 @@ oop StringTable::lookup(jchar* name, int len) {
   return string;
 }
 
-
+// string_ or_ null 字符串对象
+// name字符串原始指针
+// len字符串长度
 oop StringTable::intern(Handle string_or_null, jchar* name,
                         int len, TRAPS) {
+  //获取字符串的hash值
   unsigned int hashValue = hash_string(name, len);
+  //算出hash table桶下标
   int index = the_table()->hash_to_index(hashValue);
+  //看字符串在hash table 中有没有
   oop found_string = the_table()->lookup(index, name, len, hashValue);
 
   // Found
+  //如果有，直接返回(避免重复加入)
   if (found_string != NULL) {
+  //确保该字符串对象没有被垃圾回收
     ensure_string_alive(found_string);
     return found_string;
   }
@@ -759,6 +771,7 @@ oop StringTable::intern(Handle string_or_null, jchar* name,
   if (!string_or_null.is_null()) {
     string = string_or_null;
   } else {
+    //根据 unicode创建[字符串对象  string]
     string = java_lang_String::create_from_unicode(name, len, CHECK_NULL);
   }
 
@@ -777,6 +790,7 @@ oop StringTable::intern(Handle string_or_null, jchar* name,
   {
     MutexLocker ml(StringTable_lock, THREAD);
     // Otherwise, add to symbol to table
+    // 将string加入到hash表中
     added_or_found = the_table()->basic_add(index, string, name, len,
                                   hashValue, CHECK_NULL);
   }

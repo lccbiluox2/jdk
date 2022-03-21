@@ -395,14 +395,24 @@ void JavaCalls::call_helper(JavaValue* result, methodHandle* m, JavaCallArgument
     { HandleMark hm(thread);  // HandleMark used by HandleMarkCleaner
 
       StubRoutines::call_stub()(
+        //连接器
         (address)&link,
         // (intptr_t*)&(result->_value), // see NOTE above (compiler problem)
+         //函数返回值地址
         result_val_address,          // see NOTE above (compiler problem)
+        //返回类型
         result_type,
+        // jvm内部所表示的java方法对象,可获取java函数编译后的字节码信息,如继承,返回,注解,入参,
+        // 函数名称,返回值等信息
         method(),
+        // jvm调用java方法的例程入口,也就是预生成的机器指令.从这里拿到java函数所对应的第一个
+        // 字节码指令,然后调用java函数
         entry_point,
+        //入参集合
         args->parameters(),
+        //入参数量
         args->size_of_parameters(),
+        //当前线程对象
         CHECK
       );
 

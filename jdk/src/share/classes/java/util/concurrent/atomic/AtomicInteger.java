@@ -156,6 +156,8 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * @return the previous value
      */
     public final int getAndIncrement() {
+        // this 代表 你要添加值的内存地址 valueOffset 代表偏移量
+        // this, valueOffset, 这两个值组合 就是值
         return unsafe.getAndAddInt(this, valueOffset, 1);
     }
 
