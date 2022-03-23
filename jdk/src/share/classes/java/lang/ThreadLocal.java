@@ -83,12 +83,16 @@ public class ThreadLocal<T> {
      * less common cases.
      *
      * //ThreadLocalMap是ThreadLocal的静态内部类
+     *
+     * 计算当前ThreadLocal对象的HashCode,final限制当前成员属性只有第一次实例化时才能进行设置
      */
     private final int threadLocalHashCode = nextHashCode();
 
     /**
      * The next hash code to be given out. Updated atomically. Starts at
      * zero.
+     *
+     * 原子操作(线程安全),从0开始,按照散列值进行递增
      */
     private static AtomicInteger nextHashCode =
         new AtomicInteger();
@@ -97,6 +101,10 @@ public class ThreadLocal<T> {
      * The difference between successively generated hash codes - turns
      * implicit sequential thread-local IDs into near-optimally spread
      * multiplicative hash values for power-of-two-sized tables.
+     *
+     * 获取下一个HashCode值,添加散列值得到下一个HashCode
+     * 创建一个ThreadLocal时,调用该方法为成员变量threadLocalHashCode进行赋值,
+     * 而threadLocalHashCode是final类型只有第一次实例化时的赋值是有效的
      */
     private static final int HASH_INCREMENT = 0x61c88647;
 
@@ -124,6 +132,9 @@ public class ThreadLocal<T> {
      * anonymous inner class will be used.
      *
      * @return the initial value for this thread-local
+     *
+     *
+     * //默认初始的ThreadLocal返回的value为null,一般会对该方法进行重写
      */
     protected T initialValue() {
         return null;
@@ -183,13 +194,21 @@ public class ThreadLocal<T> {
      * @return the initial value
      */
     private T setInitialValue() {
+        //获取默认初始值
         T value = initialValue();
+        //获取当前线程
         Thread t = Thread.currentThread();
+        //获取当前当前线程的ThreadLocalMap
         ThreadLocalMap map = getMap(t);
+        //这 里之所以又进行了一次判断map是否为null是因为之前在get()
+        // 方法中没有确定是map为null还是不存在的entry
         if (map != null)
+            //若map不为null,直接向map中进行添加当前ThreadLocal对应初始value
             map.set(this, value);
         else
+            //若不存在map,初始化ThreadLocalMap,并添加初始值value
             createMap(t, value);
+        //返回初始value
         return value;
     }
 
@@ -209,6 +228,7 @@ public class ThreadLocal<T> {
         ThreadLocalMap map = getMap(t);
         if (map != null)
             //ThreadLocalMap的key为当前ThreadLocal对象，value就是我们需要存储的变量
+            // 即当前ThreadLocal对象；value：即需要存入的真正的内存变量
             map.set(this, value);
         else
             //该线程第一次使用ThreadLocal.set时创建ThreadLocalMap对象,并赋值。
@@ -254,6 +274,7 @@ public class ThreadLocal<T> {
      * @param firstValue value for the initial entry of the map
      */
     void createMap(Thread t, T firstValue) {
+        //创建ThreadLocalMap,添加fistValue
         t.threadLocals = new ThreadLocalMap(this, firstValue);
     }
 
@@ -263,6 +284,8 @@ public class ThreadLocal<T> {
      *
      * @param  parentMap the map associated with parent thread
      * @return a map containing the parent's inheritable bindings
+     *
+     * 关联子类ThreadLocal的map和父类Thread的map为同一个map，该方法是提供给父类Thread进行使用
      */
     static ThreadLocalMap createInheritedMap(ThreadLocalMap parentMap) {
         return new ThreadLocalMap(parentMap);
@@ -317,10 +340,12 @@ public class ThreadLocal<T> {
          * == null) mean that the key is no longer referenced, so the
          * entry can be expunged from table.  Such entries are referred to
          * as "stale entries" in the code that follows.
+         *
+         * //这里只有ThreadLocal使用了弱引用
          */
         static class Entry extends WeakReference<ThreadLocal<?>> {
             /** The value associated with this ThreadLocal. */
-            Object value;
+            Object value;//value使用的是强引用
 
             Entry(ThreadLocal<?> k, Object v) {
                 super(k);
@@ -330,6 +355,8 @@ public class ThreadLocal<T> {
 
         /**
          * The initial capacity -- MUST be a power of two.
+         *
+         * 初始化容量为16
          */
         private static final int INITIAL_CAPACITY = 16;
 
@@ -351,6 +378,8 @@ public class ThreadLocal<T> {
 
         /**
          * Set the resize threshold to maintain at worst a 2/3 load factor.
+         *
+         * //设置临界值为容量的2/3,扩容条件
          */
         private void setThreshold(int len) {
             threshold = len * 2 / 3;
@@ -374,12 +403,21 @@ public class ThreadLocal<T> {
          * Construct a new map initially containing (firstKey, firstValue).
          * ThreadLocalMaps are constructed lazily, so we only create
          * one when we have at least one entry to put in it.
+         *
+         * //firstKey即当前的ThreadLocal对象
          */
         ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
-            table = new Entry[INITIAL_CAPACITY];
+            /**
+             * 面试常问： 为什么ThreadLocal会导致内存泄漏？
+             * 这里的ThreadLocalMap已经考虑到内存溢出，
+             */
+            table = new Entry[INITIAL_CAPACITY];//初始的Map中的table容量为16
+            //进行与运算类似求模,得到索引下标,与HashMap类似
             int i = firstKey.threadLocalHashCode & (INITIAL_CAPACITY - 1);
+            //添加对应的值
             table[i] = new Entry(firstKey, firstValue);
             size = 1;
+            //设置扩容临界值,初始值为16 * 2 / 3
             setThreshold(INITIAL_CAPACITY);
         }
 
@@ -388,21 +426,28 @@ public class ThreadLocal<T> {
          * from given parent map. Called only by createInheritedMap.
          *
          * @param parentMap the map associated with parent thread.
+         *
+         * 内部类ThreadLocalMap用于存放线程和线程对应的变量
          */
         private ThreadLocalMap(ThreadLocalMap parentMap) {
             Entry[] parentTable = parentMap.table;
             int len = parentTable.length;
             setThreshold(len);
+            //创建与父类相等长度的table长度
             table = new Entry[len];
 
-            for (int j = 0; j < len; j++) {
+            //将父类的ThreadLocalMap中的table的元素赋值给子类的table
+            for (int j = 0; j < len; j++) { //进行遍历
                 Entry e = parentTable[j];
                 if (e != null) {
                     @SuppressWarnings("unchecked")
+                    //获取当前Entry的ThreadLocal
                     ThreadLocal<Object> key = (ThreadLocal<Object>) e.get();
                     if (key != null) {
+                        //通过回调子类的方法获取value
                         Object value = key.childValue(e.value);
                         Entry c = new Entry(key, value);
+                        //计算索引
                         int h = key.threadLocalHashCode & (len - 1);
                         while (table[h] != null)
                             h = nextIndex(h, len);
@@ -424,11 +469,13 @@ public class ThreadLocal<T> {
          * @return the entry associated with key, or null if no such
          */
         private Entry getEntry(ThreadLocal<?> key) {
+            //同HashMap根据(n - 1) & hash 得到对应的下标索引
             int i = key.threadLocalHashCode & (table.length - 1);
             Entry e = table[i];
             if (e != null && e.get() == key)
                 return e;
             else
+                //直接散列到的位置没找到，那么顺着hash表递增（循环）地往下找
                 return getEntryAfterMiss(key, i, e);
         }
 
@@ -450,6 +497,7 @@ public class ThreadLocal<T> {
                 if (k == key)
                     return e;
                 if (k == null)
+                    //删除被jvm回收的对象
                     expungeStaleEntry(i);
                 else
                     i = nextIndex(i, len);
@@ -471,21 +519,29 @@ public class ThreadLocal<T> {
             // it is to replace existing ones, in which case, a fast
             // path would fail more often than not.
 
+            //获取table
             Entry[] tab = table;
+            //table的长度
             int len = tab.length;
+            //计算下标索引
             int i = key.threadLocalHashCode & (len-1);
 
             for (Entry e = tab[i];
+                //不为空的时候,线性探索
                  e != null;
+                //进行遍历
                  e = tab[i = nextIndex(i, len)]) {
+                //获取弱引用的对象ThreadLocal
                 ThreadLocal<?> k = e.get();
 
+                //同一个key
                 if (k == key) {
                     e.value = value;
                     return;
                 }
 
                 if (k == null) {
+                    //key为空需要进行清理,避免内存泄漏
                     replaceStaleEntry(key, value, i);
                     return;
                 }

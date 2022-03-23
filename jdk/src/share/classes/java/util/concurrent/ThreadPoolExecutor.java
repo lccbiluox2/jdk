@@ -725,6 +725,17 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * Handler called when saturated or shutdown in execute.
      *
      * 当队列满了并且worker的数量达到maxSize的时候,执行具体的拒绝策略
+     *
+     * JDK 内置的拒绝策略如下:
+     * 1. AbortPolicy : 直接抛出异常,阻止系统正常运行。
+     * 2. CallerRunsPolicy : 只要线程池未关闭,该策略直接在调用者线程中,运行当前被丢弃的
+     * 任务。显然这样做不会真的丢弃任务,但是,任务提交线程的性能极有可能会急剧下降。
+     * 3. DiscardOldestPolicy : 丢弃最老的一个请求,也就是即将被执行的一个任务,并尝试再
+     * 次提交当前任务。
+     * 4. DiscardPolicy : 该策略默默地丢弃无法处理的任务,不予任何处理。如果允许任务丢
+     * 失,这是最好的一种方案。
+     * 以上内置拒绝策略均实现了 RejectedExecutionHandler 接口,若以上策略仍无法满足实际
+     * 需要,完全可以自己扩展 RejectedExecutionHandler 接口。
      */
     private volatile RejectedExecutionHandler handler;
 

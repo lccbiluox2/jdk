@@ -54,12 +54,14 @@ public final class Integer extends Number implements Comparable<Integer> {
      * A constant holding the minimum value an {@code int} can
      * have, -2<sup>31</sup>.
      */
+    //最小值为:-2^31,一个符号位
     @Native public static final int   MIN_VALUE = 0x80000000;
 
     /**
      * A constant holding the maximum value an {@code int} can
      * have, 2<sup>31</sup>-1.
      */
+    //最大值为:2^31 - 1,一个符号位
     @Native public static final int   MAX_VALUE = 0x7fffffff;
 
     /**

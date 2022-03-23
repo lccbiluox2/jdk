@@ -63,6 +63,10 @@ package java.util;
  * Java Collections Framework</a>.
  *
  * @since 1.4
+ *
+ * RandomAccess 接口中什么都没有定义，
+ * 所以这里主要起到了标识的作用，
+ * 标识实现这个接口的类具有随机访问功能。
  */
 public interface RandomAccess {
 }

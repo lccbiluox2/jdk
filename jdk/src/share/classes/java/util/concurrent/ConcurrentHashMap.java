@@ -1088,11 +1088,12 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         if (key == null || value == null) throw new NullPointerException();
         int hash = spread(key.hashCode());// 得到 hash 值
         int binCount = 0; // 用于记录相应链表的长度【如果是红黑树，默认为2写死】
+        //使用自旋的方式对插入元素进行重试
         for (Node<K,V>[] tab = table;;) {
             Node<K,V> f; int n, i, fh;
             // 如果数组"空"，进行数组初始化
             if (tab == null || (n = tab.length) == 0)
-                tab = initTable(); // 初始化数组
+                tab = initTable(); //如果为null，未被初始化过，则进行初始化操作，默认初始大小为16
             else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {// 用你给的hash去取值，结果发现是空的，那么需要直接把值放到这里
                 // 找该 hash 值对应的数组下标，得到第一个节点 f
 
@@ -1148,6 +1149,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                         // 红黑树
                         else if (f instanceof TreeBin) {
                             Node<K,V> p;
+                            //标识当前是红黑树
                             binCount = 2;
                             // 调用红黑树的插值方法插入新节点
                             if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key,
@@ -1172,6 +1174,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                 }
             }
         }
+        // 统计节点个数，检查是否需要resize
         addCount(1L, binCount);
         return null;
     }
@@ -2266,6 +2269,11 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * A node inserted at head of bins during transfer operations.
      *
      * 临时节点，只有在扩容的时候，查询的时候，会将查询指向新的节点
+     *
+     * ForwardingNode：
+     * 一个用于连接两个table的节点类。它包含一个nextTable指针，用于指向下一张表。
+     * 而且这个节点的key value next指针全部为null，它的hash值为-1。
+     * 这里面定义的find的方法是从nextTable里进行查询节点，而不是以自身为头节点进行查找。
      */
     static final class ForwardingNode<K,V> extends Node<K,V> {
         final Node<K,V>[] nextTable;
@@ -2333,11 +2341,13 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         Node<K,V>[] tab; int sc;
         while ((tab = table) == null || tab.length == 0) {
             // 初始化的"功劳"被其他线程"抢去"了
+            //如果一个线程发现sizeCtl < 0, 意味着另外的线程执行CAS操作成功,当前线程只需要让出cpu时间片
             if ((sc = sizeCtl) < 0)
                 Thread.yield(); // lost initialization race; just spin
                 // CAS 一下，将 sizeCtl 设置为 -1，代表抢到了锁
             else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {
                 try {
+                    //再次判断数组是否为0
                     if ((tab = table) == null || tab.length == 0) {
                         // DEFAULT_CAPACITY 默认初始容量是 16
                         int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
@@ -2946,7 +2956,9 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
          * Creates bin with initial set of nodes headed by b.
          */
         TreeBin(TreeNode<K,V> b) {
+            //定义节点为红黑树的节点时就设置其hash为TREEBIN = -2
             super(TREEBIN, null, null, null);
+            //将当前红黑树的root节点设为treeBin的first节点
             this.first = b;
             TreeNode<K,V> r = null;
             for (TreeNode<K,V> x = b, next; x != null; x = next) {
@@ -2955,6 +2967,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                 if (r == null) {
                     x.parent = null;
                     x.red = false;
+                    //将根节点的元素复制到root节点
                     r = x;
                 }
                 else {

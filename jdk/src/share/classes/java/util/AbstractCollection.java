@@ -62,6 +62,8 @@ public abstract class AbstractCollection<E> implements Collection<E> {
     /**
      * Sole constructor.  (For invocation by subclass constructors, typically
      * implicit.)
+     *
+     * 独立构造函数.（对于子类构造函数的调用，通常隐式的）
      */
     protected AbstractCollection() {
     }
@@ -72,9 +74,12 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * Returns an iterator over the elements contained in this collection.
      *
      * @return an iterator over the elements contained in this collection
+     *
+     * 返回此集合中包含的元素的迭代器。
      */
     public abstract Iterator<E> iterator();
 
+    //获取集合的元素容量
     public abstract int size();
 
     /**
@@ -96,13 +101,20 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * @throws NullPointerException {@inheritDoc}
      */
     public boolean contains(Object o) {
+        //获取当前集合的迭代器
         Iterator<E> it = iterator();
+        //元素为null时
         if (o==null) {
+            //对迭代器进行遍历
             while (it.hasNext())
+                //当迭代器中存在null时返回true
                 if (it.next()==null)
                     return true;
         } else {
-            while (it.hasNext())
+            //元素不为空
+
+            while (it.hasNext()) //遍历迭代器
+                //使用equals进行比较
                 if (o.equals(it.next()))
                     return true;
         }
@@ -133,13 +145,18 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      */
     public Object[] toArray() {
         // Estimate size of array; be prepared to see more or fewer elements
+        //初始化数组
         Object[] r = new Object[size()];
+        //得到迭代器
         Iterator<E> it = iterator();
         for (int i = 0; i < r.length; i++) {
+            //当迭代器没有下一个元素,即遍历完成
             if (! it.hasNext()) // fewer elements than expected
-                return Arrays.copyOf(r, i);
-            r[i] = it.next();
+                return Arrays.copyOf(r, i); //返回数组r[]中的元素
+            r[i] = it.next();//进行赋值
         }
+        //当迭代器的元素比r.length更多时程序会运行到这里
+        //迭代器没有元素返回r,有元素调用finishToArray()方法
         return it.hasNext() ? finishToArray(r, it) : r;
     }
 
@@ -402,16 +419,27 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * @see #contains(Object)
      */
     public boolean retainAll(Collection<?> c) {
+        //判断集合c不为空集合
         Objects.requireNonNull(c);
         boolean modified = false;
         Iterator<E> it = iterator();
+        //遍历迭代器
         while (it.hasNext()) {
+            //如果集合c中不包含当前元素
             if (!c.contains(it.next())) {
+                //将迭代器中的元素进行移除
                 it.remove();
+                //返回true,表示修改过
                 modified = true;
             }
         }
+        //true,修改过; false,没有修改过
         return modified;
+        /**
+         * 集合为包含关系:
+         *
+         * 最后集合c一定包含迭代器中所有元素组成的集合
+         */
     }
 
     /**

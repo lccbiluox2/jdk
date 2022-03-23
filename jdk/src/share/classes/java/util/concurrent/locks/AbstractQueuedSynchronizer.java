@@ -410,16 +410,37 @@ public abstract class AbstractQueuedSynchronizer
         // PROPAGATE，值为-3，表示当前场景下后续的acquireShared能够得以执行
         // 值为0，表示当前节点在sync队列中，等待着获取锁
         /** waitStatus value to indicate thread has cancelled */
+        /**
+         * 值为1，在同步队列中等待的线程等待超时或被中断，
+         * 需要从同步队列中取消该Node的结点，
+         * 其结点的waitStatus为CANCELLED，
+         * 即结束状态，进入该状态后的结点将不会再变化。
+         */
         static final int CANCELLED =  1;
         /** waitStatus value to indicate successor's thread needs unparking
          *  SIGNAL，值为-1，表示当前节点的后继节点包含的线程需要运行，也就是unpark
+
+         * 值为-1，被标识为该等待唤醒状态的后继结点，
+         * 当其前继结点的线程释放了同步锁或被取消，
+         * 将会通知该后继结点的线程执行。
+         * 说白了，就是处于唤醒状态，只要前继结点释放锁，
+         * 就会通知标识为SIGNAL状态的后继结点的线程执行。
          * */
         static final int SIGNAL    = -1;
-        /** waitStatus value to indicate thread is waiting on condition */
+        /** waitStatus value to indicate thread is waiting on condition
+         *
+         * 值为-2，与Condition相关，该标识的结点处于等待队列中，
+         * 结点的线程等待在Condition上，当其他线程调用了Condition的signal()方法后，
+         * CONDITION状态的结点将从等待队列转移到同步队列中，等待获取同步锁。
+         * */
         static final int CONDITION = -2;
         /**
          * waitStatus value to indicate the next acquireShared should
          * unconditionally propagate
+         *
+         * 值为-3，与共享模式相关，
+         * 在共享模式中，
+         * 该状态标识结点的线程处于可运行状态。
          */
         static final int PROPAGATE = -3;
 
@@ -629,6 +650,10 @@ public abstract class AbstractQueuedSynchronizer
      *
      * AQS使用一个int成员变量来表示同步状态，通过内置的FIFO队列来完成获取资源线程的排队工作。
      * AQS使用CAS对该同步状态进行原子操作实现对其值的修改。
+     *
+     * 共享变量state,使用volatile进行修饰。通过state来实现ReentrantLock的重入锁性质
+     * 在AQS中维护了一个private volatile int state来计数重入次数，
+     * 避免了频繁的持有释放操作，这样既提升了效率，又避免了死锁
      */
     private volatile int state;//共享变量，使用volatile修饰保证线程可见性
 
@@ -689,6 +714,17 @@ public abstract class AbstractQueuedSynchronizer
      * 第二次循环时，则会把当前线程的节点添加到队尾。head 节是一个无用节点，这和我们做CLH实现时类似
      *
      * 注意，从尾节点逆向遍历
+     *
+     * 将节点 node 加入队列
+     * 这里有个注意点
+     * 情况:
+     *      1. 首先 queue是空的
+     *      2. 初始化一个 dummy 节点
+     *      3. 这时再在tail后面添加节点(这一步可能失败, 可能发生竞争被其他的线程抢占)
+     *  这里为什么要加入一个 dummy 节点呢?
+     *      这里的 Sync Queue 是CLH lock的一个变种, 线程节点 node 能否获取lock的判断通过其前继节点
+     *      而且这里在当前节点想获取lock时通常给前继节点 打上 signal 的标识(表示当前继节点释放lock需要通知我来获取lock)
+     *      若这里不清楚的同学, 请先看看 CLH lock的资料 (这是理解 AQS 的基础)
      *
      * 首先这里的节点连接操作并不是原子，也就是说在多线程并发的情况下，可能会出现个别节点并没有设置 next 值，就失败了。
      * 但这些节点的 prev 是有值的，所以需要逆向遍历，让 prev 属性重新指向新的尾节点，直至全部自旋入队列。
@@ -845,7 +881,14 @@ public abstract class AbstractQueuedSynchronizer
          * 另外，与unpark继任的其他用途不同，我们需要知道CAS重置状态是否失败，如果失败，
          * 则重新检查。
          */
-        // 无限循环
+        /**
+         * 这里采用了自旋的方式获取锁
+         *
+         * 原理：
+         * 如果持有锁的线程能在很短时间内释放锁资源,那么那些等待竞争锁
+         * 的线程就不需要做内核态和用户态之间的切换进入阻塞挂起状态,它们只需要等一等(自旋),
+         * 等持有锁的线程释放锁后即可立即获取锁,这样就避免用户线程和内核的切换的消耗。
+         */
         for (;;) {
             // 保存头节点
             Node h = head;
@@ -883,6 +926,17 @@ public abstract class AbstractQueuedSynchronizer
      *
      * 设置队列的头，并检查继任者是否可以在共享模式下等待，如果是，如果设置了 propagate > 0
      * 或propagate状态，则传播。
+     *
+     * tryAcquire() ,tryRelease(), tryAcquireShared, tryReleaseShared
+     * 前两者是独占模式, 后两者是共享模式
+     *
+     * 这里实际上都没有具体的方法实现, 而是直接抛出异常, 其实现交给子类进行实现;
+     * 之所以没有将这些方法定义成abstract抽象方法的是因为:
+     *
+     * 如果将这几个方法定义成抽象的, 那么继承该类的子类就必须实现所有方法,
+     * 但是独占模式是没有必要去实现共享模式, 所以这样做是尽量减少不必要的工作量
+     *
+     * 独占方式。尝试获取资源，成功则返回true，失败则返回false。
      *
      * @param node the node
      * @param propagate the return value from a tryAcquireShared
@@ -1562,6 +1616,14 @@ public abstract class AbstractQueuedSynchronizer
      * @param arg the acquire argument.  This value is conveyed to
      *        {@link #tryAcquire} but is otherwise uninterpreted and
      *        can represent anything you like.
+     *
+     * acquire 是用于获取锁的最常用的模式
+     * 步骤
+     *      1. 调用 tryAcquire 尝试性的获取锁(一般都是由子类实现), 成功的话直接返回
+     *      2. tryAcquire 调用获取失败, 将当前的线程封装成 Node 加入到 Sync Queue 里面(调用addWaiter), 等待获取 signal 信号
+     *      3. 调用 acquireQueued 进行自旋的方式获取锁(有可能会 repeatedly blocking and unblocking)
+     *      4. 根据acquireQueued的返回值判断在获取lock的过程中是否被中断, 若被中断, 则自己再中断一下(selfInterrupt)
+     *
      */
     public final void acquire(int arg) {
         // 这里有个反
@@ -1588,9 +1650,12 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final void acquireInterruptibly(int arg)
             throws InterruptedException {
+        // 判断线程是否被终止
         if (Thread.interrupted())
             throw new InterruptedException();
+        // 尝试性的获取锁
         if (!tryAcquire(arg))
+            //获取锁不成功,直接加入到Sync
             doAcquireInterruptibly(arg);
     }
 
@@ -1637,12 +1702,13 @@ public abstract class AbstractQueuedSynchronizer
      * 独占锁的释放
      */
     public final boolean release(int arg) {
-        // 释放成功
+        // 调用子类, 若完全释放好, 则返回true(这里有lock重复获取)
         if (tryRelease(arg)) {
-            Node h = head;// 保存头节点
+            Node h = head;//找到头结点
             // 头节点不为空并且头节点状态不为0
+            // h.waitStatus !=0 其实就是 h.waitStatus < 0 后继节点需要唤醒
             if (h != null && h.waitStatus != 0)
-                unparkSuccessor(h); //释放头节点的后继结点
+                unparkSuccessor(h); // 唤醒后继节点
             return true;
         }
         return false;

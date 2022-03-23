@@ -92,9 +92,11 @@ public class HashSet<E>
 {
     static final long serialVersionUID = -5024744406713321676L;
 
+    //底层使用HashMap
     private transient HashMap<E,Object> map;
 
     // Dummy value to associate with an Object in the backing Map
+    //定一个虚拟的value值
     private static final Object PRESENT = new Object();
 
     /**
@@ -115,6 +117,7 @@ public class HashSet<E>
      * @throws NullPointerException if the specified collection is null
      */
     public HashSet(Collection<? extends E> c) {
+        //当c的容量的0.75倍+1没有达到16,则初始化容量为16
         map = new HashMap<>(Math.max((int) (c.size()/.75f) + 1, 16));
         addAll(c);
     }
@@ -156,6 +159,9 @@ public class HashSet<E>
      *             constructor from other int, float constructor.)
      * @throws     IllegalArgumentException if the initial capacity is less
      *             than zero, or if the load factor is nonpositive
+     *
+     * 这个构造方法是提供给LinkedHashSet使用的，通过构造方法判断是否使用LinkedHashMap来实现，
+     * 即参数如果是包含dummy则使用的是LinkedHashMap
      */
     HashSet(int initialCapacity, float loadFactor, boolean dummy) {
         map = new LinkedHashMap<>(initialCapacity, loadFactor);

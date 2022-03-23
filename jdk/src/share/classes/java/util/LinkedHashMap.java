@@ -159,6 +159,8 @@ import java.io.IOException;
  * @see     TreeMap
  * @see     Hashtable
  * @since   1.4
+ *
+ * //继承HashMap
  */
 public class LinkedHashMap<K,V>
     extends HashMap<K,V>
@@ -188,6 +190,8 @@ public class LinkedHashMap<K,V>
 
     /**
      * HashMap.Node subclass for normal LinkedHashMap entries.
+     *
+     * LinkedHashMap底层是双向链表
      */
     static class Entry<K,V> extends HashMap.Node<K,V> {
         Entry<K,V> before, after;
@@ -213,12 +217,14 @@ public class LinkedHashMap<K,V>
      * for access-order, <tt>false</tt> for insertion-order.
      *
      * @serial
+     *
+     * //迭代的时候所用到的顺序,如果为false,则按照插入的顺序
      */
     final boolean accessOrder;
 
     // internal utilities
 
-    // link at the end of list
+    // link at the end of list  将src节点替换成dst节点
     private void linkNodeLast(LinkedHashMap.Entry<K,V> p) {
         LinkedHashMap.Entry<K,V> last = tail;
         tail = p;
@@ -243,6 +249,7 @@ public class LinkedHashMap<K,V>
             tail = dst;
         else
             a.before = dst;
+        //替换完成后,src节点就不再被引用,下次GC进行回收
     }
 
     // overrides of HashMap hook methods
@@ -280,20 +287,29 @@ public class LinkedHashMap<K,V>
         return t;
     }
 
+    //在删除节点e时,同步将e从双向链表上删除
     void afterNodeRemoval(Node<K,V> e) { // unlink
         LinkedHashMap.Entry<K,V> p =
             (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
+        //待删除节点 p 的前置后置节点都置空
         p.before = p.after = null;
+        //如果前置节点是null,则现在的头结点应该是后置节点a
         if (b == null)
+            //否则将前置节点b的后置节点指向a
             head = a;
         else
             b.after = a;
+        //同理如果后置节点时null,则尾节点应是b
         if (a == null)
             tail = b;
         else
+            //否则更新后置节点a的前置节点为b
             a.before = b;
     }
 
+    /**
+     * evict为true时删除双向链表的头节点
+     */
     void afterNodeInsertion(boolean evict) { // possibly remove eldest
         LinkedHashMap.Entry<K,V> first;
         if (evict && (first = head) != null && removeEldestEntry(first)) {
@@ -302,8 +318,14 @@ public class LinkedHashMap<K,V>
         }
     }
 
+    /**
+     * 将当前节点e移动到双向链表的尾部.
+     * 每次LinkedHahMap中元素被访问时,就会按照访问先后来排序,先访问的双向链表中靠前,越后访问的越接近尾部
+     * 注意: 只有当accessOrder为true时,才会执行这个操作
+     */
     void afterNodeAccess(Node<K,V> e) { // move node to last
         LinkedHashMap.Entry<K,V> last;
+        //如果accessOrder 是true ，且原尾节点不等于e
         if (accessOrder && (last = tail) != e) {
             LinkedHashMap.Entry<K,V> p =
                 (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
@@ -343,6 +365,7 @@ public class LinkedHashMap<K,V>
      * @throws IllegalArgumentException if the initial capacity is negative
      *         or the load factor is nonpositive
      */
+    //设置初始容量和加载因子的构造器
     public LinkedHashMap(int initialCapacity, float loadFactor) {
         super(initialCapacity, loadFactor);
         accessOrder = false;
@@ -355,6 +378,7 @@ public class LinkedHashMap<K,V>
      * @param  initialCapacity the initial capacity
      * @throws IllegalArgumentException if the initial capacity is negative
      */
+    //只设置初始容量的构造器
     public LinkedHashMap(int initialCapacity) {
         super(initialCapacity);
         accessOrder = false;
@@ -364,6 +388,7 @@ public class LinkedHashMap<K,V>
      * Constructs an empty insertion-ordered <tt>LinkedHashMap</tt> instance
      * with the default initial capacity (16) and load factor (0.75).
      */
+    //默认的空参构造器,使用HashMap中默认容量为16,负载因子为0.75
     public LinkedHashMap() {
         super();
         accessOrder = false;
@@ -378,6 +403,7 @@ public class LinkedHashMap<K,V>
      * @param  m the map whose mappings are to be placed in this map
      * @throws NullPointerException if the specified map is null
      */
+    //使用现有的map来构造LinkedHaspMap
     public LinkedHashMap(Map<? extends K, ? extends V> m) {
         super();
         accessOrder = false;
@@ -394,6 +420,10 @@ public class LinkedHashMap<K,V>
      *         access-order, <tt>false</tt> for insertion-order
      * @throws IllegalArgumentException if the initial capacity is negative
      *         or the load factor is nonpositive
+     *
+     * 设定迭代顺序的构造器
+     * 1.accessOrder若为false,遍历双向链表时,是按照插入顺序排序的
+     * 2.accessOrder若为true,表示双向链表中的元素按照访问的先后顺序排序,最先遍历(链表头)的是最近最少使用的元素
      */
     public LinkedHashMap(int initialCapacity,
                          float loadFactor,

@@ -102,19 +102,21 @@ import java.util.function.UnaryOperator;
  * @see     Vector
  * @since   1.2
  */
-
+//RandomAccess 接口中什么都没有定义， 所以这里主要起到了标识的作用， 标识实现这个接口的类具有随机访问功能。
+//实现了Cloneable 接口，即覆盖了函数 clone()，能被克隆
 public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 {
     private static final long serialVersionUID = 8683452581122892189L;
 
     /**
-     * Default initial capacity.
+     * Default initial capacity. 默认初始化容量为10
      */
     private static final int DEFAULT_CAPACITY = 10;
 
     /**
      * Shared empty array instance used for empty instances.
+     * 在无参构造中引用空数组的结构,进行创建
      */
     private static final Object[] EMPTY_ELEMENTDATA = {};
 
@@ -122,6 +124,9 @@ public class ArrayList<E> extends AbstractList<E>
      * Shared empty array instance used for default sized empty instances. We
      * distinguish this from EMPTY_ELEMENTDATA to know how much to inflate when
      * first element is added.
+     *
+     * 用于缺省大小的空实例的共享空数组实例。我们
+     * 将此与EMPTY_ELEMENTDATA区分开来，以了解在添加第一个元素时要膨胀多少。
      */
     private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 
@@ -219,19 +224,30 @@ public class ArrayList<E> extends AbstractList<E>
         }
     }
 
+    /**
+     * 得到最小扩容量
+     * @param minCapacity
+     */
     private void ensureCapacityInternal(int minCapacity) {
         if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
+            //获取默认的容量和传入参数的较大值,即添加第一个元素时数组的容量默认设为10
             minCapacity = Math.max(DEFAULT_CAPACITY, minCapacity);
         }
 
         ensureExplicitCapacity(minCapacity);
     }
 
+    /**
+     * 判断是否需要扩容
+     * @param minCapacity
+     */
     private void ensureExplicitCapacity(int minCapacity) {
         modCount++;
 
         // overflow-conscious code
+        //当最小所需空间大于数组长度时进行扩容
         if (minCapacity - elementData.length > 0)
+            //调用grow方法进行扩容，调用此方法代表已经开始扩容
             grow(minCapacity);
     }
 
@@ -247,25 +263,40 @@ public class ArrayList<E> extends AbstractList<E>
      * Increases the capacity to ensure that it can hold at least the
      * number of elements specified by the minimum capacity argument.
      *
+     * ArrayList扩容的核心方法。
+     *
      * @param minCapacity the desired minimum capacity
      */
     private void grow(int minCapacity) {
         // overflow-conscious code
         int oldCapacity = elementData.length;
+        //即: oldCapacity + oldCapacity/2；对容量进行1.5倍的扩容
         int newCapacity = oldCapacity + (oldCapacity >> 1);
+        //然后检查新容量是否大于最小需要容量，若还是小于最小需要容量，那么就把最小需要容量当作数组的新容量
         if (newCapacity - minCapacity < 0)
             newCapacity = minCapacity;
+        //当容量超出设定的最大容量时
         if (newCapacity - MAX_ARRAY_SIZE > 0)
+            //进入hugeCapacity方法,对MAX_ARRAY_SIZE 和 minCapacity进行比较
             newCapacity = hugeCapacity(minCapacity);
         // minCapacity is usually close to size, so this is a win:
+        //使用Arrays.copyOf()方法创建一个newCapacity容量的数组并将旧的elementData复制到这个数组，
+        // 最后再使用elementData再次引用这个新的数组
         elementData = Arrays.copyOf(elementData, newCapacity);
     }
 
+    /**
+     * 所需要的minCapacity和MAX_ARRAY_SIZE进行比较
+     * @param minCapacity
+     * @return
+     */
     private static int hugeCapacity(int minCapacity) {
         if (minCapacity < 0) // overflow
             throw new OutOfMemoryError();
         return (minCapacity > MAX_ARRAY_SIZE) ?
+                //若超出设定的最大容量则返回整数的最大值
             Integer.MAX_VALUE :
+                //若未超出则返回设定的最大容量
             MAX_ARRAY_SIZE;
     }
 
@@ -371,8 +402,12 @@ public class ArrayList<E> extends AbstractList<E>
      *
      * @return an array containing all of the elements in this list in
      *         proper sequence
+     *
+     * @return 以正确的顺序返回一个包含此列表中所有元素的数组（从第一个到最后一个元素）;
+     * 返回的数组的运行时类型是指定数组的运行时类型。
      */
     public Object[] toArray() {
+        //elementData：要复制的数组；size：要复制的长度
         return Arrays.copyOf(elementData, size);
     }
 
@@ -455,7 +490,9 @@ public class ArrayList<E> extends AbstractList<E>
      * @return <tt>true</tt> (as specified by {@link Collection#add})
      */
     public boolean add(E e) {
+        //添加元素之前，先调用ensureCapacityInternal方法
         ensureCapacityInternal(size + 1);  // Increments modCount!!
+        //默认添加元素的位置在数组的末尾处
         elementData[size++] = e;
         return true;
     }
@@ -470,9 +507,19 @@ public class ArrayList<E> extends AbstractList<E>
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
     public void add(int index, E element) {
+        //检查索引的合法性
         rangeCheckForAdd(index);
 
+        //判断是否需要进行扩容
         ensureCapacityInternal(size + 1);  // Increments modCount!!
+        /**
+         * arraycopy()方法实现数组自己复制自己
+         * elementData:源数组;
+         * index:源数组中的起始位置;
+         * elementData：目标数组；
+         * index + 1：目标数组中的起始位置；
+         * size - index：要复制的数组元素的数量；
+         */
         System.arraycopy(elementData, index, elementData, index + 1,
                          size - index);
         elementData[index] = element;
@@ -487,6 +534,8 @@ public class ArrayList<E> extends AbstractList<E>
      * @param index the index of the element to be removed
      * @return the element that was removed from the list
      * @throws IndexOutOfBoundsException {@inheritDoc}
+     *
+     * 移除指定索引上的元素
      */
     public E remove(int index) {
         rangeCheck(index);
@@ -655,6 +704,8 @@ public class ArrayList<E> extends AbstractList<E>
 
     /**
      * A version of rangeCheck used by add and addAll.
+     *
+     * 检查索引是否为合法索引
      */
     private void rangeCheckForAdd(int index) {
         if (index > size || index < 0)

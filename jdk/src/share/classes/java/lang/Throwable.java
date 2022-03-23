@@ -110,6 +110,11 @@ import  java.util.*;
  *          stack trace in 1.4.)
  * @jls 11.2 Compile-Time Checking of Exceptions
  * @since JDK1.0
+ *
+ * public string getMessage():返回异常发生时的详细信息
+ * public string toString():返回异常发生时的简要描述
+ * public string getLocalizedMessage():返回异常对象的本地化信息。使用Throwable的子类覆盖这个方法，可以声称本地化信息。如果子类没有覆盖该方法，则该方法返回的信息与getMessage（）返回的结果相同
+ * public void printStackTrace():在控制台上打印Throwable对象封装的异常信息
  */
 public class Throwable implements Serializable {
     /** use serialVersionUID from JDK 1.0.2 for interoperability */

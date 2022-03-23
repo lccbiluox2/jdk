@@ -156,7 +156,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
                 // 上面是增加这里为什么会小于0呢？ 因为你这个线程在增加，其他线程可能在减少呀
                 if (nextc < 0) // overflow
                     throw new Error("Maximum lock count exceeded");
-                // 设置状态
+                // 设置状态,这里因为是已经获取 lock 所以不考虑并发
                 setState(nextc);
                 // 成功
                 return true;

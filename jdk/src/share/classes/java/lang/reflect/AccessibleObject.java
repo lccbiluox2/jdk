@@ -61,6 +61,7 @@ public class AccessibleObject implements AnnotatedElement {
      * has sufficient privilege to defeat Java language access
      * control checks.
      */
+    //定义反射的默认操作权限：suppressAccessChecks
     static final private java.security.Permission ACCESS_PERMISSION =
         new ReflectPermission("suppressAccessChecks");
 
@@ -149,6 +150,7 @@ public class AccessibleObject implements AnnotatedElement {
      *
      * @return the value of the object's {@code accessible} flag
      */
+    //是否可以快速获取，默认是不能 //返回重新写入的值
     public boolean isAccessible() {
         return override;
     }

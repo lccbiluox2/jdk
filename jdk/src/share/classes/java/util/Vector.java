@@ -79,6 +79,9 @@ import java.util.function.UnaryOperator;
  * @see Collection
  * @see LinkedList
  * @since   JDK1.0
+ *
+ * Vector 出构造发方法以外的所有方法都是synchronized同步的
+ * 区别于： ArrayList不是同步的，所以在不需要保证线程安全时时建议使用ArrayList。
  */
 public class Vector<E>
     extends AbstractList<E>
