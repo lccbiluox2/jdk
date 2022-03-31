@@ -254,6 +254,7 @@ public class CyclicBarrier {
             final Generation g = generation;
 
             // 如果 栅栏坏了 抛出 BrokenBarrierException
+            // 线程一进来，如果这一代Generation已经broken，此时抛出BrokenBarrierException
             if (g.broken)
                 throw new BrokenBarrierException();
 
@@ -447,6 +448,11 @@ public class CyclicBarrier {
      *   当抛出 BrokenBarrierException 这个异常的时候，就表示这个栅栏已经损坏了。有可能永远
      *   都达不到打开栅栏的要求了。 所以当抛出这个异常的时候所有等待的线程都不会在等待了。因为
      *   达不到等待的要求了。这点要特别的注意。
+     *
+     *         TODO 【QUESTION24】这里列出了说明情况下会抛出BrokenBarrierException。假如有n个线程正在await，此时有以下几种情况：
+     *                           1，await的其中一个线程timeout，此时其他线程会抛出BrokenBarrierException吗？
+     *                           2，await的其中一个线程被interrupt，此时其他线程会抛出BrokenBarrierException吗？
+     *                           3，如果调用了reset，此时其他线程会抛出BrokenBarrierException吗？
      *
      */
     public int await() throws InterruptedException, BrokenBarrierException {

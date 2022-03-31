@@ -48,6 +48,9 @@ package java.lang.ref;
  *
  * @author   Mark Reinhold
  * @since    1.2
+ *
+ *
+ * 参考：https://blog.csdn.net/giemilh/article/details/96574785
  */
 
 public class PhantomReference<T> extends Reference<T> {

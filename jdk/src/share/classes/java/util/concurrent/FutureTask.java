@@ -226,15 +226,19 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     @SuppressWarnings("unchecked")
     private V report(int s) throws ExecutionException {
+        // 将异步任务执行结果赋值给x，此时FutureTask的成员变量outcome要么保存着
+        // 异步任务正常执行的结果，要么保存着异步任务执行过程中抛出的异常
         Object x = outcome;
-        // 如果状态值为NORMAL(2)正常执行完毕，则直接基于outcome强转为目标类型实例
+        // 【1】若异步任务正常执行结束，此时返回异步任务执行结果即可
         if (s == NORMAL)
             return (V)x;
         // 如果状态值大于等于CANCELLED(4)，则抛出CancellationException异常
+        // 【2】若异步任务执行过程中，其他线程执行过cancel方法，此时抛出CancellationException异常
         if (s >= CANCELLED)
             throw new CancellationException();
         // 其他情况，实际上只剩下状态值为EXCEPTIONAL(3)，则基于outcome强转为Throwable类型，则包装
         // 成ExecutionException抛出
+        // 【3】若异步任务执行过程中，抛出异常，此时将该异常转换成ExecutionException后，重新抛出。
         throw new ExecutionException((Throwable)x);
     }
 
@@ -305,6 +309,13 @@ public class FutureTask<V> implements RunnableFuture<V> {
         // 如果mayInterruptIfRunning为false，则把状态通过CAS更新为CANCELLED(4)
         // 如果状态不为NEW(0)或者CAS更新失败，直接返回false，说明任务已经执行到set()或
         // setException()，无法取消
+
+        // 【1】判断当前任务状态，若state == NEW时根据mayInterruptIfRunning参数值给当前任务状态赋值为INTERRUPTING或CANCELLED
+        // a）当任务状态不为NEW时，说明异步任务已经完成，或抛出异常，或已经被取消，此时直接返回false。
+        // TODO 【问题】此时若state = COMPLETING呢？此时为何也直接返回false，而不能发出中断异步任务线程的中断信号呢？？
+        // TODO 仅仅因为COMPLETING是一个瞬时态吗？？？
+        // b）当前仅当任务状态为NEW时，此时若mayInterruptIfRunning为true，此时任务状态赋值为INTERRUPTING；否则赋值为CANCELLED。
+
         if (!(state == NEW &&
               UNSAFE.compareAndSwapInt(this, stateOffset, NEW,
                   mayInterruptIfRunning ? INTERRUPTING : CANCELLED)))
@@ -315,18 +326,22 @@ public class FutureTask<V> implements RunnableFuture<V> {
         try {    // in case call to interrupt throws exception
             // mayInterruptIfRunning为true，调用执行任务的线程实例的Thread#interrupt()进行中断，
             // 更新最终状态为INTERRUPTED(6)
+            // 【2】如果mayInterruptIfRunning为true，此时中断执行异步任务的线程runner（还记得执行异步任务时就把执行异步任务的线程就赋值给了runner成员变量吗）
+
             if (mayInterruptIfRunning) {
                 try {
                     Thread t = runner;
                     if (t != null)
-                        // 进行中断，这里说一下，你调用了中断，但是线程不一定响应你的中断
+                        // 中断执行异步任务的线程runner，进行中断，这里说一下，你调用了中断，但是线程不一定响应你的中断
                         t.interrupt();
                 } finally { // final state
+                    // 最后任务状态赋值为INTERRUPTED
                     UNSAFE.putOrderedInt(this, stateOffset, INTERRUPTED);
                 }
             }
         } finally {
             // 完成后的通知方法
+            // 【3】不管mayInterruptIfRunning为true还是false，此时都要调用finishCompletion方法唤醒阻塞的获取异步任务结果的线程并移除线程等待链表节点
             finishCompletion();
         }
         return true;
@@ -343,10 +358,12 @@ public class FutureTask<V> implements RunnableFuture<V> {
     public V get() throws InterruptedException, ExecutionException {
         int s = state;
         // 如果状态小于等于COMPLETING(1)，也就是COMPLETING(1)和NEW(0)，那么就需要等待任务完成
+        // 【1】若任务状态<=COMPLETING，说明任务正在执行过程中，此时可能正常结束，也可能遇到异常
         if (s <= COMPLETING)
             // 注意这里调用awaitDone方法的参数为永久阻塞参数，也就是没有超时期限，返回最新的状态值
             s = awaitDone(false, 0L);
         // 根据状态值报告结果
+        // 【2】最后根据任务状态来返回任务执行结果，此时有三种情况：1）任务正常执行；2）任务执行异常；3）任务被取消
         return report(s);
     }
 
@@ -401,12 +418,17 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     protected void set(V v) {
         // CAS更新状态state，由NEW(0)更新为COMPLETING(1)
+        // 【1】调用UNSAFE的CAS方法判断任务当前状态是否为NEW，若为NEW，则设置任务状态为COMPLETING
+        // 【思考】此时任务不能被多线程并发执行，什么情况下会导致任务状态不为NEW？
+        // 答案是只有在调用了cancel方法的时候，此时任务状态不为NEW，此时什么都不需要做，
+        // 因此需要调用CAS方法来做判断任务状态是否为NEW
         if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
-            // 最终执行结果值更新到outcome中
+            // 最终执行结果值更新到outcome中 【2】将任务执行结果赋值给成员变量outcome
             outcome = v;
             // 设置最终状态state = NORMAL(2)，意味着任务最终正常执行完毕
             UNSAFE.putOrderedInt(this, stateOffset, NORMAL); // final state
             // 完成后的通知方法
+            // 【4】调用任务执行完成方法，此时会唤醒阻塞的线程，调用done()方法和清空等待线程链表等
             finishCompletion(); //执行完毕，唤醒等待线程
         }
     }
@@ -423,12 +445,17 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     protected void setException(Throwable t) {
         // CAS更新状态state，由NEW(0)更新为COMPLETING(1)
+        // 【1】调用UNSAFE的CAS方法判断任务当前状态是否为NEW，若为NEW，则设置任务状态为COMPLETING
+        // 【思考】此时任务不能被多线程并发执行，什么情况下会导致任务状态不为NEW？
+        // 答案是只有在调用了cancel方法的时候，此时任务状态不为NEW，此时什么都不需要做，
+        // 因此需要调用CAS方法来做判断任务状态是否为NEW
         if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
             // 设置异常实例到outcome属性中
             outcome = t;
             // 设置最终状态state = EXCEPTIONAL(3)，意味着任务最终异常执行完毕
             UNSAFE.putOrderedInt(this, stateOffset, EXCEPTIONAL); // final state
             // 完成后的通知方法
+            // 【4】调用任务执行完成方法，此时会唤醒阻塞的线程，调用done()方法和清空等待线程链表等
             finishCompletion();
         }
     }
@@ -437,17 +464,26 @@ public class FutureTask<V> implements RunnableFuture<V> {
         //新建任务，CAS替换runner为当前线程
         // 如果状态不为NEW(0)或者CAS(null,当前线程实例)更新runner-真正的执行
         // Callable对象的线程实例失败，那么直接返回，不执行任务
+
+        // 【1】,为了防止多线程并发执行异步任务，这里需要判断线程满不满足执行异步任务的条件，有以下三种情况：
+        // 1）若任务状态state为NEW且runner为null，说明还未有线程执行过异步任务，此时满足执行异步任务的条件，
+        // 此时同时调用CAS方法为成员变量runner设置当前线程的值；
+        // 2）若任务状态state为NEW且runner不为null，任务状态虽为NEW但runner不为null，说明有线程正在执行异步任务，
+        // 此时不满足执行异步任务的条件，直接返回；
+        // 1）若任务状态state不为NEW，此时不管runner是否为null，说明已经有线程执行过异步任务，此时没必要再重新
+        // 执行一次异步任务，此时不满足执行异步任务的条件；
         if (state != NEW ||
             !UNSAFE.compareAndSwapObject(this, runnerOffset,
                                          null, Thread.currentThread()))
             return;
         try {
             // 将用户的线程赋值给局部变量
+            // 拿到之前构造函数传进来的callable实现类对象，其call方法封装了异步任务执行的逻辑
             Callable<V> c = callable;
-            // 判断任务不能为空，二次校验状态必须为NEW(0)
+            // 判断任务不能为空，二次校验状态必须为NEW(0)    // 若任务还是新建状态的话，那么就调用异步任务
             if (c != null && state == NEW) {
-                V result;
-                boolean ran;
+                V result; // 异步任务执行结果
+                boolean ran;   // 异步任务执行成功还是始遍标志
                 try {
                     // 执行用户的call方法，这个方法会有返回值是用户的返回值
                     // 调用任务实例Callable#call()方法，正常情况下的执行完毕，没有抛出异常，则记录执行结果
@@ -471,14 +507,19 @@ public class FutureTask<V> implements RunnableFuture<V> {
             // runner must be non-null until state is settled to
             // prevent concurrent calls to run()
             // runner更新为null，防止并发执行run()方法
+            // 异步任务正在执行过程中，runner一直是非空的，防止并发调用run方法，前面有调用cas方法做判断的
+            // 在异步任务执行完后，不管是正常结束还是异常结束，此时设置runner为null
             runner = null;
             // state must be re-read after nulling runner to prevent
             // leaked interrupts
             // 记录新的状态值，因为run()方法执行的时候，状态值有可能被其他方法更新了
+            // 线程执行异步任务后的任务状态
             int s = state;
             // 如果状态大于中断状态
             if (s >= INTERRUPTING)
                 // 处理run()方法执行期间调用了cancel(true)方法的情况
+                // 【4】如果执行了cancel(true)方法，此时满足条件，
+                // 此时调用handlePossibleCancellationInterrupt方法处理中断
                 handlePossibleCancellationInterrupt(s); //处理中断逻辑
         }
     }
@@ -601,22 +642,33 @@ public class FutureTask<V> implements RunnableFuture<V> {
     private void finishCompletion() {
         // assert state > COMPLETING;
         // 遍历栈，终止条件是下一个元素为null
+        // 取出等待线程链表头节点，判断头节点是否为null
+        // 1）若线程链表头节点不为空，此时以“后进先出”的顺序（栈）移除等待的线程WaitNode节点
+        // 2）若线程链表头节点为空，说明还没有线程调用Future.get()方法来获取任务执行结果，固然不用移除
+
         for (WaitNode q; (q = waiters) != null;) {
-            //移除等待线程
+            //移除等待线程   // 调用UNSAFE的CAS方法将成员变量waiters设置为空
             if (UNSAFE.compareAndSwapObject(this, waitersOffset, q, null)) {
                 // 遍历栈中的所有节点，唤醒节点中的线程，这是一个十分常规的遍历单链表的方法，注意几点：
                 // 1. 使用LockSupport.unpark()唤醒线程，因为后面会分析，线程阻塞等待的时候使用的是LockSupport.park()方法
                 // 2. 断开链表节点的时候后继节点需要置为null，这样游离节点才能更容易被JVM回收
                 for (;;) {//自旋遍历等待线程
+                    // 取出WaitNode节点的线程
                     Thread t = q.thread;
+                    // 若取出的线程不为null，则将该WaitNode节点线程置空，且唤醒正在阻塞的该线程
                     if (t != null) {
                         q.thread = null;
+                        //【重要】唤醒正在阻塞的该线程
                         LockSupport.unpark(t);//唤醒等待线程
                     }
+                    // 继续取得下一个WaitNode线程节点
                     WaitNode next = q.next;
+                    // 若没有下一个WaitNode线程节点，说明已经将所有等待的线程唤醒，此时跳出for循环
                     if (next == null)
                         break;
+                    // 将已经移除的线程WaitNode节点的next指针置空，此时好被垃圾回收
                     q.next = null; // unlink to help gc
+                    // 再把下一个WaitNode线程节点置为当前线程WaitNode头节点
                     q = next;
                 }
                 break;
@@ -624,9 +676,11 @@ public class FutureTask<V> implements RunnableFuture<V> {
         }
 
         //任务完成后调用函数，自定义扩展
+        // 不管任务正常执行还是抛出异常，都会调用done方法
         done();
 
         // 置任务实例callable为null，从而减少JVM memory footprint（这个东西有兴趣可以自行扩展阅读）
+        // 因为异步任务已经执行完且结果已经保存到outcome中，因此此时可以将callable对象置空了
         callable = null;        // to reduce footprint
     }
 
@@ -641,10 +695,13 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     private int awaitDone(boolean timed, long nanos)
         throws InterruptedException {
+        // 计算超时结束时间
         final long deadline = timed ? System.nanoTime() + nanos : 0L;
+        // 线程链表头节点
         WaitNode q = null;
-        boolean queued = false;
+        boolean queued = false;// 是否入队
         for (;;) { //自旋
+            // 如果当前获取任务执行结果的线程被中断，此时移除该线程WaitNode链表节点，并抛出InterruptedException
             if (Thread.interrupted()) { //获取并清除中断状态
                 removeWaiter(q); //移除等待WaitNode
                 throw new InterruptedException();
@@ -653,24 +710,38 @@ public class FutureTask<V> implements RunnableFuture<V> {
             int s = state;
             // 如果状态值已经大于COMPLETING(1)，说明任务已经执行完毕，可以直接返回，如果
             // 等待节点已经初始化，则置空其线程实例引用，便于GC回收
+            // 【5】如果任务状态>COMPLETING，此时返回任务执行结果，其中此时任务可能正常结束（NORMAL）,可能抛出异常（EXCEPTIONAL）
+            // 或任务被取消（CANCELLED，INTERRUPTING或INTERRUPTED状态的一种）
             if (s > COMPLETING) {
+                // 【问】此时将当前WaitNode节点的线程置空，其中在任务结束时也会调用finishCompletion将WaitNode节点的thread置空，
+                // 这里为什么又要再调用一次q.thread = null;呢？
+                // 【答】因为若很多线程来获取任务执行结果，在任务执行完的那一刻，此时获取任务的线程要么已经在线程等待链表中，要么
+                // 此时还是一个孤立的WaitNode节点。在线程等待链表中的的所有WaitNode节点将由finishCompletion来移除（同时唤醒）所有
+                // 等待的WaitNode节点，以便垃圾回收；而孤立的线程WaitNode节点此时还未阻塞，因此不需要被唤醒，此时只要把其属性置为
+                // null，然后其有没有被谁引用，因此可以被GC。
                 if (q != null)
                     q.thread = null; //置空等待节点的线程
+                // 【重要】返回任务执行结果
                 return s;
             }
+            // 【4】若任务状态为COMPLETING，此时说明任务正在执行过程中，此时获取任务结果的线程需让出CPU执行时间片段
             else if (s == COMPLETING) // cannot time out yet
                 // 状态值等于COMPLETING(1)，说明任务执行到达尾声，在执行set()或者setException()，
                 // 只需让出CPU控制权等待完成即可等待下一轮循环重试即可
                 Thread.yield();
+                // 【1】若当前线程还没有进入线程等待链表的WaitNode节点，此时新建一个WaitNode节点，并把当前线程赋值给WaitNode节点的thread属性
             else if (q == null)
                 // 等待节点尚未初始化，如果设置了超时期限并且超时时间小于等于0，则直接返回状态
                 // 并且终止等待，说明已经超时了
                 // 这里的逻辑属于先行校验，如果命中了就不用进行超时阻塞
                 q = new WaitNode();  // 初始化等待节点
+                // 【2】若当前线程等待节点还未入线程等待队列，此时加入到该线程等待队列的头部
             else if (!queued)
                 //CAS修改waiter
                 queued = UNSAFE.compareAndSwapObject(this, waitersOffset,
                                                      q.next = waiters, q);
+                // 若有超时设置，那么处理超时获取任务结果的逻辑
+
             else if (timed) {
                 nanos = deadline - System.nanoTime();
                 if (nanos <= 0L) {
@@ -681,6 +752,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
                 // [核心] todo:如果状态为NEW(0)，则进行超时阻塞，阻塞的是当前的线程
                 LockSupport.parkNanos(this, nanos);
             }
+            // 【3】若没有超时设置，此时直接阻塞当前线程
             else
                 // [核心] todo:这种就是最后一个if分支，就是不命中任何条件的永久阻塞，阻塞的是当前的线程
                 LockSupport.park(this);
@@ -745,8 +817,11 @@ public class FutureTask<V> implements RunnableFuture<V> {
 
     // Unsafe mechanics
     private static final sun.misc.Unsafe UNSAFE;
+    // 对应成员变量state的偏移地址
     private static final long stateOffset;
+    // 对应成员变量runner的偏移地址
     private static final long runnerOffset;
+    // 对应成员变量waiters的偏移地址
     private static final long waitersOffset;
     static {
         try {

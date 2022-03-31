@@ -1268,6 +1268,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
             // Check if queue empty only if necessary.
             // rs >= SHUTDOWN 那么状态是除了running状态的其他状态
+            // TODO 1，当rs==SHUTDOWN且队列非空时，此时不会返回false，会继续执行下面的逻辑看是否需要新建新的线程
+            //      2，当rs > SHUTDOWN,此时直接返回false，拒绝新建新的线程
             if (rs >= SHUTDOWN
                && ! (rs == SHUTDOWN && firstTask == null && ! workQueue.isEmpty())
                     // （rs == SHUTDOWN && 传入的任务是空  && 线程池不为空）返回fasle的时候 取反才是true
@@ -1287,6 +1289,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                  * core 是否是核心线程
                  * core ? corePoolSize : maximumPoolSize 如果你传入true那么判断的是核心线程
                  * wc >= (core ? corePoolSize : maximumPoolSize) 工作线程是否大于核心线程或者最大线程
+                 *
+                 * 如果线程数量大于最大容量或大于指定的容量（core为true则为corePoolSize，core为false则为maximumPoolSize），则拒绝新建新的线程
                  */
                 if (wc >= CAPACITY ||
                     wc >= (core ? corePoolSize : maximumPoolSize))
@@ -1307,6 +1311,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             }
         }
         // 【上述执行完毕，成功的将线程数ctl增加1，就这么点事】
+        // 能执行到这里的代码，说明要新建一个新的Worker线程
 
         // 是否worker开始
         boolean workerStarted = false;
@@ -1315,14 +1320,20 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         Worker w = null; // 这个就是工作线程
         try {
             // Worker 是你的工作线程，现在这个工作线程放入了你的任务 firstTask
+            // new Woker(firstTask)做了3件事情：
+            //                               1，将Worker父类AQS的state置为-1，目的是to suppress interrupts until the thread actually starts running tasks；
+            //                               2，将要执行的任务firstTask赋值给Worker的Runnable成员变量firstTask保存起来;
+            //                               3，利用线程工厂新建一个线程，并将这个线程赋值给Worker的Thread成员变量thread保存起来。
+
             w = new Worker(firstTask);
-            // 从worker中获取线程
+            // 从worker中获取线程 // 拿到刚才线程工厂创建的线程
             final Thread t = w.thread;
             // 这里一般都不会为空
             if (t != null) {
                 // 线程池重入锁，这里为什么要加锁呢？获取线程池的锁，避免我在添加任务的时候,其他线程
                 // 干掉了线程池，因为干掉线程池需要获取这个锁，你获取了，别人就无法获取到
                 // 【你在测试丢炸药包的时候，别人不能来拆除厕所】
+                // 因为workers是HashSet，所以这里要加把锁避免多线程问题
                 final ReentrantLock mainLock = this.mainLock;
                 mainLock.lock();
                 try {
@@ -1335,19 +1346,24 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                     /**
                      * rs < SHUTDOWN 小于的只有running状态
                      *  (rs == SHUTDOWN && firstTask == null) 如果你是SHUTDOWN状态，传入的任务为空，可以多来几个线程加快处理阻塞队列中的任务
+                     *
+                     *   // 在线程没有die的情况下，若满足下列条件则把新建的woker线程添加进workers集合中：
+                     *                     // 1，runState是RUNNING状态即若runState小于SHUTDOWN；
+                     *                     // 2，runState是SHUTDOWN状态且firstTask为空
+                     *
                      */
                     if (rs < SHUTDOWN ||
                         (rs == SHUTDOWN && firstTask == null)) {
                         // 如果我还没有把线程池放到集合中，你就运行了 这是不对的
                         if (t.isAlive()) // precheck that t is startable
                             throw new IllegalThreadStateException();
-                        // 将工作线程放入集合
+                        // 将工作线程放入集合 TODO 【Question9】 这里workers为何用HashSet，而不用concurrent set？
                         workers.add(w);
                         int s = workers.size();// 工作线程的个数
                         // 如果你的线程数大于之前最大的线程数，那么更新一下这个值
                         if (s > largestPoolSize)
                             largestPoolSize = s;
-                        // 已经成功将工作线程添加到集合中
+                        // 已经成功将工作线程添加到集合中  // 新建的worker线程被添加进workers集合后，将workerAdded标记为true
                         workerAdded = true;
                     }
                 } finally {
@@ -1388,9 +1404,12 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         final ReentrantLock mainLock = this.mainLock;
         mainLock.lock();
         try {
+            // 将当前worker线程从workers集合移除，虽然可能没能添加进去
             if (w != null)
                 workers.remove(w);
+            // 将works集合的线程数量减1
             decrementWorkerCount();
+            // TODO 【Question10】线程池的各种状态切换是怎样的一个过程？每个状态分别代表什么含义？
             tryTerminate();
         } finally {
             mainLock.unlock();
@@ -1428,9 +1447,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         final ReentrantLock mainLock = this.mainLock;
         mainLock.lock();
         try {
-            // 完成的任务数+1
+            // 完成的任务数+1,线程退出时累加当前到线程完成的任务数到线程池全局的完成到任务数completedTaskCount
             completedTaskCount += w.completedTasks;
-            // 从集合中移除
+            // 从集合中移除,将该线程从works集合中移除掉
             workers.remove(w);
         } finally {
             mainLock.unlock();
@@ -1441,9 +1460,15 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
         int c = ctl.get();
         //  ctl和状态常量比较，判断是否小于s 当前状态是否小于STOP，小于Stop状态的只有running
+        // 若线程池的状态时RUNNING或SHUTDOWN，此时可能需要新增一个worker线程；
+        // 若线程池状态是STOP，TIDYING或TERMINATED，此时无需新增一个线程
         if (runStateLessThan(c, STOP)) {
+            // 如果线程是正常退出（非异常退出），即可能设置了allowCoreThreadTimeOut或非核心线程到正常退出
             if (!completedAbruptly) {
                 // 如果 allowCoreThreadTimeOut 这个为true 那么核心线程也能被回收
+                // 1）若是设置了allowCoreThreadTimeOut，若此时workQueue没有任务，此时min=0即即使线程池没有任何一个线程，也不需要新增一个线程；
+                //                                 若此时workQueue有任务，此时要保证线程池至少要有一个线程，此时若线程池没有一个线程，那么调用后面的addWorker(null, false);新增一个线程；否则，直接return；
+                // 2）若是没设置allowCoreThreadTimeOut，此时要保证线程池到数量为corePoolSize，如果线程池数量少于corePoolSize，则需要调用后面的addWorker(null, false);新增一个线程；否则，直接return；
                 int min = allowCoreThreadTimeOut ? 0 : corePoolSize;
                 if (min == 0 && ! workQueue.isEmpty())
                     min = 1;
@@ -1454,6 +1479,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             // todo: 这里可以看到就是线程复用的机制，前面不是有时候会释放线程吗？
             //     释放线程是因为线程大于任务数了，太多了，这里是那边一直减少减少
             //     这里又判断太少了 所以需要补一个线程
+
+            // 1）凡是线程异常退出的线程，不管是核心线程还是非核心线程（如果是非核心线程，则说明此时workQueue里可能还有任务且可能占满了），此时都要新建一个线程作为补充；
+            // 2）若线程正常退出，根据前面到两点分析来决定是否新增衣蛾线程。
             addWorker(null, false);
         }
     }
@@ -1516,6 +1544,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 return null;
             }
 
+            // 执行到这里说明线程池没有关闭，此时获取wc
             // 通过ctl值获取工作线程数
             int wc = workerCountOf(c);
 
@@ -1531,6 +1560,10 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
              * 如果线程不允许无休止空闲timed == true, workQueue.poll任务:
              *
              * 如果在keepAliveTime时间内，阻塞队列还是没有任务，则返回null；
+             *
+             * 1，若设置了allowCoreThreadTimeOut为true，那么在空闲情况下达到了allowCoreThreadTimeOut，核心线程也会退出
+             * 2，若线程池数量超过了核心线程数，那么非核心线程也会退出
+             *
              */
             // Are workers subject to culling?
             boolean timed = allowCoreThreadTimeOut || wc > corePoolSize;
@@ -1548,6 +1581,14 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
              *
              * 核心意思就是 你的线程多了，然后任务少了 需要减少线程数
              */
+            // 若线程池数量超过了设置的maximumPoolSize且任务队列为空的情况下，此时该线程退出。那么如何才会使得wc > maximumPoolSize呢？
+            // 当我们调用setMaximumPoolSize方法将线程池的maximumPoolSize调小后就会出现这种情况
+
+            // 根据下面的if判断语句，我们可以得出return null使得该线程退出的情况有以下四种：
+            //     1，线程池线程数量超过maximumPoolSize（maximumPoolSize至少为1）且线程池线程数量大于1后，该线程退出；TODO 【Questio16】为何这里只要wc>1即使任务队列不为空也退出？
+            //     2，线程池线程数量超过maximumPoolSize（maximumPoolSize至少为1）且任务队列为空的情况下该线程退出；
+            //     3，如果设置了allowCoreThreadTimeOut或者线程池线程数量超过了核心线程，超时后且且线程池线程数量大于1后，该线程退出；
+            //     4，如果设置了allowCoreThreadTimeOut或者线程池线程数量超过了核心线程，超时后且任务队列为空的情况下该线程退出；
             if ((wc > maximumPoolSize || (timed && timedOut))
                 && (wc > 1 || workQueue.isEmpty())) {
                 // 减少线程个数
@@ -1557,11 +1598,24 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             }
 
             try {
+                // 线程能执行到这里：
+                //               1，若timed==true即allowCoreThreadTimeOut为true或若线程池数量超过了核心线程数，
+                //               那么会执行超时的workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS)，超时后，
+                //               那么返回的r一定为null，此时timedOut变量将被置为true
+
+
                 // poll 这里就是阻塞
-                Runnable r = timed ?
+                Runnable r = timed ? // 超时返回null
                     workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) :
+                        // 没有任务则一直阻塞，适用没有设置allowCoreThreadTimeOut为true的核心线程
                     workQueue.take();
                 // 正常这里就能获取到数据，然后直接返回
+                // TODO 【Questio17】为何这里要先判断下下 r!=null，而不是直接返回r(不管r为空还是非空)，因为如果r为空则说明肯定是获取任务超时的情况，
+                //                   此时可以直接返回，因为下面设置timeOut为true也是为了前面的代码执行的时候为true再返回null，为何要多此一举呢？
+                //      【Answer17】原因就在于该线程执行workQueue的poll和take方法后在阻塞过程中可能会被其他线程interrupt，如果是没有设置allowCoreThreadTimeOut
+                //                 的核心线程，那么此时需要再次进入workQueue.take的阻塞状态，此时需要catch住中断异常后将timedOut设置为false在下次循环时即可达到目的；
+                //                 而对于非核心线程或设置了allowCoreThreadTimeOut的核心线程，一样需要catch住中断异常后将timedOut设置为false在下次循环时即可再次
+                //                 调用workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS)达到目的；
                 if (r != null)
                     return r;
                 // 超时了
@@ -1645,6 +1699,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         // 拿到了要执行的任务
         Runnable task = w.firstTask;
         w.firstTask = null;
+        // TODO 【Question11】这里为什么要先unlock? allow interrupts?为啥先unlock就允许中断,lock就不允许被中断？
         w.unlock(); // allow interrupts
         boolean completedAbruptly = true;
         try {
@@ -1654,6 +1709,10 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
              * (task = getTask()) != null 只有为空就会一直循环，直到不循环才进去
              *
              * getTask() 为空的时候，就会执行线程 回收动作
+             *
+             * // 1，线程执行任务时，若是新建的线程（不管是核心线程还是非核心线程），firstTask一般不为null，即满足task != null条件
+             *             // 2，若不是新建的线程即新建的线程执行完firstTask后，task会被置为null，此时会从任务队列中取任务执行
+             *
              */
             while (task != null || (task = getTask()) != null) {
                 // 加锁，避免你shutdown 我任务也不会中断，我正在工作呢，我拿了全局锁 你关不掉我
@@ -1675,22 +1734,36 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                     try {
                         // 直接调用了线程的run方法
                         task.run();
+                        // 如果执行的任务抛出RuntimeException，先把该异常记录下来，并把该异常重新抛出去
                     } catch (RuntimeException x) {
+                        // TODO 【Question16】 由execute(Runnable r)或submit(FutureTask t)后，执行的任务抛出异常后，这两种情况有啥区别？
+                        //      【Answer16】 execute(Runnable r)：由jvm钩子捕获到异常，打印异常;
+                        //                  submit(FutureTask t)后会返回一个future对象，当调用future.get后会抛出一个执行任务异常ExecutionException。
+                        //                  【记得是这样子，待确认。】
+                        // 如果执行的任务抛出Error，先把该异常记录下来，并把该异常重新抛出去
                         thrown = x; throw x;
                     } catch (Error x) {
+                        // 如果执行的任务抛出Throwable，先把该异常记录下来，并把该Throwable异常转换成Error异常后重新抛出去 TODO 【Question14】这里为何要将Throwable转成Error呢？
                         thrown = x; throw x;
                     } catch (Throwable x) {
                         thrown = x; throw new Error(x);
+                        // 同样的，当worker线程执行完任务后（不管执行过程中有无异常），此时会调用beforeExecute方法做一些事情（若task执行有异常，该方法可以拿到异常）
+
                     } finally {
                         // 执行任务后的操作 相当于AOP
                         afterExecute(task, thrown);
                     }
                 } finally {
+                    // 不管是业务线程扔进来的task还是从队列取出来的task，只要执行过（不管执行有无异常），此时都将task置为null，且将该worker线程的completedTasks加1
                     task = null;
                     w.completedTasks++;
                     w.unlock();
                 }
             }
+            // 【Question15】completedAbruptly代表什么意思？worker线程执行到这里说明该线程要退出，此时为啥将completedAbruptly = false？
+            // 「Answer15」如果能执行到下面的completedAbruptly = false;，说明是线程到正常推出而非线程执行task时抛出异常而退出；
+            //            而没有执行到completedAbruptly = false;则说明线程执行任务时遇到异常，直接跳到下面到finally代码快
+
             completedAbruptly = false;
         } finally {
             // 线程池执行完毕的方法

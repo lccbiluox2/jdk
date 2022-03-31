@@ -488,7 +488,9 @@ public abstract class AbstractMap<K,V> implements Map<K,V> {
                 Entry<K,V> e = i.next();
                 K key = e.getKey();
                 V value = e.getValue();
+                // 首先要根据值是否为null来判断，如果值为null直接调用value.equals方法会抛出NPE
                 if (value == null) {
+                    // 若比较的对象为null，自身对象不为null，直接返回false即可；若自身对象也是null，那么再判断下自身是否包含这个key，如果包含则为true，不返回false
                     if (!(m.get(key)==null && m.containsKey(key)))
                         return false;
                 } else {

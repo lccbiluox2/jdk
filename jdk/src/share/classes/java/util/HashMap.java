@@ -294,6 +294,10 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         public final V getValue()      { return value; }
         public final String toString() { return key + "=" + value; }
 
+        // 注意，定位哈希表的桶位置并不是根据Node节点的哈希码来定位的哈，而是根据key的哈希码的低16位与高16位异或作为最终的哈希码来定位哈希表桶的位置。
+        // 【QUESTION48】为何不用这个哈希值来定位哈希表桶的位置呢？
+        // 【ANSWER48】如果用Node的哈希值来定位哈希桶的位置，此时肯定会出错。为什么呢？因为Node的哈希码有key和value的哈希码异或而来，
+        //            此时如果key的哈希码不变，而值改变了，此时Node的哈希码也改变了，此时就不能根据key的哈希码来定位到原来的桶位置了。
         public final int hashCode() {
             return Objects.hashCode(key) ^ Objects.hashCode(value);
         }
@@ -341,6 +345,13 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         // key.hashCode()：返回散列值也就是hashcode
         // ^ ：按位异或
         // >>>:无符号右移，忽略符号位，空位都以0补齐
+
+        // 【QUESTION46】HashMap中是根据原生key的哈希码来直接定位哈希表桶的位置吗？
+        // 【ANSWER46】显然不是，是key哈希码的高16位与低16位的异或值作为最终的哈希码来定位哈希表桶的位置，
+        //            因为我们利用哈希码定位桶位置是取模即(n - 1) & hash，特别是哈希表比较小时，此时只有
+        //            哈希的低位参与到与运算中，因此肯定也希望哈希码的高位也参与到取模运算中，来增加随机性
+        //            及复杂性，从而减少哈希碰撞。又因为哈希码是int类型32位，作为权衡，因此把哈希码的高位
+        //            向右移动16位与低16位异或从而产生最终的桶的哈希码。
         return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
     }
 
@@ -381,6 +392,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * Returns a power of two size for the given target capacity.
      *
      * 对传入的cap值进行格式化, 即始终保证容量为 2^x 的大小
+     *
+     * * 返回大于或等于 cap 的最小2的幂；比如传入的参数cap为5，那么该方法返回8；若cap为8，那么返回8；若cap为89，那么返回128；
+     *      * 但返回值不能超过MAXIMUM_CAPACITY，超过则返回MAXIMUM_CAPACITY
      */
     static final int tableSizeFor(int cap) {
         int n = cap - 1;
@@ -401,6 +415,11 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * bootstrapping mechanics that are currently not needed.)
      *
      * 将所有链表的第一个节点或红黑树的root节点存入table中
+     */
+    /*
+        【QUESTION47】 table为何被声明为transient?
+        【ANSWER47】   1,table 多数情况下是无法被存满的，序列化未使用的部分，浪费空间
+                       2,同一个键值对在不同 JVM 下，所处的桶位置可能是不同的，在不同的 JVM 下反序列化 table 可能会发生错误。
      */
     transient Node<K,V>[] table;
 
@@ -597,23 +616,41 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final Node<K,V> getNode(int hash, Object key) {
         Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
         //当table的长度大于0且根据hash的摸计算得到对应的索引元素不为空
+        // 首先检查HashMap的哈希表是否为空，若不为空，则根据hash码对length取余定位到相应的桶位置，然后用Key进行比较
+        // 【注意】因为哈希表桶的数量总是等于2的幂，因此(n - 1) & hash等价于hash%length。
         if ((tab = table) != null && (n = tab.length) > 0 &&
+                // 定位到相应桶位置将该桶的第一个节点取出来赋值给first
             (first = tab[(n - 1) & hash]) != null) {
             //线对第一个节点进行判断,当一个节点的hash相等,key内存地址相等,key对象的内容相等
-            if (first.hash == hash && // always check first node
+            // 若哈希码相等，此时有三种情况：1）这两个key对象是同一个对象且逻辑(equals)相等，此时此时hash码必然相等；除非覆盖了equals方法没覆盖相应的hashCode方法，此时就会出错。
+            //                         2）这两个key对象是逻辑(equals)相等的对象，此时hash码必然相等；
+            //                         3）这两个key对象是不同的对象且逻辑(equals)不相等，出现这种情况，说明出现了hash冲突。
+            //                         对于前面第一种情况，我们仅用“first.key == key”再进一步比较两个key是否同一个对象即可；
+            //                         对于第二和第三种情况，两个key是不同的对象时，我们还需要进一步比较两个不同key对象的equals方法
+            // 【总结】 先比较哈希码，若哈希码相等，再进一步比较equals方法。因此，这就要求我们在覆盖equals方法的同时也需要覆盖hashCode方法，
+            //         否则HashMap集合将可能不能正确工作。举个反栗：假如仅仅覆盖了equals方法而没覆盖hashCode方法，此时就会导致两个逻辑(equals)
+            //         相等的对象但哈希码（因为没覆盖）却不一样，此时HashMap的get方法通过另一个逻辑相等的对象去取数据将会返回null
+            //         或同一个对象但逻辑不相等，因为hashCode相等，但却从HashMap中将数据取出来了
+            // 【QUESTION37】 落到同一个哈希桶的节点的哈希码一定是相等的码？
+            // 【ANSWER37】不一定，假如哈希表大小为8，此时有两个节点，哈希码分别为9和17，此时都会落到1号哈希桶
+
+            if (first.hash == hash && // always check first node // 总是先比较第一个
                 ((k = first.key) == key || (key != null && key.equals(k))))
                 //满足条件后返回对应的节点
                 return first;
 
             //第一个节点的条件不满足的情况下,进行遍历链表结构或树结构查找是否有对应的值
+            // 若该桶第一个节点不满足条件，此时再比较该桶的下一个节点
             if ((e = first.next) != null) {
                 //判断当前节点是否为TreeNode,当Map中的某个链表存储的长度过长会自动转换为树结构
+                // 若该桶第一个节点是TreeNode类型，此时说明该桶节点数量已经超过8，由原来的链表晋级为红黑树了
                 if (first instanceof TreeNode)
                     //遍历树结构取出对应的值
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
 
 
                 //链表结构,一直遍历直到节点为null
+                // 代码能执行到这里说明该桶的数据结构依然是链表，该链表的节点的比较逻辑跟第一个节点的比较逻辑一致
                 do {
                     //若当前节点满足条件就进行返回该节点
                     if (e.hash == hash &&
@@ -622,6 +659,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                 } while ((e = e.next) != null);
             }
         }
+        // 执行到这里，要么哈希表为空，要么哈希表不存在相应的key
         return null;
     }
 
@@ -664,6 +702,67 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * @return previous value, or null if none
      *
      * onlyIfAbsent，if true，则表示只要当前节点的value != null则不会改变当前节点的value值
+     *
+     * final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
+     *                    boolean evict) {
+     *         Node<K,V>[] tab; Node<K,V> p; int n, i;
+     *         // 【懒加载思想】如果放第一个元素时，此时哈希表为空，那么就调用resize方法实例化哈希表
+     *         if ((tab = table) == null || (n = tab.length) == 0)
+     *             n = (tab = resize()).length;
+     *         // 根据(n - 1) & hash定位到哈希表的相应桶位置并取出第一个节点，若该节点为null，说明该桶还未填充任何节点元素，把该元素直接作为第一个元素放到该哈希桶即可（此时该节点的netx指针为null）
+     *         if ((p = tab[i = (n - 1) & hash]) == null)
+     *             tab[i] = newNode(hash, key, value, null);
+     *             // 【putVal逻辑】若该哈希桶已经存在节点，则在该桶寻找是否已经存在相同的key的节点，若存在，找出来直接替换掉这个key对应的值，并返回旧值；若不存在，则新建一个节点并复制，再把该节点插入到相应位置。
+     *         else {
+     *             Node<K,V> e; K k;
+     *             // 判断该桶第一个节点的key是否与传入的key相等，若相等，则将第一个节点取出赋值给e
+     *             if (p.hash == hash &&
+     *                     ((k = p.key) == key || (key != null && key.equals(k))))
+     *                 e = p;
+     *                 // 若该桶第一个节点的key与传入的key不相等
+     *                 // 判断第一个节点是否属于TreeNode类型，若是，则在红黑树中继续putVal的逻辑
+     *             else if (p instanceof TreeNode)
+     *                 e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+     *                 // 若第一个节点不是TreeNode类型，则说明还是链表结构并未晋级为红黑树
+     *             else {
+     *                 // 继续遍历链表的下一个节点继续putVal的逻辑，并实时计算桶节点的数量有无超过TREEIFY_THRESHOLD，若超过了TREEIFY_THRESHOLD，则晋级为红黑树
+     *                 for (int binCount = 0; ; ++binCount) {
+     *                     // 将链表下一个节点取出给e，若下一个链表节点为空，则新建一个Node节点
+     *                     if ((e = p.next) == null) {
+     *                         p.next = newNode(hash, key, value, null);
+     *                         // 计算桶节点的数量有无超过TREEIFY_THRESHOLD，若超过了TREEIFY_THRESHOLD，则晋级为红黑树
+     *                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+     *                             // 晋级为红黑树
+     *                             treeifyBin(tab, hash);
+     *                         // 此时直接break for循环，此时e指针已经通过p.next指向了新建的节点
+     *                         break;
+     *                     }
+     *                     // 若下一个节点不为null，此时再继续比较下一个节点的Key是否与传入的key相等，若相等，则直接退出for循环，此时e指针已经通过p.next指向了新建的节点
+     *                     if (e.hash == hash &&
+     *                             ((k = e.key) == key || (key != null && key.equals(k))))
+     *                         break;
+     *                     // 将p再指向下一个节点（因为之前e已经指向了p.next），用来再次遍历链表结构
+     *                     p = e;
+     *                 }
+     *             }
+     *             // 代码执行到这里，说明要么key不存在，此时e指向的是新建的节点，此时oldValue就为null；要么key已经存在，此时e指向的就是相同key的那个节点，此时直接将旧值替换为新值并返回旧值即可。
+     *             if (e != null) { // existing mapping for key
+     *                 V oldValue = e.value;
+     *                 // onlyIfAbsent为true的作用就是若相应key节点已经存在且相应的值不为null，则不替换值；为false，则替换原来的值。
+     *                 if (!onlyIfAbsent || oldValue == null)
+     *                     e.value = value;
+     *                 afterNodeAccess(e);
+     *                 return oldValue;
+     *             }
+     *         }
+     *         // modCount+1, TODO 【QUESTION38】modCount的作用是啥？
+     *         ++modCount;
+     *         // 增加一个节点后，若size达到了threshold，则进行扩容
+     *         if (++size > threshold)
+     *             resize();
+     *         afterNodeInsertion(evict);
+     *         return null;
+     *     }
      */
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                    boolean evict) {
@@ -747,6 +846,8 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      *
      * resize 的操作是需要对所有元素进行遍历后再移动其位置,是很耗时的操作,所以使用时应当尽量避免
      * 其进行 resize 操作
+     *
+     *
      *
      * @return the table
      */

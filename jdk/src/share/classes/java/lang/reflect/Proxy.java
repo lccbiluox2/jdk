@@ -224,6 +224,19 @@ import sun.security.util.SecurityConstants;
  * @author      Peter Jones
  * @see         InvocationHandler
  * @since       1.3
+ *
+ *
+ * // 要点总结:
+ * // 0，动态代理的逻辑封装在InvocationHandler的invoke方法中，如果要实现jdk动态代理必然要实现InvocationHandler的invoke方法；
+ * // 1，JDK的Proxy类拥有InvocationHandler成员变量引用，修饰范围为protected，目的是为了子类代理实例（生成的代理类）继承该变量，因为生成的代理类$Proxy0实例继承这个Proxy类
+ * // 2，生成的代理类$Proxy0继承Proxy类，实现代理接口（可以有多个）的相应接口方法，在实现的相应接口方法里都会将调用转发到InvocationHnadler的invoke方法中即直接调用父类Proxy的InvocationHandler成员变量的invoke方法来实现代理逻辑；
+ * // 3，因为生成的代理实例也默认是Object的子类，自然会继承Object的toSting,hashCode和equals方法，如果直接调用代理类实例的这些方法默认会调用本身的这几个方法，但用户调用
+ * //    代理类的这些方法时一般是想调用被代理类的这几个方法，因此，生成的代理类的这几个方法被调用时，同样需要转发到InvocationHandler的invoke方法中，然后在invoke方法中区分这些逻辑，如果是这些方法那么就直接调用不使用其他代理逻辑，类似dubbo的InvokerInvocationHandler的invoke方法
+ * // 4，为什么生成的代理类能转换为代理接口类型，因为生成的代理类实现了代理类接口，所以当调用代理类实例的相应代理方法时，会被转发到InvocationHandler成员变量的invoke方法
+ * // 5，jdk动态代理默认为代理实例类生成代理接口生成所有方法；
+ * // 6，在InvocationHnadler的invoke方法中，Method和Args会作为参数传进来，同时在创建代理的时候会会维护好被代理目标类实例（一般在构造函数中传进来赋给成员变量），
+ * //    此时就可以在invoke方法中进行反射调用目标类的方法了Method.invoke(target,args).
+ * // 7，在生成的$Proxy0代理实例中，代理接口类的方法会在静态代码块中利用反射加载好，然后在转发InvocationHandler的invoke方法时作为invoke参数传递进去，然后再拿到维护好的target对象实现反射调用及method.invoke(target,args)。
  */
 public class Proxy implements java.io.Serializable {
 
