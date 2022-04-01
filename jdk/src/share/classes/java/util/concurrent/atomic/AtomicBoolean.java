@@ -148,6 +148,8 @@ public class AtomicBoolean implements java.io.Serializable {
     public final boolean getAndSet(boolean newValue) {
         boolean prev;
         do {
+            // 并发情况下，别的线程对内存值进行修改后，可能导致预期值与内存值一直
+            // 把获取到的内存值当作预期值，进行循环判断，当内存值与预期值相同时结束循环
             prev = get();
         } while (!compareAndSet(prev, newValue));
         return prev;

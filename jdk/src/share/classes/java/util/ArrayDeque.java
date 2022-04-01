@@ -81,6 +81,17 @@ import java.util.function.Consumer;
  * @author  Josh Bloch and Doug Lea
  * @since   1.6
  * @param <E> the type of elements held in this collection
+ *
+ *
+ * 总结：
+ * 1.有符号位移与无符号位移
+ *      以 -1 为例
+ *      源码：     1000 0000 0000 0000 0000 0000 0000 0001
+ *      反码：     1111 1111 1111 1111 1111 1111 1111 1110
+ *      补码：     1111 1111 1111 1111 1111 1111 1111 1111   （在反码基础上 +1）
+ *      a>>2：     1111 1111 1111 1111 1111 1111 1111 1111  （有符号右移两位，高位补 1）
+ *      a>>>2：    0011 1111 1111 1111 1111 1111 1111 1111  （无符号右移两位，高位补 0）
+ *
  */
 public class ArrayDeque<E> extends AbstractCollection<E>
                            implements Deque<E>, Cloneable, Serializable
@@ -113,6 +124,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
     /**
      * The minimum capacity that we'll use for a newly created deque.
      * Must be a power of 2.
+     *
+     * 最小初始化容量
      */
     private static final int MIN_INITIAL_CAPACITY = 8;
 
@@ -121,12 +134,20 @@ public class ArrayDeque<E> extends AbstractCollection<E>
     /**
      * Allocates empty array to hold the given number of elements.
      *
+     * 通过位运算初始化容量大小
+     *
      * @param numElements  the number of elements to hold
      */
     private void allocateElements(int numElements) {
         int initialCapacity = MIN_INITIAL_CAPACITY;
         // Find the best power of two to hold elements.
         // Tests "<=" because arrays aren't kept full.
+        /**
+         * 当自定义容量大于等于 8 时执行下面的流程，小于 8 时默认为容量 8
+         *
+         * 当 numElements = 9 时，最终的 initialCapacity 为 16
+         * 当 numElements = 17 时，最终的 initialCapacity 为 32
+         */
         if (numElements >= initialCapacity) {
             initialCapacity = numElements;
             initialCapacity |= (initialCapacity >>>  1);
@@ -147,17 +168,23 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * when head and tail have wrapped around to become equal.
      */
     private void doubleCapacity() {
+        // 当尾节点指向头节点的时候才继续执行
         assert head == tail;
+        // 头结点右边元素数量
         int p = head;
         int n = elements.length;
         int r = n - p; // number of elements to the right of p
+        // 将数组容量扩大 2 倍
         int newCapacity = n << 1;
         if (newCapacity < 0)
             throw new IllegalStateException("Sorry, deque too big");
         Object[] a = new Object[newCapacity];
+        // 将原数组中 head 右边的数据拷贝到新数组中
         System.arraycopy(elements, p, a, 0, r);
+        //将原数组中 head 左边的元素拷贝到新数组中
         System.arraycopy(elements, 0, a, r, p);
         elements = a;
+        // 重置头尾节点
         head = 0;
         tail = n;
     }
@@ -170,6 +197,7 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * @return its argument
      */
     private <T> T[] copyElements(T[] a) {
+        // 断 tail 是否大于 head，如果是只需要拷贝一次，否则需要两次数据拷贝
         if (head < tail) {
             System.arraycopy(elements, head, a, 0, size());
         } else if (head > tail) {
@@ -222,11 +250,22 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @param e the element to add
      * @throws NullPointerException if the specified element is null
+     *
+     * 在头节点插入元素
      */
     public void addFirst(E e) {
+        // 非空校验
         if (e == null)
             throw new NullPointerException();
+        /**
+         *  (head - 1) & (elements.length - 1) 相当于取余
+         *
+         *  如果 head = 0，相当于 -1 & (elements.length - 1)，
+         *  -1 的二进表示：0000 0001 -> 1111 1110 + 1 -> 1111 1111
+         *  & 出来的结果就是 elements.length - 1
+         */
         elements[head = (head - 1) & (elements.length - 1)] = e;
+        // 当头尾相遇时对数组进行扩容
         if (head == tail)
             doubleCapacity();
     }
@@ -238,11 +277,16 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @param e the element to add
      * @throws NullPointerException if the specified element is null
+     *
+     * 在双端队列尾追加元素
      */
     public void addLast(E e) {
+        // 插入的元素不允许为  null
         if (e == null)
             throw new NullPointerException();
+        // 在尾节点插入元素
         elements[tail] = e;
+        // 尾节点位置 + 1，并判断是否需要扩容
         if ( (tail = (tail + 1) & (elements.length - 1)) == head)
             doubleCapacity();
     }
@@ -253,6 +297,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * @param e the element to add
      * @return {@code true} (as specified by {@link Deque#offerFirst})
      * @throws NullPointerException if the specified element is null
+     *
+     * 在双端队列头插入元素，并返回 true
      */
     public boolean offerFirst(E e) {
         addFirst(e);
@@ -265,6 +311,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * @param e the element to add
      * @return {@code true} (as specified by {@link Deque#offerLast})
      * @throws NullPointerException if the specified element is null
+     *
+     * 在双端队列尾插入元素，并返回 true
      */
     public boolean offerLast(E e) {
         addLast(e);
@@ -273,6 +321,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
 
     /**
      * @throws NoSuchElementException {@inheritDoc}
+     *
+     * 移除头部元素并返回
      */
     public E removeFirst() {
         E x = pollFirst();
@@ -283,6 +333,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
 
     /**
      * @throws NoSuchElementException {@inheritDoc}
+     *
+     * 移除尾部元素并返回
      */
     public E removeLast() {
         E x = pollLast();
@@ -291,31 +343,48 @@ public class ArrayDeque<E> extends AbstractCollection<E>
         return x;
     }
 
+    /**
+     * 移除头部元素并返回
+     *
+     * @return
+     */
     public E pollFirst() {
         int h = head;
+        // 获取头结点元素值
         @SuppressWarnings("unchecked")
         E result = (E) elements[h];
         // Element is null if deque empty
+        // 置 null
         if (result == null)
             return null;
         elements[h] = null;     // Must null out slot
+        // 重置后一个节点为头结点
         head = (h + 1) & (elements.length - 1);
         return result;
     }
 
+    /**
+     * 移除尾部元素并返回
+     *
+     * @return
+     */
     public E pollLast() {
+        // 因为在尾部添加元素的时候重置了 tail 值，因此尾节点元素为 tail - 1 对应的元素
         int t = (tail - 1) & (elements.length - 1);
         @SuppressWarnings("unchecked")
         E result = (E) elements[t];
         if (result == null)
             return null;
         elements[t] = null;
+        // 重置 tail
         tail = t;
         return result;
     }
 
     /**
      * @throws NoSuchElementException {@inheritDoc}
+     *
+     * 获取头部元素值，当元素为 null 时抛出异常
      */
     public E getFirst() {
         @SuppressWarnings("unchecked")
@@ -327,6 +396,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
 
     /**
      * @throws NoSuchElementException {@inheritDoc}
+     *
+     * 获取尾部元素值，当元素为 null 时抛出异常
      */
     public E getLast() {
         @SuppressWarnings("unchecked")
@@ -336,12 +407,14 @@ public class ArrayDeque<E> extends AbstractCollection<E>
         return result;
     }
 
+    // 返回头部元素值，不处理异常
     @SuppressWarnings("unchecked")
     public E peekFirst() {
         // elements[head] is null if deque empty
         return (E) elements[head];
     }
 
+    // 返回尾部元素值，不处理异常
     @SuppressWarnings("unchecked")
     public E peekLast() {
         return (E) elements[(tail - 1) & (elements.length - 1)];
@@ -358,18 +431,24 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @param o element to be removed from this deque, if present
      * @return {@code true} if the deque contained the specified element
+     *
+     * 移除指定第一次出现的元素值，返回 true/false
      */
     public boolean removeFirstOccurrence(Object o) {
+        // 判空
         if (o == null)
             return false;
         int mask = elements.length - 1;
         int i = head;
         Object x;
+        // 从头结点开始遍历
         while ( (x = elements[i]) != null) {
+            // 当双端队列中存在该元素时删除该元素，并返回 true
             if (o.equals(x)) {
                 delete(i);
                 return true;
             }
+            // 重置 i
             i = (i + 1) & mask;
         }
         return false;
@@ -386,14 +465,19 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @param o element to be removed from this deque, if present
      * @return {@code true} if the deque contained the specified element
+     *
+     * 移除指定最后一次出现的元素值，true/false
      */
     public boolean removeLastOccurrence(Object o) {
         if (o == null)
             return false;
         int mask = elements.length - 1;
+        // 获取尾节点角标
         int i = (tail - 1) & mask;
         Object x;
+        // 从尾部开始循环
         while ( (x = elements[i]) != null) {
+            // 当元素存在时删除元素，并返回 true
             if (o.equals(x)) {
                 delete(i);
                 return true;
@@ -413,6 +497,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * @param e the element to add
      * @return {@code true} (as specified by {@link Collection#add})
      * @throws NullPointerException if the specified element is null
+     *
+     * 在尾部追加元素并返回 true
      */
     public boolean add(E e) {
         addLast(e);
@@ -427,6 +513,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * @param e the element to add
      * @return {@code true} (as specified by {@link Queue#offer})
      * @throws NullPointerException if the specified element is null
+     *
+     * 在尾部追加元素并返回 true
      */
     public boolean offer(E e) {
         return offerLast(e);
@@ -442,6 +530,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @return the head of the queue represented by this deque
      * @throws NoSuchElementException {@inheritDoc}
+     *
+     * 移除头结点元素，当头结点元素为 null 时，会抛出异常
      */
     public E remove() {
         return removeFirst();
@@ -456,6 +546,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @return the head of the queue represented by this deque, or
      *         {@code null} if this deque is empty
+     *
+     * 移除头结点元素，当头结点元素为 null 时返回 null
      */
     public E poll() {
         return pollFirst();
@@ -470,6 +562,9 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @return the head of the queue represented by this deque
      * @throws NoSuchElementException {@inheritDoc}
+     *
+     *
+     * 获取头结点元素，为 null 时抛出 NoSuchElementException
      */
     public E element() {
         return getFirst();
@@ -483,6 +578,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @return the head of the queue represented by this deque, or
      *         {@code null} if this deque is empty
+     *
+     * 获取头结点元素，为 null 时返回 null
      */
     public E peek() {
         return peekFirst();
@@ -498,6 +595,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *
      * @param e the element to push
      * @throws NullPointerException if the specified element is null
+     *
+     *  在头部插入元素
      */
     public void push(E e) {
         addFirst(e);
@@ -512,16 +611,28 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * @return the element at the front of this deque (which is the top
      *         of the stack represented by this deque)
      * @throws NoSuchElementException {@inheritDoc}
+     *
+     *
+     * 移除头结点元素，为 null 时抛出异常
      */
     public E pop() {
         return removeFirst();
     }
 
+    /**
+     * 头尾节点断言
+     * 1.尾节点元素判 null
+     * 2.判断头尾是否在同一位置
+     * 3.头结点前的元素判 null
+     */
     private void checkInvariants() {
+        // 尾节点的元素必须为 null，因为在尾节点追加元素时，重置了 tail = tail + 1
         assert elements[tail] == null;
         assert head == tail ? elements[head] == null :
-            (elements[head] != null &&
+                // 头尾节点对应的元素不为 null，(tail - 1) & (elements.length - 1) 位置才是 tail 对应的元素
+                (elements[head] != null &&
              elements[(tail - 1) & (elements.length - 1)] != null);
+        // 头结点前一个元素必须为 null
         assert elements[(head - 1) & (elements.length - 1)] == null;
     }
 
@@ -534,23 +645,39 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * that its semantics differ from those of {@link List#remove(int)}.
      *
      * @return true if elements moved backwards
+     *
+     *
+     * 移除指定位置的元素，并调整头结点与尾节点
      */
     private boolean delete(int i) {
+        // 头尾节点判断
         checkInvariants();
         final Object[] elements = this.elements;
         final int mask = elements.length - 1;
         final int h = head;
         final int t = tail;
+        // 距离头结点的大小
         final int front = (i - h) & mask;
+        // 距离尾节点的大小
         final int back  = (t - i) & mask;
 
         // Invariant: head <= i < tail mod circularity
+        // index 检查
         if (front >= ((t - h) & mask))
             throw new ConcurrentModificationException();
 
         // Optimize for least element motion
+        /**
+         * 1.front < back 时，从头结点进行操作，减少元素拷贝的次数
+         * 2.front > back 时，从尾结点进行操作
+         */
         if (front < back) {
+            /**
+             * 1.头结点在尾节点前
+             * 2.头结点在尾节点后，需要两次元素拷贝才能删除当前 i 位置元素
+             */
             if (h <= i) {
+                // 将所有元素向后移动一个位置
                 System.arraycopy(elements, h, elements, h + 1, front);
             } else { // Wrap around
                 System.arraycopy(elements, 0, elements, 1, i);
@@ -558,11 +685,18 @@ public class ArrayDeque<E> extends AbstractCollection<E>
                 System.arraycopy(elements, h, elements, h + 1, mask - h);
             }
             elements[h] = null;
+            // 重置 head
             head = (h + 1) & mask;
+            // TODO 为什么返回 false？
             return false;
         } else {
+            /**
+             * 原理同上
+             */
             if (i < t) { // Copy the null tail as well
+                // 将所有元素向前移动一个位置
                 System.arraycopy(elements, i + 1, elements, i, back);
+                // 重置 tail
                 tail = t - 1;
             } else { // Wrap around
                 System.arraycopy(elements, i + 1, elements, i, mask - i);
@@ -580,6 +714,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * Returns the number of elements in this deque.
      *
      * @return the number of elements in this deque
+     *
+     * 返回双端队列中的元素数量
      */
     public int size() {
         return (tail - head) & (elements.length - 1);
@@ -589,6 +725,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * Returns {@code true} if this deque contains no elements.
      *
      * @return {@code true} if this deque contains no elements
+     *
+     * 判断双端队列中是否有元素
      */
     public boolean isEmpty() {
         return head == tail;
@@ -750,14 +888,18 @@ public class ArrayDeque<E> extends AbstractCollection<E>
     /**
      * Removes all of the elements from this deque.
      * The deque will be empty after this call returns.
+     *
+     * 移除所有元素
      */
     public void clear() {
         int h = head;
         int t = tail;
         if (h != t) { // clear all cells
+            // 头尾置零，头尾相等时表示没有任何元素
             head = tail = 0;
             int i = h;
             int mask = elements.length - 1;
+            // 从头部开始将所有元素值置 null
             do {
                 elements[i] = null;
                 i = (i + 1) & mask;
@@ -777,6 +919,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      * APIs.
      *
      * @return an array containing all of the elements in this deque
+     *
+     * 转数组，用一个新数组接收元素值，新数组大小等于双端队列的大小
      */
     public Object[] toArray() {
         return copyElements(new Object[size()]);
@@ -817,13 +961,17 @@ public class ArrayDeque<E> extends AbstractCollection<E>
      *         is not a supertype of the runtime type of every element in
      *         this deque
      * @throws NullPointerException if the specified array is null
+     *
+     * 将元素拷贝到指定的数组中去并返回
      */
     @SuppressWarnings("unchecked")
     public <T> T[] toArray(T[] a) {
         int size = size();
+        // 如果指定的数组的容量小于双端队列的容量，使用反射技术重新赋值 a 数组
         if (a.length < size)
             a = (T[])java.lang.reflect.Array.newInstance(
                     a.getClass().getComponentType(), size);
+        // 如果指定的数组的容量大于双端队列的容量，通过置 null 将拷贝的元素与原数组元素隔开
         copyElements(a);
         if (a.length > size)
             a[size] = null;

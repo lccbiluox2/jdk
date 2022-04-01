@@ -164,6 +164,8 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
 
     /**
      * Shared internal API for dual stacks and queues.
+     *
+     * 栈和队列实现的抽象类
      */
     abstract static class Transferer<E> {
         /**
@@ -182,7 +184,9 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
         abstract E transfer(E e, boolean timed, long nanos);
     }
 
-    /** The number of CPUs, for spin control */
+    /** The number of CPUs, for spin control
+     * cpu 核数
+     * */
     static final int NCPUS = Runtime.getRuntime().availableProcessors();
 
     /**
@@ -225,14 +229,21 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
         /** Node is fulfilling another unfulfilled DATA or REQUEST */
         static final int FULFILLING = 2;
 
-        /** Returns true if m has fulfilling bit set. */
+        /** Returns true if m has fulfilling bit set.
+         *
+         * 如果 m 是填充单元返回 true
+         * */
         static boolean isFulfilling(int m) { return (m & FULFILLING) != 0; }
 
         /** Node class for TransferStacks. */
         static final class SNode {
+            // 下一个节点
             volatile SNode next;        // next node in stack
+            // 匹配节点
             volatile SNode match;       // the node matched to this
+            // 等待者线程
             volatile Thread waiter;     // to control park/unpark
+            // 资源数据，如果
             Object item;                // data; or null for REQUESTs
             int mode;
             // Note: item and mode fields don't need to be volatile

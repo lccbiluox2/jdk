@@ -182,7 +182,12 @@ public class ArrayList<E> extends AbstractList<E>
         elementData = c.toArray();
         if ((size = elementData.length) != 0) {
             // c.toArray might (incorrectly) not return Object[] (see 6260652)
+            // 类型检查
             if (elementData.getClass() != Object[].class)
+            /**
+             * 将数组内容拷贝到长度为 size 中的新数组中去，并返回
+             * Arrays.copyOf() 底层调用 System.arraycopy() 方法：浅拷贝、线程不安全
+             */
                 elementData = Arrays.copyOf(elementData, size, Object[].class);
         } else {
             // replace with empty array.
