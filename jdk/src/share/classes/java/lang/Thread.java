@@ -46,6 +46,9 @@ import sun.security.util.SecurityConstants;
  * A <i>thread</i> is a thread of execution in a program. The Java
  * Virtual Machine allows an application to have multiple threads of
  * execution running concurrently.
+ *
+ * JVM允许一个应用程序有多个线程同时执行。
+ *
  * <p>
  * Every thread has a priority. Threads with higher priority are
  * executed in preference to threads with lower priority. Each thread
@@ -54,12 +57,28 @@ import sun.security.util.SecurityConstants;
  * thread has its priority initially set equal to the priority of the
  * creating thread, and is a daemon thread if and only if the
  * creating thread is a daemon.
+ *
+ *  线程有优先级，优先级高的线程会优先执行；
+ *  线程可能是守护线程也可能不是；
+ *
+ *  线程的优先级默认与创建此线程优先级相同；
+ *  只有当创建线程的线程是守护线程时，被创建出的线程才能守护线程；
+ *
+ *
+ *
  * <p>
  * When a Java Virtual Machine starts up, there is usually a single
  * non-daemon thread (which typically calls the method named
  * <code>main</code> of some designated class). The Java Virtual
  * Machine continues to execute threads until either of the following
  * occurs:
+ *
+ *
+ 当一个JVM启动时，通常只有一个非守护线程，就是那个执行main方法的线程。
+
+ 当满足以下任何一个条件时，JVM停止执行：
+
+
  * <ul>
  * <li>The <code>exit</code> method of class <code>Runtime</code> has been
  *     called and the security manager has permitted the exit operation
@@ -69,6 +88,10 @@ import sun.security.util.SecurityConstants;
  *     throwing an exception that propagates beyond the <code>run</code>
  *     method.
  * </ul>
+ *
+ * 1.  Runtime类的exit方法被调用，并且安全管理器允许了这次方法调用；
+ * 2.  所有非守护线程执行结束。也就是线程的run方法顺利执行完，或者中间抛出异常
+ *     结束了继续执行；
  * <p>
  * There are two ways to create a new thread of execution. One is to
  * declare a class to be a subclass of <code>Thread</code>. This
@@ -96,6 +119,14 @@ import sun.security.util.SecurityConstants;
  *     p.start();
  * </pre></blockquote>
  * <p>
+ *     有两种方法可以创建一个线程。第一种方法是继承Thread类，并重写run方法，
+ *  之后实例化这个类，并调用start方法；
+ *
+ *
+ *  另一种方法是写一个类实现Runnable接口，之后用该类的对象作为构造方法参数，
+ *  new一个Thread类对象，并调用其start方法；
+ *
+ *
  * The other way to create a thread is to declare a class that
  * implements the <code>Runnable</code> interface. That class then
  * implements the <code>run</code> method. An instance of the class can
@@ -129,6 +160,9 @@ import sun.security.util.SecurityConstants;
  * Unless otherwise noted, passing a {@code null} argument to a constructor
  * or method in this class will cause a {@link NullPointerException} to be
  * thrown.
+ *
+ *  每一个线程都有名字，但多个线程可以有相同的名字，
+ *  如果创建线程时没有指定名字，那么将自动生成一个新的名字。
  *
  * @author  unascribed
  * @see     Runnable

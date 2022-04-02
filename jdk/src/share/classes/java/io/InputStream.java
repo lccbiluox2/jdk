@@ -41,6 +41,10 @@ package java.io;
  * @see     java.io.OutputStream
  * @see     java.io.PushbackInputStream
  * @since   JDK1.0
+ *
+ *
+ * 所有输入流的抽象基类。
+ * 所有该类的子类，必须提供一个返回输入流中下一个字节的方法。
  */
 public abstract class InputStream implements Closeable {
 
@@ -61,6 +65,9 @@ public abstract class InputStream implements Closeable {
      * @return     the next byte of data, or <code>-1</code> if the end of the
      *             stream is reached.
      * @exception  IOException  if an I/O error occurs.
+     *
+     * 读取输入流中的下一个字节。
+     * 该方法是阻塞的。
      */
     public abstract int read() throws IOException;
 
@@ -96,6 +103,8 @@ public abstract class InputStream implements Closeable {
      * if some other I/O error occurs.
      * @exception  NullPointerException  if <code>b</code> is <code>null</code>.
      * @see        java.io.InputStream#read(byte[], int, int)
+     *
+     * 除非整到读到了输入流末尾。不然该方法最少会读取一个字节到数据b中。
      */
     public int read(byte b[]) throws IOException {
         return read(b, 0, b.length);
@@ -157,6 +166,13 @@ public abstract class InputStream implements Closeable {
      * <code>len</code> is negative, or <code>len</code> is greater than
      * <code>b.length - off</code>
      * @see        java.io.InputStream#read()
+     *
+
+     * 该方法默认的实现是阻塞的，即一直阻塞，知道读到len个字节的数据，或者遇到文件结束，或者出现异常。
+     *
+     * 该方法重复调用read()方法来实现批量读取的功能.
+     * 如果读取第一个字节的时候发生异常，则抛出该异常给调用方;
+     * 如果在读取中间某个字节时，发生异常，则返回已经读到的数据给调用方。
      */
     public int read(byte b[], int off, int len) throws IOException {
         if (b == null) {
@@ -208,6 +224,16 @@ public abstract class InputStream implements Closeable {
      * @return     the actual number of bytes skipped.
      * @exception  IOException  if the stream does not support seek,
      *                          or if some other I/O error occurs.
+     *
+     *
+     * 实际skip的字节数有可能小于n，这种情况下，返回实际skip的字节数。
+     *
+     *
+     * 该方法的默认实现，是通过建立一个大小为MAX_SKIP_BUFFER_SIZE的缓冲区，来不断读取，知道到达所需位置。
+     * 子类可以继承该方法，提供更高效的实现。比如，对于文件系统，可以利用seek来实现skip的功能。
+     *
+     * 注意到read使用的参数类型是int，而skip使用的是long。
+     *
      */
     public long skip(long n) throws IOException {
 
@@ -256,6 +282,11 @@ public abstract class InputStream implements Closeable {
      *             over) from this input stream without blocking or {@code 0} when
      *             it reaches the end of the input stream.
      * @exception  IOException if an I/O error occurs.
+     *
+     *
+     * 返回值并不一定代表输入流的数据总量。
+     *
+     * 默认实现总是返回0。
      */
     public int available() throws IOException {
         return 0;
@@ -269,6 +300,15 @@ public abstract class InputStream implements Closeable {
      * nothing.
      *
      * @exception  IOException  if an I/O error occurs.
+     *
+     *
+     * Mark输入流的当前位置。
+     * Mark之后，正常使用该输入流。但再执行的reset的方法，会将输入流的当前位置reset为之前mark的位置。
+     *
+     * 参数readlimit，表明了mark的有效期。即，mark之后，读取readlimit个字节之后，本次mark失效。
+
+     * 注意该方法是线程同步的，为什么mark, reset两个方法是同步的，而read，skip等则不是呢？
+
      */
     public void close() throws IOException {}
 
@@ -359,6 +399,9 @@ public abstract class InputStream implements Closeable {
      *          and reset methods; <code>false</code> otherwise.
      * @see     java.io.InputStream#mark(int)
      * @see     java.io.InputStream#reset()
+     *
+     * 如果该输入流支持mark和reset方法，那么返回true，否则返回false。
+
      */
     public boolean markSupported() {
         return false;

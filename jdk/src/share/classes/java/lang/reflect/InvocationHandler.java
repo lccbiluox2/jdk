@@ -37,6 +37,11 @@ package java.lang.reflect;
  * @author      Peter Jones
  * @see         Proxy
  * @since       1.3
+ *
+ * 动态代理类的invocation handler需实现该接口。
+ *
+ * 每一个动态代理对象，都需要一个invocation handler，当执行该代理对象的方法时，
+ * 会调用invocation handler的invoke方法。
  */
 public interface InvocationHandler {
 

@@ -144,6 +144,19 @@ import sun.security.action.GetPropertyAction;
  *
  * @author  unascribed
  * @since   JDK1.0
+ *
+ *
+ * 文件或者目录的抽象表示
+ *
+ * 路径名称是跟系统相关的，在linux上可能是/开头，在Windows上可能是硬盘描述符或者"\\\\"开头。
+ * "\\\\"代表远程机器上的文件。
+ *
+ * 路径可以是绝对路径也可以是相对路径。
+ *
+ * 该类的实例，可以在文件系统中有实际对应的文件，也可以没有。
+ *
+ * File对象是不可变的，也就是说，一旦创建结束，该文件的pathname是不能修改的
+ *
  */
 
 public class File
@@ -152,6 +165,8 @@ public class File
 
     /**
      * The FileSystem object representing the platform's local file system.
+     *
+     *  代表本地文件系统的对象
      */
     private static final FileSystem fs = DefaultFileSystem.getFileSystem();
 
@@ -159,6 +174,8 @@ public class File
      * This abstract pathname's normalized pathname string. A normalized
      * pathname string uses the default name-separator character and does not
      * contain any duplicate or redundant separators.
+     *
+     *  文件路径。该路径是一个正规化的路径，使用默认的名字分隔符，并且不含重复和多余的文件分隔符。
      *
      * @serial
      */

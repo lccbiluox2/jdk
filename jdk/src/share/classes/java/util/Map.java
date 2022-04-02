@@ -125,6 +125,38 @@ import java.io.Serializable;
  * @see Collection
  * @see Set
  * @since 1.2
+ *
+ * 实现了Map接口的对象提供键值映射功能，Map中不能保存重复的key，一个key最多只能
+ * 映射到一个value。
+ *
+ * 本接口用来替换掉Dictionary类，Dictionary类是一个抽象类而不是接口。
+ *
+ * Map接口提供三种容器视图。包含所有key的set、包含所有value的collection、包含
+ * 所有键值对的set。
+
+ * 在遍历保存在Map中的键值对时，其顺序是不确定的，取决于具体的实现方式。比如
+ * TreeMap会根据key的内容排序、LinkedHashMap会保存插入键值对的顺序，HashMap则
+ * 没有明确的规则。
+ *
+ * 如果对象是可变的，那么将它用作Map的key时就要特别小心了。如果一个已经存到Map
+ * 中的键值对，其key对象改变了，并且影响了equals方法，那么Map在处理该键值对时
+ * 的行为是未定义的。
+ *
+ *
+
+ * Map接口的实现应当实现两个构造方法，一个空的构造方法，一个接受另一个Map对象。
+
+ * 因为Java的接口不能包含构造方法，所以我们没法保证这一点。但是所有JDK的Map实现
+ * 都是这样做的。
+
+ * 该接口包含了改变Map的方法。如果你想实现一个不支持这些方法的Map，那么只需要
+ * 在这些方法中返回UnsupportedOperationException异常就好了。
+
+ * 有些Map实现会在key或value上加一些限制，不如不能包含null之类的。
+
+ * 本接口是Java容器框架的一部分。
+ *
+ * Java容器框架通常都会用到对象的equals和hashCode方法。
  */
 public interface Map<K,V> {
     // Query Operations
@@ -135,6 +167,9 @@ public interface Map<K,V> {
      * <tt>Integer.MAX_VALUE</tt>.
      *
      * @return the number of key-value mappings in this map
+     *
+     * 返回键值对的个数。如果个数超过了Integer.MAX_VALUE，那么返回Integer.MAX_VALUE。
+
      */
     int size();
 
@@ -142,6 +177,8 @@ public interface Map<K,V> {
      * Returns <tt>true</tt> if this map contains no key-value mappings.
      *
      * @return <tt>true</tt> if this map contains no key-value mappings
+     *
+     * 判断该Map是否不包含任何键值对。
      */
     boolean isEmpty();
 
@@ -161,6 +198,8 @@ public interface Map<K,V> {
      * @throws NullPointerException if the specified key is null and this map
      *         does not permit null keys
      * (<a href="{@docRoot}/java/util/Collection.html#optional-restrictions">optional</a>)
+     *
+     * 判断Map中是否包含键为key的键值对。
      */
     boolean containsKey(Object key);
 
@@ -181,6 +220,8 @@ public interface Map<K,V> {
      * @throws NullPointerException if the specified value is null and this
      *         map does not permit null values
      * (<a href="{@docRoot}/java/util/Collection.html#optional-restrictions">optional</a>)
+     *
+     * 判断Map中是否包含值为value的键值对。
      */
     boolean containsValue(Object value);
 
@@ -208,6 +249,8 @@ public interface Map<K,V> {
      * @throws NullPointerException if the specified key is null and this map
      *         does not permit null keys
      * (<a href="{@docRoot}/java/util/Collection.html#optional-restrictions">optional</a>)
+     *
+     * 根据给定的key返回相应的value。如果不存在相应的键值对，则返回null。
      */
     V get(Object key);
 
@@ -236,6 +279,11 @@ public interface Map<K,V> {
      *         and this map does not permit null keys or values
      * @throws IllegalArgumentException if some property of the specified key
      *         or value prevents it from being stored in this map
+     *
+     * 如果已经存在一个具有相同key的键值对，那么将该键值对的value修改为指定
+     * 的value，并将旧的value返回。
+
+     * 如果不存在具有相同key的键值对，那么返回null。
      */
     V put(K key, V value);
 
@@ -321,6 +369,9 @@ public interface Map<K,V> {
      * operations.
      *
      * @return a set view of the keys contained in this map
+     *
+     * 返回一个包含所有key的set。该set的背后是map，改变map会影响到该set,
+     * 改变set，也会影响到map。
      */
     Set<K> keySet();
 
@@ -338,6 +389,10 @@ public interface Map<K,V> {
      * support the <tt>add</tt> or <tt>addAll</tt> operations.
      *
      * @return a collection view of the values contained in this map
+     *
+
+     * 返回一个包含所有value的collection。该collection的背后是map，改变map会影响到该collection,
+     * 改变collection，也会影响到map。
      */
     Collection<V> values();
 
@@ -356,6 +411,9 @@ public interface Map<K,V> {
      * <tt>add</tt> or <tt>addAll</tt> operations.
      *
      * @return a set view of the mappings contained in this map
+     *
+     * 返回一个包含所有键值对的set。该set的背后是map，改变map会影响到该set,
+     * 改变set，也会影响到map。
      */
     Set<Map.Entry<K, V>> entrySet();
 

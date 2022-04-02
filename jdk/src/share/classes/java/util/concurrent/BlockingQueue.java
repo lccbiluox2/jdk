@@ -176,6 +176,10 @@ import java.util.Queue;
  * @since 1.5
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ *
+ * BlockingQueue是一种Queue。
+ * 除了Queue本身的的借口，其额外支持从队列取数据时等待队列变成非空，往队列放数据时等待队列中空出位置。
+ *
  */
 public interface BlockingQueue<E> extends Queue<E> {
     /**
