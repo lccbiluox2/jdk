@@ -40,6 +40,7 @@ package java.io;
  * @see     java.io.StringBufferInputStream
  * @since   JDK1.0
  */
+// 字节数组输入流：将字节数组作为输入源
 public
 class ByteArrayInputStream extends InputStream {
 
@@ -51,6 +52,7 @@ class ByteArrayInputStream extends InputStream {
      * stream;  element <code>buf[pos]</code> is
      * the next byte to be read.
      */
+    // 提供输入源的字节数组
     protected byte buf[];
 
     /**
@@ -60,6 +62,7 @@ class ByteArrayInputStream extends InputStream {
      * The next byte to be read from the input stream buffer
      * will be <code>buf[pos]</code>.
      */
+    // "读游标"
     protected int pos;
 
     /**
@@ -75,6 +78,7 @@ class ByteArrayInputStream extends InputStream {
      *
      * @since   JDK1.1
      */
+    // 存档标记
     protected int mark = 0;
 
     /**
@@ -86,6 +90,7 @@ class ByteArrayInputStream extends InputStream {
      * the last byte within <code>buf</code> that
      * can ever be read  from the input stream buffer.
      */
+    // 可读数据的上界
     protected int count;
 
     /**
@@ -140,6 +145,9 @@ class ByteArrayInputStream extends InputStream {
      * @return  the next byte of data, or <code>-1</code> if the end of the
      *          stream has been reached.
      */
+    /*
+     * 尝试从当前输入流读取一个字节，读取成功直接返回，读取失败返回-1
+     */
     public synchronized int read() {
         return (pos < count) ? (buf[pos++] & 0xff) : -1;
     }
@@ -173,6 +181,10 @@ class ByteArrayInputStream extends InputStream {
      * <code>len</code> is negative, or <code>len</code> is greater than
      * <code>b.length - off</code>
      */
+    /*
+     * 尝试从当前输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+     * 返回值表示成功读取的字节数量(可能小于预期值)，返回-1表示已经没有可读内容了
+     */
     public synchronized int read(byte b[], int off, int len) {
         if (b == null) {
             throw new NullPointerException();
@@ -191,6 +203,7 @@ class ByteArrayInputStream extends InputStream {
         if (len <= 0) {
             return 0;
         }
+        // 复制数据
         System.arraycopy(buf, pos, b, off, len);
         pos += len;
         return len;
@@ -208,6 +221,7 @@ class ByteArrayInputStream extends InputStream {
      * @param   n   the number of bytes to be skipped.
      * @return  the actual number of bytes skipped.
      */
+    // 读取中跳过n个字节，返回实际跳过的字节数
     public synchronized long skip(long n) {
         long k = count - pos;
         if (n < k) {
@@ -228,6 +242,7 @@ class ByteArrayInputStream extends InputStream {
      * @return  the number of remaining bytes that can be read (or skipped
      *          over) from this input stream without blocking.
      */
+    // 返回可读的字节数量
     public synchronized int available() {
         return count - pos;
     }
@@ -258,6 +273,7 @@ class ByteArrayInputStream extends InputStream {
      *
      * @since   JDK1.1
      */
+    // 设置存档标记，此处未设存档上限
     public void mark(int readAheadLimit) {
         mark = pos;
     }
@@ -267,6 +283,7 @@ class ByteArrayInputStream extends InputStream {
      * is 0 unless another position was marked or an offset was specified
      * in the constructor.
      */
+    // 重置"读游标"到存档区的起始位置
     public synchronized void reset() {
         pos = mark;
     }
@@ -276,6 +293,7 @@ class ByteArrayInputStream extends InputStream {
      * this class can be called after the stream has been closed without
      * generating an <tt>IOException</tt>.
      */
+    // 关闭输入流
     public void close() throws IOException {
     }
 

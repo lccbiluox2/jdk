@@ -40,15 +40,19 @@ import sun.net.ConnectionResetException;
  * @author      Jonathan Payne
  * @author      Arthur van Hoff
  */
+// Socket输入流
 class SocketInputStream extends FileInputStream
 {
     static {
         init();
     }
 
+    // 输入流是否关闭
     private boolean eof;
+    // 该输入流所属的Socket实现类
     private AbstractPlainSocketImpl impl = null;
     private byte temp[];
+    // 该输入流所属的Socket
     private Socket socket = null;
 
     /**
@@ -75,6 +79,7 @@ class SocketInputStream extends FileInputStream
      * @since 1.4
      * @spec JSR-51
      */
+    // Socket流没有文件通道，返回null
     public final FileChannel getChannel() {
         return null;
     }
@@ -109,6 +114,12 @@ class SocketInputStream extends FileInputStream
      *          returned when the end of the stream is reached.
      * @exception IOException If an I/O error has occurred.
      */
+    /*
+     * 尝试从fd代表的输入流读取len个字节，成功读到的内容存入字节数组的[off, off+len-1]范围
+     * 返回值表示成功读取的字节数量，返回-1表示已经没有可读内容了
+     *
+     * 注意：这里有超时限制
+     */
     private int socketRead(FileDescriptor fd,
                            byte b[], int off, int len,
                            int timeout)
@@ -122,6 +133,10 @@ class SocketInputStream extends FileInputStream
      * @return the actual number of bytes read, -1 is
      *          returned when the end of the stream is reached.
      * @exception IOException If an I/O error has occurred.
+     */
+    /*
+     * 尝试从当前输入流读取b.length个字节，成功读到的内容存入字节数组
+     * 返回值表示成功读取的字节数量，返回-1表示已经没有可读内容了
      */
     public int read(byte b[]) throws IOException {
         return read(b, 0, b.length);
@@ -137,10 +152,20 @@ class SocketInputStream extends FileInputStream
      *          returned when the end of the stream is reached.
      * @exception IOException If an I/O error has occurred.
      */
+    /*
+     * 尝试从当前输入流读取len个字节，读到的内容存入字节数组dst的off位置处
+     * 返回值表示成功读取的字节数量，返回-1表示已经没有可读内容了
+     */
     public int read(byte b[], int off, int length) throws IOException {
         return read(b, off, length, impl.getTimeout());
     }
 
+    /*
+     * 尝试从当前输入流读取len个字节，读到的内容存入字节数组dst的off位置处
+     * 返回值表示成功读取的字节数量，返回-1表示已经没有可读内容了
+     *
+     * 注意：这里有超时限制
+     */
     int read(byte b[], int off, int length, int timeout) throws IOException {
         int n;
 
@@ -166,6 +191,7 @@ class SocketInputStream extends FileInputStream
         boolean gotReset = false;
 
         // acquire file descriptor and do the read
+        // 获取Socket文件的文件描述符，并将其引用次数增一
         FileDescriptor fd = impl.acquireFD();
         try {
             n = socketRead(fd, b, off, length, timeout);
@@ -192,6 +218,7 @@ class SocketInputStream extends FileInputStream
                 }
             } catch (ConnectionResetException rstExc) {
             } finally {
+                // Socket文件引用次数减一
                 impl.releaseFD();
             }
         }
@@ -204,6 +231,7 @@ class SocketInputStream extends FileInputStream
             throw new SocketException("Socket closed");
         }
         if (impl.isConnectionResetPending()) {
+            // 设置连接已重置
             impl.setConnectionReset();
         }
         if (impl.isConnectionReset()) {
@@ -215,6 +243,10 @@ class SocketInputStream extends FileInputStream
 
     /**
      * Reads a single byte from the socket.
+     */
+    /*
+     * 尝试从当前输入流读取一个字节，成功读到的内容直接返回
+     * 返回-1表示已经没有可读内容了
      */
     public int read() throws IOException {
         if (eof) {
@@ -255,6 +287,7 @@ class SocketInputStream extends FileInputStream
      * Returns the number of bytes that can be read without blocking.
      * @return the number of immediately available bytes
      */
+    // 返回剩余可不被阻塞地读取（或跳过）的字节数（估计值）
     public int available() throws IOException {
         return impl.available();
     }
@@ -263,6 +296,7 @@ class SocketInputStream extends FileInputStream
      * Closes the stream.
      */
     private boolean closing = false;
+    // 关闭socket流
     public void close() throws IOException {
         // Prevent recursion. See BugId 4484411
         if (closing)
@@ -276,6 +310,7 @@ class SocketInputStream extends FileInputStream
         closing = false;
     }
 
+    // 标记输入流已关闭
     void setEOF(boolean eof) {
         this.eof = eof;
     }

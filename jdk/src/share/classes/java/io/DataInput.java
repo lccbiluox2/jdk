@@ -145,6 +145,7 @@ package java.io;
  * @see     java.io.DataOutput
  * @since   JDK1.0
  */
+// 字节数据输入接口
 public
 interface DataInput {
     /**

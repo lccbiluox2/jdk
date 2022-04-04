@@ -36,13 +36,17 @@ package java.io;
  * readObject/writeObject method has returned.
  * If not set to the current thread, the getObj method throws NotActiveException.
  */
+// (反)序列化上下文，存储了待序列化的对象(的序列化描述符)与该过程发生的线程
 final class SerialCallbackContext {
+    // 待序列化对象
     private final Object obj;
+    // 待序列化对象的序列化描述符
     private final ObjectStreamClass desc;
     /**
      * Thread this context is in use by.
      * As this only works in one thread, we do not need to worry about thread-safety.
      */
+    // 当前序列化/反序列化过程发生的线程
     private Thread thread;
 
     public SerialCallbackContext(Object obj, ObjectStreamClass desc) {

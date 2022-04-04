@@ -41,24 +41,28 @@ package java.lang;
  * @see     java.lang.Number
  * @since   JDK1.1
  */
+// byte的包装类
 public final class Byte extends Number implements Comparable<Byte> {
 
     /**
      * A constant holding the minimum value a {@code byte} can
      * have, -2<sup>7</sup>.
      */
+    // byte最小值
     public static final byte   MIN_VALUE = -128;
 
     /**
      * A constant holding the maximum value a {@code byte} can
      * have, 2<sup>7</sup>-1.
      */
+    // byte最大值
     public static final byte   MAX_VALUE = 127;
 
     /**
      * The {@code Class} instance representing the primitive type
      * {@code byte}.
      */
+    // 相当于byte.class
     @SuppressWarnings("unchecked")
     public static final Class<Byte>     TYPE = (Class<Byte>) Class.getPrimitiveClass("byte");
 
@@ -505,6 +509,7 @@ public final class Byte extends Number implements Comparable<Byte> {
      *
      * @since 1.5
      */
+    // 当前类型所占bit[位]数
     public static final int SIZE = 8;
 
     /**
@@ -513,6 +518,7 @@ public final class Byte extends Number implements Comparable<Byte> {
      *
      * @since 1.8
      */
+    // 当前类型所占字节数
     public static final int BYTES = SIZE / Byte.SIZE;
 
     /** use serialVersionUID from JDK 1.1. for interoperability */

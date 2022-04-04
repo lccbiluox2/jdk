@@ -40,24 +40,28 @@ package java.lang;
  * @see     java.lang.Number
  * @since   JDK1.1
  */
+// short的包装类
 public final class Short extends Number implements Comparable<Short> {
 
     /**
      * A constant holding the minimum value a {@code short} can
      * have, -2<sup>15</sup>.
      */
+    // short最小值
     public static final short   MIN_VALUE = -32768;
 
     /**
      * A constant holding the maximum value a {@code short} can
      * have, 2<sup>15</sup>-1.
      */
+    // short最大值
     public static final short   MAX_VALUE = 32767;
 
     /**
      * The {@code Class} instance representing the primitive type
      * {@code short}.
      */
+    // 相当于short.class
     @SuppressWarnings("unchecked")
     public static final Class<Short>    TYPE = (Class<Short>) Class.getPrimitiveClass("short");
 
@@ -69,6 +73,7 @@ public final class Short extends Number implements Comparable<Short> {
      * @return the string representation of the specified {@code short}
      * @see java.lang.Integer#toString(int)
      */
+    // 按10进制返回x的值
     public static String toString(short s) {
         return Integer.toString((int)s, 10);
     }
@@ -113,6 +118,7 @@ public final class Short extends Number implements Comparable<Short> {
      * @throws          NumberFormatException If the {@code String}
      *                  does not contain a parsable {@code short}.
      */
+    // 按radix进制形式将字符串s解析为short值
     public static short parseShort(String s, int radix)
         throws NumberFormatException {
         int i = Integer.parseInt(s, radix);
@@ -140,6 +146,7 @@ public final class Short extends Number implements Comparable<Short> {
      * @throws  NumberFormatException If the string does not
      *          contain a parsable {@code short}.
      */
+    // 按10进制形式将字符串s解析为short值
     public static short parseShort(String s) throws NumberFormatException {
         return parseShort(s, 10);
     }
@@ -169,6 +176,7 @@ public final class Short extends Number implements Comparable<Short> {
      * @throws          NumberFormatException If the {@code String} does
      *                  not contain a parsable {@code short}.
      */
+    // 按10进制形式将字符串s解析为short值，随后再装箱
     public static Short valueOf(String s, int radix)
         throws NumberFormatException {
         return valueOf(parseShort(s, radix));
@@ -200,9 +208,11 @@ public final class Short extends Number implements Comparable<Short> {
         return valueOf(s, 10);
     }
 
+    // Short缓存，缓存了-128~127之间的Short对象
     private static class ShortCache {
         private ShortCache(){}
 
+        // 256个Short对象缓存，依次表示-128~127
         static final Short cache[] = new Short[-(-128) + 127 + 1];
 
         static {
@@ -278,6 +288,14 @@ public final class Short extends Number implements Comparable<Short> {
      *            contain a parsable {@code short}.
      * @see java.lang.Short#parseShort(java.lang.String, int)
      */
+    /*
+     * 将字符串nm解析为short，随后再装箱
+     *
+     * 采用哪种进制解析nm取决于nm的格式：
+     * > 0x、0X、#开头，代表按16进制解析
+     * > 0开头，代表按8进制解析
+     * > 其他情形默认按10进制解析
+     */
     public static Short decode(String nm) throws NumberFormatException {
         int i = Integer.decode(nm);
         if (i < MIN_VALUE || i > MAX_VALUE)
@@ -291,6 +309,7 @@ public final class Short extends Number implements Comparable<Short> {
      *
      * @serial
      */
+    // 当前类包装的值
     private final short value;
 
     /**
@@ -384,6 +403,7 @@ public final class Short extends Number implements Comparable<Short> {
      * @return  a string representation of the value of this object in
      *          base&nbsp;10.
      */
+    // 按10进制返回当前short的值
     public String toString() {
         return Integer.toString((int)value);
     }
@@ -459,6 +479,7 @@ public final class Short extends Number implements Comparable<Short> {
      *         a value greater than {@code 0} if {@code x > y}
      * @since 1.7
      */
+    // 比较两个short（按自然顺序比较）
     public static int compare(short x, short y) {
         return x - y;
     }
@@ -468,6 +489,7 @@ public final class Short extends Number implements Comparable<Short> {
      * complement binary form.
      * @since 1.5
      */
+    // 当前类型所占bit[位]数
     public static final int SIZE = 16;
 
     /**
@@ -476,6 +498,7 @@ public final class Short extends Number implements Comparable<Short> {
      *
      * @since 1.8
      */
+    // 当前类型所占字节数
     public static final int BYTES = SIZE / Byte.SIZE;
 
     /**
@@ -487,6 +510,7 @@ public final class Short extends Number implements Comparable<Short> {
      *     the bytes in the specified {@code short} value.
      * @since 1.5
      */
+    // 以字节为单位逆置字节顺序
     public static short reverseBytes(short i) {
         return (short) (((i & 0xFF00) >> 8) | (i << 8));
     }
@@ -508,6 +532,7 @@ public final class Short extends Number implements Comparable<Short> {
      *         conversion
      * @since 1.8
      */
+    // 将当前short转换为无符号形式，用int存储
     public static int toUnsignedInt(short x) {
         return ((int) x) & 0xffff;
     }
@@ -528,6 +553,7 @@ public final class Short extends Number implements Comparable<Short> {
      *         conversion
      * @since 1.8
      */
+    // 将当前short转换为无符号形式，用long存储
     public static long toUnsignedLong(short x) {
         return ((long) x) & 0xffffL;
     }

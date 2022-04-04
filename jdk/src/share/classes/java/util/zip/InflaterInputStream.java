@@ -38,25 +38,31 @@ import java.io.EOFException;
  * @see         Inflater
  * @author      David Connelly
  */
+// (解压)输入流：从指定的源头输入流读取已压缩的数据，将其解压后填充到给定的内存
 public
 class InflaterInputStream extends FilterInputStream {
     /**
      * Decompressor for this stream.
      */
+    // 解压器
     protected Inflater inf;
 
     /**
      * Input buffer for decompression.
      */
+    // 解压缓冲区，缓存解压前的数据
     protected byte[] buf;
 
     /**
      * Length of input buffer.
      */
+    // 待解压的已压缩字节数
     protected int len;
 
+    // 输入流是否已关闭
     private boolean closed = false;
     // this flag is set to true after EOF has reached
+    // 是否到达输入流的尾部
     private boolean reachEOF = false;
 
     /**
@@ -77,6 +83,10 @@ class InflaterInputStream extends FilterInputStream {
      * @param size the input buffer size
      * @exception IllegalArgumentException if {@code size <= 0}
      */
+    /*
+     * 用指定的源头输入流和指定的解压器构造(解压)输入流。
+     * 解压缓冲区的容量由size参数指定。
+     */
     public InflaterInputStream(InputStream in, Inflater inf, int size) {
         super(in);
         if (in == null || inf == null) {
@@ -94,21 +104,31 @@ class InflaterInputStream extends FilterInputStream {
      * @param in the input stream
      * @param inf the decompressor ("inflater")
      */
+    /*
+     * 用指定的源头输入流和指定的解压器构造(解压)输入流。
+     * 解压缓冲区的容量为512个字节。
+     */
     public InflaterInputStream(InputStream in, Inflater inf) {
         this(in, inf, 512);
     }
 
+    // 是否使用了具有默认解压级别的解压器
     boolean usesDefaultInflater = false;
 
     /**
      * Creates a new input stream with a default decompressor and buffer size.
      * @param in the input stream
      */
+    /*
+     * 用指定的源头输入流构造(解压)输入流。
+     * 默认使用具有默认解压级别的解压器，且解压缓冲区的容量为512个字节。
+     */
     public InflaterInputStream(InputStream in) {
         this(in, new Inflater());
         usesDefaultInflater = true;
     }
 
+    // 临时存储单个解压后的字节
     private byte[] singleByteBuf = new byte[1];
 
     /**
@@ -116,6 +136,12 @@ class InflaterInputStream extends FilterInputStream {
      * enough input is available for decompression.
      * @return the byte read, or -1 if end of compressed input is reached
      * @exception IOException if an I/O error has occurred
+     */
+    /*
+     * 从源头输入流中读取(解压)出一个解压后的字节，并将其返回。
+     *
+     * 如果返回-1，表示已经没有可解压字节，
+     * 但不代表解压器缓冲区内没有字节(因为有些数据并不需要解压)。
      */
     public int read() throws IOException {
         ensureOpen();
@@ -138,6 +164,12 @@ class InflaterInputStream extends FilterInputStream {
      * @exception ZipException if a ZIP format error has occurred
      * @exception IOException if an I/O error has occurred
      */
+    /*
+     * 从源头输入流中读取(解压)出len个解压后的字节，并将其存入b的off处。
+     *
+     * 返回值表示实际得到的解压后的字节数，如果返回-1，表示已经没有可解压字节，
+     * 但不代表解压器缓冲区内或输入流中没有字节(因为有些数据并不需要解压)。
+     */
     public int read(byte[] b, int off, int len) throws IOException {
         ensureOpen();
         if (b == null) {
@@ -149,12 +181,21 @@ class InflaterInputStream extends FilterInputStream {
         }
         try {
             int n;
+            /*
+             * 向字节数组b的指定范围填充解压后的数据，返回实际填充的字节数
+             * 如果返回值为0，即没有成功解压数据，则需要进一步排查原因
+             */
             while ((n = inf.inflate(b, off, len)) == 0) {
+                // 如果解压器已经完成解压，或者解压器需要字典，则结束解压
                 if (inf.finished() || inf.needsDictionary()) {
+                    // 标记输入流到底
                     reachEOF = true;
                     return -1;
                 }
+                // 如果需要更多输入数据(缓冲区中没有待解压数据)，则先向解压器填充待解压数据
+
                 if (inf.needsInput()) {
+                    // 向解压器填充待解压的数据
                     fill();
                 }
             }
@@ -175,15 +216,19 @@ class InflaterInputStream extends FilterInputStream {
      * @exception  IOException  if an I/O error occurs.
      *
      */
+    // 判断当前(解压)输入流中是否有未读(未解压)数据
     public int available() throws IOException {
         ensureOpen();
+        // 如果已经读到输入流尾部
         if (reachEOF) {
             return 0;
         } else {
+            // 如果解压器已经完成解压
             return 1;
         }
     }
 
+    // 临时存储需要跳过的字节
     private byte[] b = new byte[512];
 
     /**
@@ -193,6 +238,7 @@ class InflaterInputStream extends FilterInputStream {
      * @exception IOException if an I/O error has occurred
      * @exception IllegalArgumentException if {@code n < 0}
      */
+    // 跳过当前(解压)输入流中len个解压后的字节
     public long skip(long n) throws IOException {
         if (n < 0) {
             throw new IllegalArgumentException("negative skip length");
@@ -233,12 +279,15 @@ class InflaterInputStream extends FilterInputStream {
      * Fills input buffer with more data to decompress.
      * @exception IOException if an I/O error has occurred
      */
+    // 向解压器填充待解压的数据
     protected void fill() throws IOException {
         ensureOpen();
+        // 从源头输入流读取解压前的数据
         len = in.read(buf, 0, buf.length);
         if (len == -1) {
             throw new EOFException("Unexpected end of ZLIB input stream");
         }
+        // 向解压器添加待解压数据
         inf.setInput(buf, 0, len);
     }
 

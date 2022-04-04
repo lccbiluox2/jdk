@@ -80,6 +80,21 @@ import sun.misc.VM;
  * @since 1.7
  * @author Doug Lea
  */
+/*
+ * 伪随机数生成器，Random的子类
+ *
+ * 线程安全
+ * 适用于多线程同步场景
+ *
+ * 在多线程中，相比Random，该伪随机数生成器的性能更好
+ *
+ *   支持使用内置种子计算的原始种子
+ * 不支持自定义原始种子
+ *   支持辅助种子
+ *   支持使用安全种子（设置运行参数-Djava.util.secureRandomSeed=true）
+ *
+ * 注：虽然类名带有ThreadLocal字样，但跟ThreadLocal类几乎无关
+ */
 public class ThreadLocalRandom extends Random {
     /*
      * This class implements the java.util.Random API (and subclasses
@@ -126,12 +141,29 @@ public class ThreadLocalRandom extends Random {
      * but we provide identical statistical properties.
      */
 
+    /*
+     * 这里的探测值由多个线程共享
+     * 每个线程都会以这个探测值为蓝本，生成一个线程专有的探测值（参见PROBE）
+     * 并且在这个过程中，会将这里的探测值进行原子地改变
+     */
+
+
     /** Generates per-thread initialization/probe field */
+    // 探测值，初值为0
     private static final AtomicInteger probeGenerator =
         new AtomicInteger();
 
     /**
      * The next seed for default constructors.
+     */
+    /*
+     * 内置种子
+     *
+     * ThreadLocalRandom实例使用该种子生成一个线程专有的原始种子值和线程专有的辅助种子值
+     *
+     * 内置种子的初值只能由系统时间生成
+     * 每个线程初次获取ThreadLocalRandom实例时，会将内置种子更新一次
+     * 更新后的值会作为该线程专有的原始种子值
      */
     private static final AtomicLong seeder = new AtomicLong(initialSeed());
 
@@ -148,6 +180,17 @@ public class ThreadLocalRandom extends Random {
                 mix64(System.nanoTime()));
     }
 
+    /*▲ 内置种子[共享] ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓┛ */
+
+
+    /*▼ 原始种子 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓┓ */
+
+    /*
+     * 与Random不同的是，Random中原始种子是被各线程共享的
+     * 但是在ThreadLocalRandom中，每个线程都有自己的原始种子
+     * 且原始种子的初值不一样
+     * 这个原始种子生成自哈希魔数，利用它可以产生均匀的哈希值作为随机数
+     */
     /**
      * The seed increment
      */
@@ -156,15 +199,28 @@ public class ThreadLocalRandom extends Random {
     /**
      * The increment for generating probe values
      */
+    // 哈希魔数，探测值增量
     private static final int PROBE_INCREMENT = 0x9e3779b9;
+
+    /*▼ 内置种子[共享] ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓┓ */
+
+    /*
+     * 内置种子由多个线程共享
+     * 每个线程都会以这个内置种子为蓝本，生成一个线程专有的原始种子值（参见SEED）
+     * 而且在这个过程中，会将这里的内置种子进行原子地改变
+     */
+
 
     /**
      * The increment of seeder per new instance
      */
+    // 哈希魔数，内置种子的增量
     private static final long SEEDER_INCREMENT = 0xbb67ae8584caa73bL;
 
     // Constants from SplittableRandom
+    // double值的二进制精度
     private static final double DOUBLE_UNIT = 0x1.0p-53;  // 1.0  / (1L << 53)
+    // float值的二进制精度
     private static final float  FLOAT_UNIT  = 0x1.0p-24f; // 1.0f / (1 << 24)
 
     /** Rarely-used holder for the second of a pair of Gaussians */
@@ -186,14 +242,17 @@ public class ThreadLocalRandom extends Random {
      * Field used only during singleton initialization.
      * True when constructor completes.
      */
+    // 标记ThreadLocalRandom实例instance是否已经创建
     boolean initialized;
 
     /** Constructor used only for static singleton */
+    // 不支持主动调用构造方法
     private ThreadLocalRandom() {
         initialized = true; // false during super() call
     }
 
     /** The common ThreadLocalRandom */
+    // 由各线程共享的伪随机数实例，但是为每个线程生成的随机数种子是不一样的
     static final ThreadLocalRandom instance = new ThreadLocalRandom();
 
     /**
@@ -203,12 +262,17 @@ public class ThreadLocalRandom extends Random {
      * though the initialization is purely thread-local, we need to
      * rely on (static) atomic generators to initialize the values.
      */
+    // 为当前线程设置原始种子值和探测值
     static final void localInit() {
+        // 原子地增加探测值[共享]
         int p = probeGenerator.addAndGet(PROBE_INCREMENT);
         int probe = (p == 0) ? 1 : p; // skip 0
+        // 原子地增加原始种子[共享]的值
         long seed = mix64(seeder.getAndAdd(SEEDER_INCREMENT));
         Thread t = Thread.currentThread();
+        // 为当前线程初始化原始种子
         UNSAFE.putLong(t, SEED, seed);
+        // 为当前线程初始化探测值
         UNSAFE.putInt(t, PROBE, probe);
     }
 
@@ -217,9 +281,14 @@ public class ThreadLocalRandom extends Random {
      *
      * @return the current thread's {@code ThreadLocalRandom}
      */
+    // 获取当前线程中的ThreadLocalRandom，如有必要，需要完成种子的初始化工作
     public static ThreadLocalRandom current() {
+        // 如果当前线程内的探测值为0，则需要进行一些初始化工作
         if (UNSAFE.getInt(Thread.currentThread(), PROBE) == 0)
+            // 为当前线程设置原始种子值和探测值
             localInit();
+
+        // 现在可以返回共享的伪随机数生成器了
         return instance;
     }
 
@@ -229,12 +298,14 @@ public class ThreadLocalRandom extends Random {
      *
      * @throws UnsupportedOperationException always
      */
+    // ThreadLocalRandom的实例一旦创建，就禁止自行设置种子
     public void setSeed(long seed) {
         // only allow call from super() constructor
         if (initialized)
             throw new UnsupportedOperationException();
     }
 
+    // 更新当前线程内的原始种子，并返回更新后的值
     final long nextSeed() {
         Thread t; long r; // read and update per-thread seed
         UNSAFE.putLong(t = Thread.currentThread(), SEED,
@@ -995,15 +1066,18 @@ public class ThreadLocalRandom extends Random {
     /**
      * Returns the pseudo-randomly initialized or updated secondary seed.
      */
+    // 获取下一个辅助种子
     static final int nextSecondarySeed() {
         int r;
         Thread t = Thread.currentThread();
+        // 获取辅助种子的值   // 如果已经设置过辅助种子，则更新它
         if ((r = UNSAFE.getInt(t, SECONDARY)) != 0) {
             r ^= r << 13;   // xorshift
             r ^= r >>> 17;
             r ^= r << 5;
         }
         else {
+            // 如果辅助种子还未设置，使用内置种子初始化它
             localInit();
             if ((r = (int)UNSAFE.getLong(t, SEED)) == 0)
                 r = 1; // avoid zero
@@ -1022,6 +1096,7 @@ public class ThreadLocalRandom extends Random {
      * @serialField initialized boolean
      *              always true
      */
+    // 确定哪些字段参与序列化
     private static final ObjectStreamField[] serialPersistentFields = {
             new ObjectStreamField("rnd", long.class),
             new ObjectStreamField("initialized", boolean.class),
@@ -1051,9 +1126,15 @@ public class ThreadLocalRandom extends Random {
 
     // Unsafe mechanics
     private static final sun.misc.Unsafe UNSAFE;
+    // 当前线程内的【原始种子】，用来为当前线程生成均匀的随机数
     private static final long SEED;
+    // 当前线程内的【探测值】
     private static final long PROBE;
+    // 当前线程内的【辅助种子】
     private static final long SECONDARY;
+
+
+    // 在构造方法被调用前，设置一个安全的初始种子，即原始种子不再使用系统时间计算
     static {
         try {
             UNSAFE = sun.misc.Unsafe.getUnsafe();

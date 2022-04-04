@@ -45,6 +45,14 @@ package java.io;
  *
  * 所有输入流的抽象基类。
  * 所有该类的子类，必须提供一个返回输入流中下一个字节的方法。
+ *
+ * 字节输入流，可以从中读取数据
+ *
+ * 本地 <--------- 远端
+ *
+ * 字节输入流的解释：
+ * [输入流]的含义是从远端读取数据到本地，
+ * [字节]的含义是本地获取到的是字节(远端通常是数组、字节流、通道、)
  */
 public abstract class InputStream implements Closeable {
 
@@ -68,6 +76,8 @@ public abstract class InputStream implements Closeable {
      *
      * 读取输入流中的下一个字节。
      * 该方法是阻塞的。
+     *
+     *  尝试从当前输入流读取一个字节，读取成功直接返回，读取失败返回-1
      */
     public abstract int read() throws IOException;
 
@@ -105,6 +115,9 @@ public abstract class InputStream implements Closeable {
      * @see        java.io.InputStream#read(byte[], int, int)
      *
      * 除非整到读到了输入流末尾。不然该方法最少会读取一个字节到数据b中。
+     *
+     * 尝试从当前输入流读取dst.length个字节，并将读到的内容插入到dst的起点处
+     * 返回值表示成功读取的字节数量(可能小于预期值)，返回-1表示已经没有可读内容了
      */
     public int read(byte b[]) throws IOException {
         return read(b, 0, b.length);
@@ -173,6 +186,9 @@ public abstract class InputStream implements Closeable {
      * 该方法重复调用read()方法来实现批量读取的功能.
      * 如果读取第一个字节的时候发生异常，则抛出该异常给调用方;
      * 如果在读取中间某个字节时，发生异常，则返回已经读到的数据给调用方。
+     *
+     * 尝试从当前输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+     * 返回值表示成功读取的字节数量(可能小于预期值)，返回-1表示已经没有可读内容了
      */
     public int read(byte b[], int off, int len) throws IOException {
         if (b == null) {
@@ -183,6 +199,7 @@ public abstract class InputStream implements Closeable {
             return 0;
         }
 
+        // 先尝试读取一个字节
         int c = read();
         if (c == -1) {
             return -1;
@@ -191,6 +208,7 @@ public abstract class InputStream implements Closeable {
 
         int i = 1;
         try {
+            // 尽力凑够len个字节
             for (; i < len ; i++) {
                 c = read();
                 if (c == -1) {

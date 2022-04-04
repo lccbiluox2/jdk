@@ -217,6 +217,11 @@ import static java.math.BigInteger.LONG_MASK;
  * @author  Joseph D. Darcy
  * @author  Sergey V. Kuksenko
  */
+/*
+ * 高精度数值
+ *
+ * 注：该对象本身是不可变的，类似String，在运算之后会产生一个新对象
+ */
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
     /**
      * The unscaled value of this BigDecimal, as returned by {@link
@@ -353,6 +358,22 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * Trusted simply means if val is INFLATED, intVal could not be null and
      * if intVal is null, val could not be INFLATED.
      */
+    /*
+     * ▶ 10
+     *
+     * 使用指定的整数构造BigDecimal，精度由prec给出。
+     *
+     * inVal和val通常只使用一个，
+     * 如果val为INFLATED，则intVal不为null，
+     * 如果intVal为null，则val不能是INFLATED。
+     *
+     * scale用来设置小数的位数。
+     * scale>0 : 将有效数值的小数点向左移动scale位，即增加scale个小数位。
+     * scale<0 : 将有效数值的小数点向右移动scale位，即减少scale个小数位。
+     * scale==0: 使用原始的有效数值。
+     *
+     * prec用来指示允许的有效数字数量，0表示不作限制
+     */
     BigDecimal(BigInteger intVal, long val, int scale, int prec) {
         this.scale = scale;
         this.precision = prec;
@@ -378,6 +399,11 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         representation of a {@code BigDecimal} or the defined subarray
      *         is not wholly within {@code in}.
      * @since  1.5
+     */
+    /*
+     * ▶ 1-1
+     *
+     * 使用in[offset, offset+len-1]范围的字符序列构造BigDecimal，不会限制精度。
      */
     public BigDecimal(char[] in, int offset, int len) {
         this(in,offset,len,MathContext.UNLIMITED);
@@ -405,6 +431,11 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         representation of a {@code BigDecimal} or the defined subarray
      *         is not wholly within {@code in}.
      * @since  1.5
+     */
+    /*
+     * ▶ 1
+     *
+     * 使用in[offset, offset+len-1]范围的字符序列构造BigDecimal，精度由mc给出。
      */
     public BigDecimal(char[] in, int offset, int len, MathContext mc) {
         // protect against huge length.
@@ -697,6 +728,11 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         representation of a {@code BigDecimal}.
      * @since  1.5
      */
+    /*
+     * ▶ 1-2
+     *
+     * 使用指定的字符序列构造BigDecimal，精度由mc给出。
+     */
     public BigDecimal(char[] in, MathContext mc) {
         this(in, 0, in.length, mc);
     }
@@ -802,6 +838,18 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * @throws NumberFormatException if {@code val} is not a valid
      *         representation of a {@code BigDecimal}.
      */
+    /*
+     * ▶ 1-1-2 （建议使用）
+     *
+     * 使用指定的字符串构造BigDecimal，不会限制精度。
+     *
+     * 字符串示例：
+     * "123"          ->  123
+     * "1.23456789"   ->  1.23456789
+     * "-1.234"       ->  -1.234
+     * "1.23456E3"    ->  1234.56
+     * "-1.23456e-3"  ->  -0.00123456
+     */
     public BigDecimal(String val) {
         this(val.toCharArray(), 0, val.length());
     }
@@ -819,6 +867,18 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * @throws NumberFormatException if {@code val} is not a valid
      *         representation of a BigDecimal.
      * @since  1.5
+     */
+    /*
+     * ▶ 1-3
+     *
+     * 使用指定的字符串构造BigDecimal，精度由mc给出。
+     *
+     * 字符串示例：
+     * "123"          ->  123
+     * "1.23456789"   ->  1.23456789
+     * "-1.234"       ->  -1.234
+     * "1.23456E3"    ->  1234.56
+     * "-1.23456e-3"  ->  -0.00123456
      */
     public BigDecimal(String val, MathContext mc) {
         this(val.toCharArray(), 0, val.length(), mc);
@@ -868,6 +928,13 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *        {@code BigDecimal}.
      * @throws NumberFormatException if {@code val} is infinite or NaN.
      */
+    /*
+     * ▶ 2-1
+     *
+     * 使用指定的浮点数构造BigDecimal，不会限制精度。
+     *
+     * 注：最终得到的数字可能会不准确，因为double本身就可能不准确。
+     */
     public BigDecimal(double val) {
         this(val,MathContext.UNLIMITED);
     }
@@ -889,6 +956,13 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         RoundingMode is UNNECESSARY.
      * @throws NumberFormatException if {@code val} is infinite or NaN.
      * @since  1.5
+     */
+    /*
+     * ▶ 2
+     *
+     * 使用指定的浮点数构造BigDecimal，精度由mc给出。
+     *
+     * 注：最终得到的数字可能会不准确，因为double本身就可能不准确。
      */
     public BigDecimal(double val, MathContext mc) {
         if (Double.isInfinite(val) || Double.isNaN(val))
@@ -1009,6 +1083,16 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *
      * @param unscaledVal unscaled value of the {@code BigDecimal}.
      * @param scale scale of the {@code BigDecimal}.
+     */
+    /*
+     * ▶ 3
+     *
+     * 使用指定的BigInteger构造BigDecimal，精度由mc给出。
+     *
+     * scale用来设置小数的位数。
+     * scale>0 : 将unscaledVal的小数点向左移动scale位，即增加scale个小数位。
+     * scale<0 : 将unscaledVal的小数点向右移动scale位，即减少scale个小数位。
+     * scale==0: 使用原始的unscaledVal值。
      */
     public BigDecimal(BigInteger unscaledVal, int scale) {
         // Negative scales are now allowed
@@ -1193,10 +1277,20 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * @return a {@code BigDecimal} whose value is
      *         <tt>(unscaledVal &times; 10<sup>-scale</sup>)</tt>.
      */
+    /*
+     * 使用指定的整数构造BigDecimal，不会限制精度。
+     *
+     * scale用来设置小数的位数。
+     * scale>0 : 将unscaledVal的小数点向左移动scale位，即增加scale个小数位。
+     * scale<0 : 将unscaledVal的小数点向右移动scale位，即减少scale个小数位。
+     * scale==0: 使用原始的unscaledVal值。
+     */
     public static BigDecimal valueOf(long unscaledVal, int scale) {
         if (scale == 0)
+            // 直接转换
             return valueOf(unscaledVal);
         else if (unscaledVal == 0) {
+            // 快捷处理
             return zeroValueOf(scale);
         }
         return new BigDecimal(unscaledVal == INFLATED ?
@@ -1214,7 +1308,9 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * @param val value of the {@code BigDecimal}.
      * @return a {@code BigDecimal} whose value is {@code val}.
      */
+    // 将指定的整数转换为BigDecimal，不会限制精度。
     public static BigDecimal valueOf(long val) {
+        // 快捷处理
         if (val >= 0 && val < zeroThroughTen.length)
             return zeroThroughTen[(int)val];
         else if (val != INFLATED)
@@ -1265,6 +1361,12 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         equal to the value of {@code val}.
      * @throws NumberFormatException if {@code val} is infinite or NaN.
      * @since  1.5
+     */
+    /*
+     * 将指定的浮点数转换为BigDecimal，不会限制精度。
+     *
+     * 注：这里虽然也使用了读点数，但最终得到的数字是准确的，
+     * 　　因为这里会先将double转换为字符串。
      */
     public static BigDecimal valueOf(double val) {
         // Reminder: a zero double returns '0.0', so we cannot fastpath
@@ -1553,6 +1655,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * @see    #ROUND_HALF_EVEN
      * @see    #ROUND_UNNECESSARY
      */
+    // 除，允许指定舍入模式和保留的小数位数
     public BigDecimal divide(BigDecimal divisor, int scale, int roundingMode) {
         if (roundingMode < ROUND_UP || roundingMode > ROUND_UNNECESSARY)
             throw new IllegalArgumentException("Invalid rounding mode");
@@ -1655,6 +1758,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * @since 1.5
      * @author Joseph D. Darcy
      */
+    // 除，遇到无限循环时会抛出异常
     public BigDecimal divide(BigDecimal divisor) {
         /*
          * Handle zero cases first.
@@ -1717,6 +1821,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         non-terminating decimal expansion.
      * @since  1.5
      */
+    // 除，允许进行精度控制
     public BigDecimal divide(BigDecimal divisor, MathContext mc) {
         int mcp = mc.precision;
         if (mcp == 0)
@@ -1771,6 +1876,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * @throws ArithmeticException if {@code divisor==0}
      * @since  1.5
      */
+    // 除，保留整数
     public BigDecimal divideToIntegralValue(BigDecimal divisor) {
         // Calculate preferred scale
         int preferredScale = saturateLong((long) this.scale - divisor.scale);
@@ -2263,6 +2369,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * digit prior to a nonzero discarded fraction.  Note that this rounding
      * mode never decreases the magnitude of the calculated value.
      */
+    // 向两端舍入（负数朝左，正数朝右）
     public final static int ROUND_UP =           0;
 
     /**
@@ -2270,6 +2377,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * prior to a discarded fraction (i.e., truncates).  Note that this
      * rounding mode never increases the magnitude of the calculated value.
      */
+    // 向0舍入（负数朝右，正数朝左）
     public final static int ROUND_DOWN =         1;
 
     /**
@@ -2279,6 +2387,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * {@code ROUND_DOWN}.  Note that this rounding mode never
      * decreases the calculated value.
      */
+    // 向右舍入
     public final static int ROUND_CEILING =      2;
 
     /**
@@ -2288,6 +2397,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * {@code ROUND_UP}.  Note that this rounding mode never
      * increases the calculated value.
      */
+    // 向左舍入
     public final static int ROUND_FLOOR =        3;
 
     /**
@@ -2298,6 +2408,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * that this is the rounding mode that most of us were taught in
      * grade school.
      */
+    // 返回最近的整数，如果该数位于两个整数正中间，向两端舍入
     public final static int ROUND_HALF_UP =      4;
 
     /**
@@ -2307,6 +2418,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * fraction is {@literal >} 0.5; otherwise, behaves as for
      * {@code ROUND_DOWN}.
      */
+    // 返回最近的整数，如果该数位于两个整数正中间，向0舍入
     public final static int ROUND_HALF_DOWN =    5;
 
     /**
@@ -2319,6 +2431,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * rounding mode that minimizes cumulative error when applied
      * repeatedly over a sequence of calculations.
      */
+    // 返回最近的整数，如果该数位于两个整数正中间，向偶数舍入
     public final static int ROUND_HALF_EVEN =    6;
 
     /**
@@ -2327,6 +2440,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      * specified on an operation that yields an inexact result, an
      * {@code ArithmeticException} is thrown.
      */
+    // 用于诊断该舍入操作的数据是否为整数，如果不是整数，抛异常
     public final static int ROUND_UNNECESSARY =  7;
 
 
@@ -3056,6 +3170,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *
      * @return this {@code BigDecimal} converted to a {@code long}.
      */
+    // 将当前数值转换为int；如果当前数值是小数，或者超过了int的范围，则视情形截断
     public long longValue(){
         return (intCompact != INFLATED && scale == 0) ?
             intCompact:
@@ -3074,6 +3189,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         fractional part, or will not fit in a {@code long}.
      * @since  1.5
      */
+    // 将当前数值转换为long；如果当前数值是小数，或者超过了long的范围，则抛异常
     public long longValueExact() {
         if (intCompact != INFLATED && scale == 0)
             return intCompact;
@@ -3142,6 +3258,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         fractional part, or will not fit in an {@code int}.
      * @since  1.5
      */
+    // 将当前数值转换为int；如果当前数值是小数，或者超过了int的范围，则抛异常
     public int intValueExact() {
        long num;
        num = this.longValueExact();     // will check decimal part
@@ -3162,6 +3279,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         fractional part, or will not fit in a {@code short}.
      * @since  1.5
      */
+    // 将当前数值转换为short；如果当前数值是小数，或者超过了short的范围，则抛异常
     public short shortValueExact() {
        long num;
        num = this.longValueExact();     // will check decimal part
@@ -3182,6 +3300,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *         fractional part, or will not fit in a {@code byte}.
      * @since  1.5
      */
+    // 将当前数值转换为byte；如果当前数值是小数，或者超过了byte的范围，则抛异常
     public byte byteValueExact() {
        long num;
        num = this.longValueExact();     // will check decimal part
@@ -3206,6 +3325,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *
      * @return this {@code BigDecimal} converted to a {@code float}.
      */
+    // 将当前数值转换为float；如果当前数值超过了float的范围，则视情形截断或舍入
     public float floatValue(){
         if(intCompact != INFLATED) {
             if (scale == 0) {
@@ -3249,6 +3369,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
      *
      * @return this {@code BigDecimal} converted to a {@code double}.
      */
+    // 将当前数值转换为double；如果当前数值超过了double的范围，则视情形截断或舍入
     public double doubleValue(){
         if(intCompact != INFLATED) {
             if (scale == 0) {

@@ -69,6 +69,7 @@ import sun.reflect.misc.ReflectUtil;
  * @see <a href="../../../platform/serialization/spec/class.html">Object Serialization Specification, Section 4, Class Descriptors</a>
  * @since   JDK1.1
  */
+// 待序列化/反序列化对象的序列化描述符
 public class ObjectStreamClass implements Serializable {
 
     /** serialPersistentFields value indicating no serializable fields */
@@ -80,6 +81,7 @@ public class ObjectStreamClass implements Serializable {
         NO_FIELDS;
 
     /** reflection factory for obtaining serialization constructors */
+    // 反射对象工厂
     private static final ReflectionFactory reflFactory =
         AccessController.doPrivileged(
             new ReflectionFactory.GetReflectionFactoryAction());
@@ -94,29 +96,39 @@ public class ObjectStreamClass implements Serializable {
             new ConcurrentHashMap<>();
 
         /** queue for WeakReferences to local classes */
+        // 用于WeakClassKey的弱引用队列
         private static final ReferenceQueue<Class<?>> localDescsQueue =
             new ReferenceQueue<>();
         /** queue for WeakReferences to field reflectors keys */
+        // 用于FieldReflectorKey的弱引用队列
         private static final ReferenceQueue<Class<?>> reflectorsQueue =
             new ReferenceQueue<>();
     }
 
     /** class associated with this descriptor (if any) */
+    // 待序列化的类对象
     private Class<?> cl;
     /** name of class represented by this descriptor */
+    // cl的类型名称(虚拟机中呈现的名称)
     private String name;
     /** serialVersionUID of represented class (null if not computed yet) */
+    // cl的序列化编号
     private volatile Long suid;
 
     /** true if represents dynamic proxy class */
+    // cl是否为代理类
     private boolean isProxy;
     /** true if represents enum type */
+    // cl是否为枚举类
     private boolean isEnum;
     /** true if represented class implements Serializable */
+    // cl是否为Serializable实现类
     private boolean serializable;
     /** true if represented class implements Externalizable */
+    // cl是否为Externalizable实现类
     private boolean externalizable;
     /** true if desc has data written by class-defined writeObject method */
+    // 当前类中是否包含writeObject方法(Serializable实现类)
     private boolean hasWriteObjectData;
     /**
      * true if desc has externalizable data written in block data format; this
@@ -124,6 +136,7 @@ public class ObjectStreamClass implements Serializable {
      * override readClassDescriptor() to return class descriptors obtained from
      * ObjectStreamClass.lookup() (see 4461737)
      */
+    // 是否包含块数据
     private boolean hasBlockExternalData = true;
 
     /**
@@ -161,35 +174,49 @@ public class ObjectStreamClass implements Serializable {
     private ExceptionInfo defaultSerializeEx;
 
     /** serializable fields */
+    // 待序列化字段的序列化描述符信息（要求原始类型排在前面，引用类型排在后面）
     private ObjectStreamField[] fields;
     /** aggregate marshalled size of primitive fields */
+    // 统计fields中基本类型字段所占字节数
     private int primDataSize;
     /** number of non-primitive fields */
+    // 统计fields中引用类型字段数量
     private int numObjFields;
     /** reflector for setting/getting serializable field values */
+    // 待序列化的字段的统计信息
     private FieldReflector fieldRefl;
     /** data layout of serialized objects described by this class desc */
+    // 数据槽：包含从当前类到最上层实现了Serializable接口的父类的所有序列化描述符
     private volatile ClassDataSlot[] dataLayout;
 
     /** serialization-appropriate constructor, or null if none */
+    // 生成反序列化对象的构造器
     private Constructor<?> cons;
     /** class-defined writeObject method, or null if none */
+    // 当前类中的writeObject方法(Serializable实现类)
     private Method writeObjectMethod;
     /** class-defined readObject method, or null if none */
+    // 当前类中的readObject方法(Serializable实现类)
     private Method readObjectMethod;
     /** class-defined readObjectNoData method, or null if none */
+    // 当前类中的readObjectNoData方法(Serializable实现类)
     private Method readObjectNoDataMethod;
     /** class-defined writeReplace method, or null if none */
+    // 当前类中的writeReplace方法
     private Method writeReplaceMethod;
     /** class-defined readResolve method, or null if none */
+    // 当前类中的readResolve方法
     private Method readResolveMethod;
 
     /** local class descriptor for represented class (may point to self) */
+    // cl的序列化描述符
     private ObjectStreamClass localDesc;
     /** superclass descriptor appearing in stream */
+    // cl的父类的序列化描述符
     private ObjectStreamClass superDesc;
 
     /** true if, and only if, the object has been correctly initialized */
+    // 序列化描述符信息是否已经完成初始化
     private boolean initialized;
 
     /**
@@ -209,6 +236,7 @@ public class ObjectStreamClass implements Serializable {
      * @param   cl class for which to get the descriptor
      * @return  the class descriptor for the specified class
      */
+    // 获取类对象cl(只允许处理Serializable类型)的序列化描述符，返回之前会先去缓存中查找
     public static ObjectStreamClass lookup(Class<?> cl) {
         return lookup(cl, false);
     }
@@ -221,6 +249,7 @@ public class ObjectStreamClass implements Serializable {
      * @return       the class descriptor for the specified class
      * @since 1.6
      */
+    // 获取类对象cl的序列化描述符，返回之前会先去缓存中查找
     public static ObjectStreamClass lookupAny(Class<?> cl) {
         return lookup(cl, true);
     }
@@ -232,6 +261,7 @@ public class ObjectStreamClass implements Serializable {
      *
      * @return a string representing the name of the class
      */
+    // 返回cl的类型名称(虚拟机中呈现的名称)
     public String getName() {
         return name;
     }
@@ -244,6 +274,7 @@ public class ObjectStreamClass implements Serializable {
      *
      * @return  the SUID of the class described by this descriptor
      */
+    // 返回待序列化对象的序列化编号
     public long getSerialVersionUID() {
         // REMIND: synchronize instead of relying on volatile?
         if (suid == null) {
@@ -264,11 +295,13 @@ public class ObjectStreamClass implements Serializable {
      *
      * @return  the <code>Class</code> instance that this descriptor represents
      */
+    // 返回待序列化对象的类型
     @CallerSensitive
     public Class<?> forClass() {
         if (cl == null) {
             return null;
         }
+        // 确保序列化描述符已经初始化
         requireInitialized();
         if (System.getSecurityManager() != null) {
             Class<?> caller = Reflection.getCallerClass();
@@ -287,6 +320,7 @@ public class ObjectStreamClass implements Serializable {
      *          fields.
      * @since 1.2
      */
+    // 获取待序列化字段的拷贝
     public ObjectStreamField[] getFields() {
         return getFields(true);
     }
@@ -298,6 +332,7 @@ public class ObjectStreamClass implements Serializable {
      * @return  The ObjectStreamField object of the named field or null if
      *          there is no such named field.
      */
+    // 返回指定名称的待序列化字段
     public ObjectStreamField getField(String name) {
         return getField(name, null);
     }
@@ -318,35 +353,53 @@ public class ObjectStreamClass implements Serializable {
      * @param   all if true, return descriptors for all classes; if false, only
      *          return descriptors for serializable classes
      */
+    /*
+     * 返回类对象cl的序列化描述符，返回之前会先去缓存中查找。
+     * all为true指示允许处理任意类型，而all为false则指示只允许处理Serializable类型(的实现类)。
+     */
     static ObjectStreamClass lookup(Class<?> cl, boolean all) {
         if (!(all || Serializable.class.isAssignableFrom(cl))) {
             return null;
         }
+        // 从localDescs中移除localDescsQueue中包含的元素
         processQueue(Caches.localDescsQueue, Caches.localDescs);
+        // 将指定的类对象包装为弱引用键，并指定localDescsQueue为其引用队列
         WeakClassKey key = new WeakClassKey(cl, Caches.localDescsQueue);
+        // 获取该弱引用键映射的引用
         Reference<?> ref = Caches.localDescs.get(key);
         Object entry = null;
+        // 获取key关联的软引用追踪的对象
         if (ref != null) {
+            // 返回此Reference包裹的自定义引用对象，如果该对象已被回收，则返回null
             entry = ref.get();
         }
         EntryFuture future = null;
+        // 需要将其他获取value的线程阻塞住，等为key关联新value后再放行
         if (entry == null) {
+            // 包装了EntryFuture的软引用
             EntryFuture newEntry = new EntryFuture();
             Reference<?> newRef = new SoftReference<>(newEntry);
             do {
+                // 之前软引用追踪的对象被回收了
                 if (ref != null) {
+                    // 从map中移除拥有指定key和value的元素，返回值表示是否移除成功
                     Caches.localDescs.remove(key, ref);
                 }
+                // 重新关联：将指定的元素（key-value）存入Map，并返回旧值，不允许覆盖
                 ref = Caches.localDescs.putIfAbsent(key, newRef);
+                // 如果key已经关联值(来自别的线程干扰)
                 if (ref != null) {
+                    // 获取当前key关联的软引用追踪的对象
                     entry = ref.get();
                 }
             } while (ref != null && entry == null);
+            // newEntry被成功关联
             if (entry == null) {
                 future = newEntry;
             }
         }
 
+        // 直接获取到了目标value
         if (entry instanceof ObjectStreamClass) {  // check common case first
             return (ObjectStreamClass) entry;
         }
@@ -361,16 +414,23 @@ public class ObjectStreamClass implements Serializable {
                  */
                 entry = null;
             } else {
+                // 如果key没有关联到有效的value，会阻塞
                 entry = future.get();
             }
         }
         if (entry == null) {
             try {
+                // 生成cl类的序列化描述符信息
                 entry = new ObjectStreamClass(cl);
             } catch (Throwable th) {
                 entry = th;
             }
+            /*
+             * 此刻，key已经准备好关联有效的value(entry)，
+             * 因此可以唤醒所有阻塞在future.get()上的线程了
+             */
             if (future.set(entry)) {
+                // 将指定的元素（key-value）存入Map，并返回旧值，允许覆盖
                 Caches.localDescs.put(key, new SoftReference<Object>(entry));
             } else {
                 // nested lookup call already set future
@@ -378,6 +438,7 @@ public class ObjectStreamClass implements Serializable {
             }
         }
 
+        // 正常返回
         if (entry instanceof ObjectStreamClass) {
             return (ObjectStreamClass) entry;
         } else if (entry instanceof RuntimeException) {
@@ -456,34 +517,59 @@ public class ObjectStreamClass implements Serializable {
     /**
      * Creates local class descriptor representing given class.
      */
+    // 为实现序列化接口的类对象创建一个序列化描述符
     private ObjectStreamClass(final Class<?> cl) {
+        // 待序列化的类型
         this.cl = cl;
+        // 待序列化的类型名称(虚拟机中呈现的名称)
         name = cl.getName();
+        // 判断cl是否为代理类
         isProxy = Proxy.isProxyClass(cl);
+        // 判断cl是否为枚举类
         isEnum = Enum.class.isAssignableFrom(cl);
+        // 判断cl是否为Serializable类
         serializable = Serializable.class.isAssignableFrom(cl);
+        // 判断cl是否为Externalizable类
         externalizable = Externalizable.class.isAssignableFrom(cl);
 
+        // 获取cl的父类
         Class<?> superCl = cl.getSuperclass();
+        // 获取cl的父类对象superCl的序列化描述符(只允许处理Serializable类型的实现类)
         superDesc = (superCl != null) ? lookup(superCl, false) : null;
+        // cl的序列化描述符
         localDesc = this;
 
+        // 如果cl为Serializable类
         if (serializable) {
             AccessController.doPrivileged(new PrivilegedAction<Void>() {
                 public Void run() {
+                    // 如果cl为枚举类
                     if (isEnum) {
                         suid = Long.valueOf(0);
                         fields = NO_FIELDS;
                         return null;
                     }
+                    // 如果cl为数组类
                     if (cl.isArray()) {
                         fields = NO_FIELDS;
                         return null;
                     }
 
+                    // 获取cl类型的对象的序列化编号
                     suid = getDeclaredSUID(cl);
                     try {
+                        /*
+                         * 返回cl类中待序列化字段的序列化描述符，要求cl类本身满足以下条件才能获取有效字段集：
+                         * 1.是Serializable实现类
+                         * 2.不是代理类
+                         * 3.不是枚举
+                         * 4.不是接口
+                         */
                         fields = getSerialFields(cl);
+                        /*
+                         * 统计fields中原始类型字段所占字节数与引用类型字段的数量，
+                         * 并校验fields中的字段顺序（原始类型排在前面，引用类型排在后面）。
+                         */
                         computeFieldOffsets();
                     } catch (InvalidClassException e) {
                         serializeEx = deserializeEx =
@@ -491,22 +577,38 @@ public class ObjectStreamClass implements Serializable {
                         fields = NO_FIELDS;
                     }
 
+                    // 如果cl是Externalizable实现类
                     if (externalizable) {
+                        // 获取cl类的public无参构造器，如果不存在则返回null
                         cons = getExternalizableConstructor(cl);
-                    } else {
+                    } else {  // 如果cl是Serializable实现类
+
+                        /*
+                         * 返回cl的第一个不可序列化的父类的无参构造器，要求改无参构造器可被cl访问。
+                         * 如果未找到该构造器，或该构造器子类无法访问，则返回null。
+                         * 对返回的构造函数（如果有）禁用访问检查。
+                         */
                         cons = getSerializableConstructor(cl);
+
+                        // 获取"private void writeObject(ObjectOutputStream out)"方法
                         writeObjectMethod = getPrivateMethod(cl, "writeObject",
                             new Class<?>[] { ObjectOutputStream.class },
                             Void.TYPE);
+                        // 获取"private void readObject(ObjectOutputStream out)"方法
                         readObjectMethod = getPrivateMethod(cl, "readObject",
                             new Class<?>[] { ObjectInputStream.class },
                             Void.TYPE);
+                        // 获取"private void readObjectNoData()"方法
                         readObjectNoDataMethod = getPrivateMethod(
                             cl, "readObjectNoData", null, Void.TYPE);
+                        // 是否存在writeObject方法
                         hasWriteObjectData = (writeObjectMethod != null);
                     }
+
+                    // 获取"private Object writeReplace()"方法
                     writeReplaceMethod = getInheritableMethod(
                         cl, "writeReplace", null, Object.class);
+                    // 获取"private Object readResolve()"方法
                     readResolveMethod = getInheritableMethod(
                         cl, "readResolve", null, Object.class);
                     return null;
@@ -518,12 +620,14 @@ public class ObjectStreamClass implements Serializable {
         }
 
         try {
+            // 获取待序列化的字段的统计信息
             fieldRefl = getReflector(fields, this);
         } catch (InvalidClassException ex) {
             // field mismatches impossible when matching local fields vs. self
             throw new InternalError(ex);
         }
 
+        // 反序列化异常
         if (deserializeEx == null) {
             if (isEnum) {
                 deserializeEx = new ExceptionInfo(name, "enum type");
@@ -531,7 +635,9 @@ public class ObjectStreamClass implements Serializable {
                 deserializeEx = new ExceptionInfo(name, "no valid constructor");
             }
         }
+        // 遍历待序列化字段的序列化描述符信息
         for (int i = 0; i < fields.length; i++) {
+            // 如果该序列化描述符中存在无效字段
             if (fields[i].getField() == null) {
                 defaultSerializeEx = new ExceptionInfo(
                     name, "unmatched serializable field(s) declared");
@@ -550,6 +656,7 @@ public class ObjectStreamClass implements Serializable {
     /**
      * Initializes class descriptor representing a proxy class.
      */
+    // 使用代理类对象cl来初始化当前序列化描述符
     void initProxy(Class<?> cl,
                    ClassNotFoundException resolveEx,
                    ObjectStreamClass superDesc)
@@ -557,6 +664,7 @@ public class ObjectStreamClass implements Serializable {
     {
         ObjectStreamClass osc = null;
         if (cl != null) {
+            // 获取类对象cl的序列化描述符，返回之前会先去缓存中查找
             osc = lookup(cl, true);
             if (!osc.isProxy) {
                 throw new InvalidClassException(
@@ -579,6 +687,7 @@ public class ObjectStreamClass implements Serializable {
             deserializeEx = localDesc.deserializeEx;
             cons = localDesc.cons;
         }
+        // 返回待序列化的字段的统计信息
         fieldRefl = getReflector(fields, localDesc);
         initialized = true;
     }
@@ -586,15 +695,18 @@ public class ObjectStreamClass implements Serializable {
     /**
      * Initializes class descriptor representing a non-proxy class.
      */
+    // 使用非代理类对象cl来初始化当前序列化描述符
     void initNonProxy(ObjectStreamClass model,
                       Class<?> cl,
                       ClassNotFoundException resolveEx,
                       ObjectStreamClass superDesc)
         throws InvalidClassException
     {
+        // 获取待序列化对象的序列化编号
         long suid = Long.valueOf(model.getSerialVersionUID());
         ObjectStreamClass osc = null;
         if (cl != null) {
+            // 获取类对象cl的序列化描述符，返回之前会先去缓存中查找
             osc = lookup(cl, true);
             if (osc.isProxy) {
                 throw new InvalidClassException(
@@ -666,6 +778,7 @@ public class ObjectStreamClass implements Serializable {
             cons = localDesc.cons;
         }
 
+        // 返回待序列化的字段的统计信息
         fieldRefl = getReflector(fields, localDesc);
         // reassign to matched fields so as to reflect local unshared settings
         fields = fieldRefl.getFields();
@@ -724,14 +837,21 @@ public class ObjectStreamClass implements Serializable {
                     "invalid descriptor for field " + fname).initCause(e);
             }
         }
+        /*
+         * 统计fields中原始类型字段所占字节数与引用类型字段的数量，
+         * 并校验fields中的字段顺序（原始类型排在前面，引用类型排在后面）。
+         */
         computeFieldOffsets();
     }
 
     /**
      * Writes non-proxy class descriptor information to given output stream.
      */
+    // 向输出流out写入当前(非代理对象的)序列化描述符
     void writeNonProxy(ObjectOutputStream out) throws IOException {
+        // 向最终输出流写入待序列化的类型名称(以UTF8的形式写入)
         out.writeUTF(name);
+        // 获取待序列化对象的序列化编号
         out.writeLong(getSerialVersionUID());
 
         byte flags = 0;
@@ -774,6 +894,7 @@ public class ObjectStreamClass implements Serializable {
     /**
      * Throws InternalError if not initialized.
      */
+    // 确保序列化描述符已经初始化
     private final void requireInitialized() {
         if (!initialized)
             throw new InternalError("Unexpected call when not initialized");
@@ -810,6 +931,7 @@ public class ObjectStreamClass implements Serializable {
      * to actual fields, and hence must use the GetField API).  This method
      * does not apply to deserialization of enum constants.
      */
+    // 确保序列化描述符已初始化，且其中不包含无效字段
     void checkDefaultSerialize() throws InvalidClassException {
         requireInitialized();
         if (defaultSerializeEx != null) {
@@ -822,6 +944,7 @@ public class ObjectStreamClass implements Serializable {
      * superclass descriptor may be bound to a class that is not a superclass
      * of the subclass descriptor's bound class.
      */
+    // 返回cl的父类的序列化描述符
     ObjectStreamClass getSuperDesc() {
         requireInitialized();
         return superDesc;
@@ -833,6 +956,7 @@ public class ObjectStreamClass implements Serializable {
      * ObjectStreamClass.lookup(this.forClass())) or null if there is no class
      * associated with this descriptor.
      */
+    // 返回cl的序列化描述符
     ObjectStreamClass getLocalDesc() {
         requireInitialized();
         return localDesc;
@@ -844,6 +968,7 @@ public class ObjectStreamClass implements Serializable {
      * descriptor's field array is returned, otherwise the array itself is
      * returned.
      */
+    // 获取待序列化字段(的拷贝)
     ObjectStreamField[] getFields(boolean copy) {
         return copy ? fields.clone() : fields;
     }
@@ -854,6 +979,7 @@ public class ObjectStreamClass implements Serializable {
      * non-primitive types, and any other non-null type matches assignable
      * types only.  Returns matching field, or null if no match found.
      */
+    // 返回指定名称与类型的待序列化字段
     ObjectStreamField getField(String name, Class<?> type) {
         for (int i = 0; i < fields.length; i++) {
             ObjectStreamField f = fields[i];
@@ -876,6 +1002,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if class descriptor represents a dynamic proxy class, false
      * otherwise.
      */
+    // 判断cl是否为代理类
     boolean isProxy() {
         requireInitialized();
         return isProxy;
@@ -885,6 +1012,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if class descriptor represents an enum type, false
      * otherwise.
      */
+    // 判断cl是否为枚举类
     boolean isEnum() {
         requireInitialized();
         return isEnum;
@@ -894,6 +1022,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if represented class implements Externalizable, false
      * otherwise.
      */
+    // 判断cl是否为Externalizable实现类
     boolean isExternalizable() {
         requireInitialized();
         return externalizable;
@@ -903,6 +1032,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if represented class implements Serializable, false
      * otherwise.
      */
+    // 判断cl是否为Serializable实现类
     boolean isSerializable() {
         requireInitialized();
         return serializable;
@@ -912,6 +1042,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if class descriptor represents externalizable class that
      * has written its data in 1.2 (block data) format, false otherwise.
      */
+    // 是否包含块数据
     boolean hasBlockExternalData() {
         requireInitialized();
         return hasBlockExternalData;
@@ -922,6 +1053,7 @@ public class ObjectStreamClass implements Serializable {
      * externalizable) class which has written its data via a custom
      * writeObject() method, false otherwise.
      */
+    // 判断当前类中是否包含writeObject方法(Serializable实现类)
     boolean hasWriteObjectData() {
         requireInitialized();
         return hasWriteObjectData;
@@ -934,6 +1066,7 @@ public class ObjectStreamClass implements Serializable {
      * non-externalizable and its first non-serializable superclass defines an
      * accessible no-arg constructor.  Otherwise, returns false.
      */
+    // 判断是否存在生成反序列化对象的构造器
     boolean isInstantiable() {
         requireInitialized();
         return (cons != null);
@@ -944,6 +1077,7 @@ public class ObjectStreamClass implements Serializable {
      * externalizable) and defines a conformant writeObject method.  Otherwise,
      * returns false.
      */
+    // 判断当前类中的writeObject方法(Serializable实现类)
     boolean hasWriteObjectMethod() {
         requireInitialized();
         return (writeObjectMethod != null);
@@ -954,6 +1088,7 @@ public class ObjectStreamClass implements Serializable {
      * externalizable) and defines a conformant readObject method.  Otherwise,
      * returns false.
      */
+    // 判断当前类中是否包含readObject方法(Serializable类)
     boolean hasReadObjectMethod() {
         requireInitialized();
         return (readObjectMethod != null);
@@ -964,6 +1099,7 @@ public class ObjectStreamClass implements Serializable {
      * externalizable) and defines a conformant readObjectNoData method.
      * Otherwise, returns false.
      */
+    // 判断当前类中是否包含readObjectNoData方法(Serializable类)
     boolean hasReadObjectNoDataMethod() {
         requireInitialized();
         return (readObjectNoDataMethod != null);
@@ -973,6 +1109,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if represented class is serializable or externalizable and
      * defines a conformant writeReplace method.  Otherwise, returns false.
      */
+    // 判断当前类中是否包含writeReplace方法
     boolean hasWriteReplaceMethod() {
         requireInitialized();
         return (writeReplaceMethod != null);
@@ -982,6 +1119,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if represented class is serializable or externalizable and
      * defines a conformant readResolve method.  Otherwise, returns false.
      */
+    // 判断当前类中是否包含readResolve方法方法
     boolean hasReadResolveMethod() {
         requireInitialized();
         return (readResolveMethod != null);
@@ -996,6 +1134,7 @@ public class ObjectStreamClass implements Serializable {
      * class is non-serializable or if the appropriate no-arg constructor is
      * inaccessible/unavailable.
      */
+    // 返回反序列化对象的实例
     Object newInstance()
         throws InstantiationException, InvocationTargetException,
                UnsupportedOperationException
@@ -1019,6 +1158,7 @@ public class ObjectStreamClass implements Serializable {
      * associated with a class, or if the class is externalizable,
      * non-serializable or does not define writeObject.
      */
+    // 调用obj对象的writeObject方法(Serializable实现类)
     void invokeWriteObject(Object obj, ObjectOutputStream out)
         throws IOException, UnsupportedOperationException
     {
@@ -1080,6 +1220,7 @@ public class ObjectStreamClass implements Serializable {
      * not associated with a class, or if the class is externalizable,
      * non-serializable or does not define readObjectNoData.
      */
+    // 调用obj对象的readObjectNoDataMethod方法(Serializable实现类)
     void invokeReadObjectNoData(Object obj)
         throws IOException, UnsupportedOperationException
     {
@@ -1109,12 +1250,14 @@ public class ObjectStreamClass implements Serializable {
      * descriptor is not associated with a class, or if the class is
      * non-serializable or does not define writeReplace.
      */
+    // 调用obj对象的writeReplace方法
     Object invokeWriteReplace(Object obj)
         throws IOException, UnsupportedOperationException
     {
         requireInitialized();
         if (writeReplaceMethod != null) {
             try {
+                // 调用writeReplace方法
                 return writeReplaceMethod.invoke(obj, (Object[]) null);
             } catch (InvocationTargetException ex) {
                 Throwable th = ex.getTargetException();
@@ -1169,6 +1312,7 @@ public class ObjectStreamClass implements Serializable {
      * the object's serialized form does not contain data associated with the
      * class descriptor.
      */
+    // 数据槽，包含了序列化描述符，hasData指示该处是否包含有效数据
     static class ClassDataSlot {
 
         /** class descriptor "occupying" this slot */
@@ -1189,6 +1333,7 @@ public class ObjectStreamClass implements Serializable {
      * containing "higher" superclasses appearing first.  The final
      * ClassDataSlot contains a reference to this descriptor.
      */
+    // 返回数据槽：包含从当前类到最上层实现了Serializable接口的父类的所有序列化描述符
     ClassDataSlot[] getClassDataLayout() throws InvalidClassException {
         // REMIND: synchronize instead of relying on volatile?
         if (dataLayout == null) {
@@ -1197,6 +1342,7 @@ public class ObjectStreamClass implements Serializable {
         return dataLayout;
     }
 
+    // 返回数据槽：包含从当前类到最上层实现了Serializable接口的父类的所有序列化描述符
     private ClassDataSlot[] getClassDataLayout0()
         throws InvalidClassException
     {
@@ -1204,6 +1350,7 @@ public class ObjectStreamClass implements Serializable {
         Class<?> start = cl, end = cl;
 
         // locate closest non-serializable superclass
+        // 查找cl首个非Serializable类型的父类
         while (end != null && Serializable.class.isAssignableFrom(end)) {
             end = end.getSuperclass();
         }
@@ -1230,23 +1377,27 @@ public class ObjectStreamClass implements Serializable {
             // add "no data" slot for each unmatched class below match
             if (match != null) {
                 for (Class<?> c = start; c != match; c = c.getSuperclass()) {
+                    // 获取类对象c的序列化描述符，返回之前会先去缓存中查找
                     slots.add(new ClassDataSlot(
                         ObjectStreamClass.lookup(c, true), false));
                 }
                 start = match.getSuperclass();
             }
 
+            // 获取类对象cl的一个序列化描述符
             // record descriptor/class pairing
             slots.add(new ClassDataSlot(d.getVariantFor(match), true));
         }
 
         // add "no data" slot for any leftover unmatched classes
         for (Class<?> c = start; c != end; c = c.getSuperclass()) {
+            // 获取类对象c的序列化描述符，返回之前会先去缓存中查找
             slots.add(new ClassDataSlot(
                 ObjectStreamClass.lookup(c, true), false));
         }
 
         // order slots from superclass -> subclass
+        // 逆转list中的元素：使得父类的序列化描述符排列到前面
         Collections.reverse(slots);
         return slots.toArray(new ClassDataSlot[slots.size()]);
     }
@@ -1255,6 +1406,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns aggregate size (in bytes) of marshalled primitive field values
      * for represented class.
      */
+    // 返回fields中基本类型字段所占字节数
     int getPrimDataSize() {
         return primDataSize;
     }
@@ -1263,6 +1415,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns number of non-primitive serializable fields of represented
      * class.
      */
+    // 返回fields中引用类型字段数量
     int getNumObjFields() {
         return numObjFields;
     }
@@ -1273,6 +1426,7 @@ public class ObjectStreamClass implements Serializable {
      * responsibility of the caller to ensure that obj is of the proper type if
      * non-null.
      */
+    // 返回obj中所有待序列化的基本类型字段的值
     void getPrimFieldValues(Object obj, byte[] buf) {
         fieldRefl.getPrimFieldValues(obj, buf);
     }
@@ -1292,6 +1446,7 @@ public class ObjectStreamClass implements Serializable {
      * them in array vals starting at offset 0.  It is the responsibility of
      * the caller to ensure that obj is of the proper type if non-null.
      */
+    // 获取obj中所有待序列化的引用类型字段的值
     void getObjFieldValues(Object obj, Object[] vals) {
         fieldRefl.getObjFieldValues(obj, vals);
     }
@@ -1310,13 +1465,22 @@ public class ObjectStreamClass implements Serializable {
      * data size and object field count totals.  Throws InvalidClassException
      * if fields are illegally ordered.
      */
+    /*
+     * 统计fields中原始类型字段所占字节数与引用类型字段的数量，
+     * 并校验fields中的字段顺序（原始类型排在前面，引用类型排在后面）。
+     */
     private void computeFieldOffsets() throws InvalidClassException {
+        // 统计原始类型字段所占字节数
         primDataSize = 0;
+        // 统计引用类型字段数量
         numObjFields = 0;
+        // fields中首个引用类型字段的索引
         int firstObjIndex = -1;
 
+        // 遍历待序列化字段的序列化描述符信息
         for (int i = 0; i < fields.length; i++) {
             ObjectStreamField f = fields[i];
+            // 获取字段签名
             switch (f.getTypeCode()) {
                 case 'Z':
                 case 'B':
@@ -1341,8 +1505,8 @@ public class ObjectStreamClass implements Serializable {
                     primDataSize += 8;
                     break;
 
-                case '[':
-                case 'L':
+                case '[': // 数组
+                case 'L':  // 其他引用类型
                     f.setOffset(numObjFields++);
                     if (firstObjIndex == -1) {
                         firstObjIndex = i;
@@ -1353,6 +1517,8 @@ public class ObjectStreamClass implements Serializable {
                     throw new InternalError();
             }
         }
+
+        // 要求原始类型排在前面，引用类型排在后面
         if (firstObjIndex != -1 &&
             firstObjIndex + numObjFields != fields.length)
         {
@@ -1365,6 +1531,7 @@ public class ObjectStreamClass implements Serializable {
      * descriptor, returns reference to this class descriptor.  Otherwise,
      * returns variant of this class descriptor bound to given class.
      */
+    // 获取类对象cl的一个序列化描述符
     private ObjectStreamClass getVariantFor(Class<?> cl)
         throws InvalidClassException
     {
@@ -1373,8 +1540,10 @@ public class ObjectStreamClass implements Serializable {
         }
         ObjectStreamClass desc = new ObjectStreamClass();
         if (isProxy) {
+            // 使用代理类对象cl来初始化desc
             desc.initProxy(cl, null, superDesc);
         } else {
+            // 使用非代理类对象cl来初始化desc
             desc.initNonProxy(this, cl, null, superDesc);
         }
         return desc;
@@ -1385,10 +1554,14 @@ public class ObjectStreamClass implements Serializable {
      * Access checks are disabled on the returned constructor (if any), since
      * the defining class may still be non-public.
      */
+    // 获取cl类的public无参构造器，如果不存在则返回null
     private static Constructor<?> getExternalizableConstructor(Class<?> cl) {
         try {
+            // 返回cl类中的无参构造器，但不包括父类中的构造器
             Constructor<?> cons = cl.getDeclaredConstructor((Class<?>[]) null);
             cons.setAccessible(true);
+
+            // 确保该构造器为public
             return ((cons.getModifiers() & Modifier.PUBLIC) != 0) ?
                 cons : null;
         } catch (NoSuchMethodException ex) {
@@ -1400,6 +1573,11 @@ public class ObjectStreamClass implements Serializable {
      * Returns subclass-accessible no-arg constructor of first non-serializable
      * superclass, or null if none found.  Access checks are disabled on the
      * returned constructor (if any).
+     */
+    /*
+     * 返回cl的第一个不可序列化的父类的无参构造器，要求改无参构造器可被cl访问。
+     * 如果未找到该构造器，或该构造器子类无法访问，则返回null。
+     * 对返回的构造函数（如果有）禁用访问检查。
      */
     private static Constructor<?> getSerializableConstructor(Class<?> cl) {
         Class<?> initCl = cl;
@@ -1431,6 +1609,7 @@ public class ObjectStreamClass implements Serializable {
      * null if no match found.  Access checks are disabled on the returned
      * method (if any).
      */
+    // 从cl中获取拥有特定名称、形参类型、返回类型的非静态私有(实现)方法
     private static Method getInheritableMethod(Class<?> cl, String name,
                                                Class<?>[] argTypes,
                                                Class<?> returnType)
@@ -1439,9 +1618,11 @@ public class ObjectStreamClass implements Serializable {
         Class<?> defCl = cl;
         while (defCl != null) {
             try {
+                // 返回defCl类中指定名称和形参的方法，但不包括父类/父接口中的方法
                 meth = defCl.getDeclaredMethod(name, argTypes);
                 break;
             } catch (NoSuchMethodException ex) {
+                // 获取defCl类的父类（只识别非泛型类型）
                 defCl = defCl.getSuperclass();
             }
         }
@@ -1467,11 +1648,13 @@ public class ObjectStreamClass implements Serializable {
      * class, or null if none found.  Access checks are disabled on the
      * returned method (if any).
      */
+    // 从cl中获取拥有特定名称、形参类型、返回类型的非静态私有方法
     private static Method getPrivateMethod(Class<?> cl, String name,
                                            Class<?>[] argTypes,
                                            Class<?> returnType)
     {
         try {
+            // 返回cl类中指定名称和形参的方法，但不包括父类/父接口中的方法
             Method meth = cl.getDeclaredMethod(name, argTypes);
             meth.setAccessible(true);
             int mods = meth.getModifiers();
@@ -1592,16 +1775,34 @@ public class ObjectStreamClass implements Serializable {
      * Field objects.  Throws InvalidClassException if the (explicitly
      * declared) serializable fields are invalid.
      */
+    /*
+     * 返回cl类中待序列化字段的序列化描述符，要求cl类本身满足以下条件才能获取有效字段集：
+     * 1.是Serializable实现类，不是Externalizable实现类
+     * 2.不是代理类
+     * 3.不是枚举
+     * 4.不是接口
+     */
     private static ObjectStreamField[] getSerialFields(Class<?> cl)
         throws InvalidClassException
     {
         ObjectStreamField[] fields;
-        if (Serializable.class.isAssignableFrom(cl) &&
-            !Externalizable.class.isAssignableFrom(cl) &&
-            !Proxy.isProxyClass(cl) &&
-            !cl.isInterface())
+        if (Serializable.class.isAssignableFrom(cl) && // cl是Serializable实现类
+            !Externalizable.class.isAssignableFrom(cl) && // cl不是Externalizable实现类
+            !Proxy.isProxyClass(cl) && // cl不是代理类
+            !cl.isInterface()) // cl不是接口
         {
+
+            /*
+             * 从cl类的"serialPersistentFields"字段中解析出待序列化的字段集，
+             * 这些待序列化的字段被包装为ObjectStreamField类型。
+             *
+             * 如果不存在"serialPersistentFields"字段
+             */
             if ((fields = getDeclaredSerialFields(cl)) == null) {
+                /*
+                 * 返回cl类中默认的待序列化字段，要求这些字段没有被static或transient修饰。
+                 * 该方法在未找到ObjectStreamField[]类型的"serialPersistentFields"字段时才被执行。
+                 */
                 fields = getDefaultSerialFields(cl);
             }
             Arrays.sort(fields);
@@ -1622,32 +1823,45 @@ public class ObjectStreamClass implements Serializable {
      * InvalidClassException if the declared serializable fields are
      * invalid--e.g., if multiple fields share the same name.
      */
+    /*
+     * 返回待序列化的字段集，这些待序列化的字段被包装为ObjectStreamField类型。
+     *
+     * 注：待序列化字段的信息解析自cl类的"serialPersistentFields"字段
+     */
     private static ObjectStreamField[] getDeclaredSerialFields(Class<?> cl)
         throws InvalidClassException
     {
         ObjectStreamField[] serialPersistentFields = null;
         try {
+            // 返回当前类中名称为"serialPersistentFields"的字段，但不包括父类/父接口中的字段
             Field f = cl.getDeclaredField("serialPersistentFields");
             int mask = Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL;
+            // 校验该字段的修饰符
             if ((f.getModifiers() & mask) == mask) {
                 f.setAccessible(true);
+                // 获取该字段的值
                 serialPersistentFields = (ObjectStreamField[]) f.get(null);
             }
         } catch (Exception ex) {
         }
+        // 如果没有获取到"serialPersistentFields"字段
         if (serialPersistentFields == null) {
             return null;
         } else if (serialPersistentFields.length == 0) {
+            // 如果存在"serialPersistentFields"字段，但没有实质的内容
             return NO_FIELDS;
         }
 
         ObjectStreamField[] boundFields =
             new ObjectStreamField[serialPersistentFields.length];
+        // 所有待序列化的字段的名称
         Set<String> fieldNames = new HashSet<>(serialPersistentFields.length);
 
+        // 遍历"serialPersistentFields"数组
         for (int i = 0; i < serialPersistentFields.length; i++) {
             ObjectStreamField spf = serialPersistentFields[i];
 
+            // 获取字段的名称
             String fname = spf.getName();
             if (fieldNames.contains(fname)) {
                 throw new InvalidClassException(
@@ -1656,10 +1870,14 @@ public class ObjectStreamClass implements Serializable {
             fieldNames.add(fname);
 
             try {
+                // 返回当前类中指定名称的字段，但不包括父类/父接口中的字段
                 Field f = cl.getDeclaredField(fname);
+                // 确保待序列化的字段类型正确
                 if ((f.getType() == spf.getType()) &&
+                        // 确保待序列化的字段不是static类型
                     ((f.getModifiers() & Modifier.STATIC) == 0))
                 {
+                    // 记录待序列化的字段
                     boundFields[i] =
                         new ObjectStreamField(f, spf.isUnshared(), true);
                 }
@@ -1679,12 +1897,19 @@ public class ObjectStreamClass implements Serializable {
      * contains a Field object for the field it represents.  If no default
      * serializable fields exist, NO_FIELDS is returned.
      */
+    /*
+     * 返回cl类中默认的待序列化字段，要求这些字段没有被static或transient修饰。
+     *
+     * 注：该方法在未找到ObjectStreamField[]类型的"serialPersistentFields"字段时才被执行。
+     */
     private static ObjectStreamField[] getDefaultSerialFields(Class<?> cl) {
+        // 遍历cl类中所有字段，但不包括父类/父接口中的字段
         Field[] clFields = cl.getDeclaredFields();
         ArrayList<ObjectStreamField> list = new ArrayList<>();
         int mask = Modifier.STATIC | Modifier.TRANSIENT;
 
         for (int i = 0; i < clFields.length; i++) {
+            // 如果该字段没有被static或transient修饰，则将其包装为ObjectStreamField类型，并添加到集合中
             if ((clFields[i].getModifiers() & mask) == 0) {
                 list.add(new ObjectStreamField(clFields[i], false, true));
             }
@@ -1698,10 +1923,12 @@ public class ObjectStreamClass implements Serializable {
      * Returns explicit serial version UID value declared by given class, or
      * null if none.
      */
+    // 获取类对象cl的序列化编号，即由static和final修饰的名为serialVersionUID字段的值
     private static Long getDeclaredSUID(Class<?> cl) {
         try {
             Field f = cl.getDeclaredField("serialVersionUID");
             int mask = Modifier.STATIC | Modifier.FINAL;
+            // 要求serialVersionUID字段由static和final修饰
             if ((f.getModifiers() & mask) == mask) {
                 f.setAccessible(true);
                 return Long.valueOf(f.getLong(null));
@@ -1714,7 +1941,9 @@ public class ObjectStreamClass implements Serializable {
     /**
      * Computes the default serial version UID value for the given class.
      */
+    // 为给定的待序列化类计算一个默认的序列化编号
     private static long computeDefaultSUID(Class<?> cl) {
+        // 对于非序列化类或者代理类，直接返回0
         if (!Serializable.class.isAssignableFrom(cl) || Proxy.isProxyClass(cl))
         {
             return 0L;
@@ -1861,6 +2090,7 @@ public class ObjectStreamClass implements Serializable {
      * Returns true if the given class defines a static initializer method,
      * false otherwise.
      */
+    // 判断cl是否包含静态初始化块
     private native static boolean hasStaticInitializer(Class<?> cl);
 
     /**
@@ -1898,24 +2128,32 @@ public class ObjectStreamClass implements Serializable {
      * Class for setting and retrieving serializable field values in batch.
      */
     // REMIND: dynamically generate these?
+    // 待序列化的字段的统计信息：用于批量设置和检索可序列化的字段值的类
     private static class FieldReflector {
 
         /** handle for performing unsafe operations */
         private static final Unsafe unsafe = Unsafe.getUnsafe();
 
         /** fields to operate on */
+        // 待序列化字段
         private final ObjectStreamField[] fields;
         /** number of primitive fields */
+        // 基本类型字段数量
         private final int numPrimFields;
         /** unsafe field keys for reading fields - may contain dupes */
+        // 字段的JVM偏移地址（可能包含重复数据）
         private final long[] readKeys;
         /** unsafe fields keys for writing fields - no dupes */
+        // 字段的JVM偏移地址（不包含重复数据）
         private final long[] writeKeys;
         /** field data offsets */
+        // 字段在对象中的偏移位置
         private final int[] offsets;
         /** field type codes */
+        // 字段签名
         private final char[] typeCodes;
         /** field types */
+        // 字段类型(只存储引用类型)
         private final Class<?>[] types;
 
         /**
@@ -1936,9 +2174,11 @@ public class ObjectStreamClass implements Serializable {
             Set<Long> usedKeys = new HashSet<>();
 
 
+            // 遍历待序列化字段
             for (int i = 0; i < nfields; i++) {
                 ObjectStreamField f = fields[i];
                 Field rf = f.getField();
+                // 获取非静态字段f的JVM偏移地址
                 long key = (rf != null) ?
                     unsafe.objectFieldOffset(rf) : Unsafe.INVALID_FIELD_OFFSET;
                 readKeys[i] = key;
@@ -1946,6 +2186,7 @@ public class ObjectStreamClass implements Serializable {
                     key : Unsafe.INVALID_FIELD_OFFSET;
                 offsets[i] = f.getOffset();
                 typeCodes[i] = f.getTypeCode();
+                // 如果字段的类型不是基本类型
                 if (!f.isPrimitive()) {
                     typeList.add((rf != null) ? rf.getType() : null);
                 }
@@ -1970,6 +2211,7 @@ public class ObjectStreamClass implements Serializable {
          * marshals them into byte array buf starting at offset 0.  The caller
          * is responsible for ensuring that obj is of the proper type.
          */
+        // 获取待序列化的基本类型字段的值
         void getPrimFieldValues(Object obj, byte[] buf) {
             if (obj == null) {
                 throw new NullPointerException();
@@ -1979,8 +2221,8 @@ public class ObjectStreamClass implements Serializable {
              * in array should be equal to Unsafe.INVALID_FIELD_OFFSET.
              */
             for (int i = 0; i < numPrimFields; i++) {
-                long key = readKeys[i];
-                int off = offsets[i];
+                long key = readKeys[i];// 字段的JVM偏移地址（可能包含重复数据）
+                int off = offsets[i];// 字段在对象中的偏移位置
                 switch (typeCodes[i]) {
                     case 'Z':
                         Bits.putBoolean(buf, off, unsafe.getBoolean(obj, key));
@@ -2151,53 +2393,79 @@ public class ObjectStreamClass implements Serializable {
      * discard given values).  Throws InvalidClassException if unresolvable
      * type conflicts exist between the two sets of fields.
      */
+    // 返回待序列化的字段的统计信息
     private static FieldReflector getReflector(ObjectStreamField[] fields,
                                                ObjectStreamClass localDesc)
         throws InvalidClassException
     {
         // class irrelevant if no fields
+        // 待序列化的类对象
         Class<?> cl = (localDesc != null && fields.length > 0) ?
             localDesc.cl : null;
+        // 从reflectors中移除reflectorsQueue中包含的元素
         processQueue(Caches.reflectorsQueue, Caches.reflectors);
+        // 缓存待序列化字段集的签名信息
         FieldReflectorKey key = new FieldReflectorKey(cl, fields,
                                                       Caches.reflectorsQueue);
+        // 获取key关联的软引用
         Reference<?> ref = Caches.reflectors.get(key);
         Object entry = null;
+        // 获取key关联的软引用追踪的对象
         if (ref != null) {
+            // 返回此Reference包裹的自定义引用对象，如果该对象已被回收，则返回null
             entry = ref.get();
         }
         EntryFuture future = null;
+        // 需要将其他获取value的线程阻塞住，等为key关联新value后再放行
         if (entry == null) {
+            // 为阻塞其他线程而设
             EntryFuture newEntry = new EntryFuture();
+            // 包装了EntryFuture的软引用
             Reference<?> newRef = new SoftReference<>(newEntry);
             do {
+                // 之前软引用追踪的对象被回收了
                 if (ref != null) {
+                    // 从map中移除拥有指定key和value的元素，返回值表示是否移除成功
                     Caches.reflectors.remove(key, ref);
                 }
+                // 重新关联：将指定的元素（key-value）存入Map，并返回旧值，不允许覆盖
                 ref = Caches.reflectors.putIfAbsent(key, newRef);
+                // 如果key已经关联值(来自别的线程干扰)
                 if (ref != null) {
+                    // 获取当前key关联的软引用追踪的对象
                     entry = ref.get();
                 }
             } while (ref != null && entry == null);
+            // newEntry被成功关联
             if (entry == null) {
                 future = newEntry;
             }
         }
 
+        // 直接获取到了目标value
         if (entry instanceof FieldReflector) {  // check common case first
             return (FieldReflector) entry;
         } else if (entry instanceof EntryFuture) {
+            // 如果key没有关联到有效的value，会阻塞
             entry = ((EntryFuture) entry).get();
         } else if (entry == null) {
             try {
+                // 将fields中的字段进行解析、包装(需要结合localDesc中的待序列化字段信息)
+                // 即将为key关联的有效value
                 entry = new FieldReflector(matchFields(fields, localDesc));
             } catch (Throwable th) {
                 entry = th;
             }
+            /*
+             * 此刻，key已经准备好关联有效的value(entry)，
+             * 因此可以唤醒所有阻塞在((EntryFuture) entry).get()上的线程了
+             */
             future.set(entry);
+            // 将指定的元素（key-value）存入Map，并返回旧值，允许覆盖
             Caches.reflectors.put(key, new SoftReference<Object>(entry));
         }
 
+        // 正常返回
         if (entry instanceof FieldReflector) {
             return (FieldReflector) entry;
         } else if (entry instanceof InvalidClassException) {
@@ -2268,10 +2536,12 @@ public class ObjectStreamClass implements Serializable {
      * ObjectStreamFields.  Throws InvalidClassException if unresolvable type
      * conflicts exist between the two sets of fields.
      */
+    // 将fields中的字段进行解析、包装(需要结合localDesc中的待序列化字段信息)
     private static ObjectStreamField[] matchFields(ObjectStreamField[] fields,
                                                    ObjectStreamClass localDesc)
         throws InvalidClassException
     {
+        // 获取序列化描述符localDesc中的待序列化字段
         ObjectStreamField[] localFields = (localDesc != null) ?
             localDesc.fields : NO_FIELDS;
 
@@ -2287,10 +2557,13 @@ public class ObjectStreamClass implements Serializable {
          */
 
         ObjectStreamField[] matches = new ObjectStreamField[fields.length];
+        // 遍历fields中的待序列化字段
         for (int i = 0; i < fields.length; i++) {
             ObjectStreamField f = fields[i], m = null;
+            // 遍历序列化描述符localDesc中的待序列化字段
             for (int j = 0; j < localFields.length; j++) {
                 ObjectStreamField lf = localFields[j];
+                // 遇到同名字段
                 if (f.getName().equals(lf.getName())) {
                     if ((f.isPrimitive() || lf.isPrimitive()) &&
                         f.getTypeCode() != lf.getTypeCode())
@@ -2299,19 +2572,24 @@ public class ObjectStreamClass implements Serializable {
                             "incompatible types for field " + f.getName());
                     }
                     if (lf.getField() != null) {
+                        // 如果待序列化的字段不为null，则取出该字段，直接进行包装（不显示类型）
                         m = new ObjectStreamField(
                             lf.getField(), lf.isUnshared(), false);
                     } else {
+                        // 如果为null，使用另外一种包装方式
                         m = new ObjectStreamField(
                             lf.getName(), lf.getSignature(), lf.isUnshared());
                     }
                 }
             }
+            // 如果在localDesc中未找到与fields中的字段同名的字段
             if (m == null) {
+                // 对fields中的字段进行包装（非共享）
                 m = new ObjectStreamField(
                     f.getName(), f.getSignature(), false);
             }
             m.setOffset(f.getOffset());
+            // 添加包装后的字段
             matches[i] = m;
         }
         return matches;
@@ -2321,12 +2599,15 @@ public class ObjectStreamClass implements Serializable {
      * Removes from the specified map any keys that have been enqueued
      * on the specified reference queue.
      */
+    // 从map中移除queue中包含的元素
     static void processQueue(ReferenceQueue<Class<?>> queue,
                              ConcurrentMap<? extends
                              WeakReference<Class<?>>, ?> map)
     {
+        // 从ReferenceQueue中删除一个Reference并将其返回
         Reference<? extends Class<?>> ref;
         while((ref = queue.poll()) != null) {
+            // 移除拥有指定key的元素
             map.remove(ref);
         }
     }

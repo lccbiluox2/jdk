@@ -31,6 +31,7 @@ package java.io;
  * @author  unascribed
  * @since JDK 1.1
  */
+// 序列化/反序列化过程中用到的一些常量
 public interface ObjectStreamConstants {
 
     /**
@@ -59,11 +60,12 @@ public interface ObjectStreamConstants {
     /**
      * Reference to an object already written into the stream.
      */
-    final static byte TC_REFERENCE =    (byte)0x71;
+    final static byte TC_REFERENCE =    (byte)0x71; // 对已写入流中的共享对象的引用
 
     /**
      * new Class Descriptor.
      */
+    // 普通对象(非null，非共享，非代理)的序列化描述符
     final static byte TC_CLASSDESC =    (byte)0x72;
 
     /**
@@ -74,6 +76,7 @@ public interface ObjectStreamConstants {
     /**
      * new String.
      */
+    // 小字符串：utf8字节数量在0xFFFF范围内
     final static byte TC_STRING =       (byte)0x74;
 
     /**
@@ -84,17 +87,20 @@ public interface ObjectStreamConstants {
     /**
      * Reference to Class.
      */
+    // 类对象的序列化描述符
     final static byte TC_CLASS =        (byte)0x76;
 
     /**
      * Block of optional data. Byte following tag indicates number
      * of bytes in this block data.
      */
+    // 小数据块标记，数据所占字节数量在byte范围内
     final static byte TC_BLOCKDATA =    (byte)0x77;
 
     /**
      * End of optional block data blocks for an object.
      */
+    // 对象的可选数据块的结尾
     final static byte TC_ENDBLOCKDATA = (byte)0x78;
 
     /**
@@ -106,6 +112,7 @@ public interface ObjectStreamConstants {
      * long Block data. The long following the tag indicates the
      * number of bytes in this block data.
      */
+    // 大数据块标记，数据所占字节数量在int范围内
     final static byte TC_BLOCKDATALONG= (byte)0x7A;
 
     /**
@@ -116,11 +123,13 @@ public interface ObjectStreamConstants {
     /**
      * Long string.
      */
+    // 大字符串：utf8字节数量超出0xFFFF范围
     final static byte TC_LONGSTRING =   (byte)0x7C;
 
     /**
      * new Proxy Class Descriptor.
      */
+    // 代理对象的序列化描述符
     final static byte TC_PROXYCLASSDESC =       (byte)0x7D;
 
     /**

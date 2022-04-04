@@ -40,26 +40,32 @@ import java.io.IOException;
  * @see InflaterOutputStream
  * @see InflaterInputStream
  */
-
+// (压缩)输入流：从指定的源头输入流读取未压缩的数据，将其压缩后填充到给定的内存
 public class DeflaterInputStream extends FilterInputStream {
     /** Compressor for this stream. */
+    // 压缩器
     protected final Deflater def;
 
     /** Input buffer for reading compressed data. */
+    // 压缩缓冲区，缓存压缩前的数据
     protected final byte[] buf;
 
     /** Temporary read buffer. */
+    // 临时存储单个压缩后的字节
     private byte[] rbuf = new byte[1];
 
     /** Default compressor is used. */
+    // 是否使用了具有默认压缩级别的压缩器
     private boolean usesDefaultDeflater = false;
 
     /** End of the underlying input stream has been reached. */
+    // 是否到达输入流的尾部
     private boolean reachEOF = false;
 
     /**
      * Check to make sure that this stream has not been closed.
      */
+    // 确保(压缩)输入流未关闭
     private void ensureOpen() throws IOException {
         if (in == null) {
             throw new IOException("Stream closed");
@@ -122,6 +128,7 @@ public class DeflaterInputStream extends FilterInputStream {
      *
      * @throws IOException if an I/O error occurs
      */
+    // 关闭(压缩)输入流
     public void close() throws IOException {
         if (in != null) {
             try {
@@ -146,6 +153,10 @@ public class DeflaterInputStream extends FilterInputStream {
      * @throws IOException if an I/O error occurs or if this stream is
      * already closed
      */
+    /*
+     * 从源头输入流读取待压缩的数据，并将其压缩，随后返回一个压缩后的字节。
+     * 如果返回-1，表示本次没有压缩数据，流已经读到尾部了。
+     */
     public int read() throws IOException {
         // Read a single byte of compressed data
         int len = read(rbuf, 0, 1);
@@ -167,6 +178,10 @@ public class DeflaterInputStream extends FilterInputStream {
      * @throws IOException if an I/O error occurs or if this input stream is
      * already closed
      */
+    /*
+     * 从源头输入流读取待压缩的数据，并将其压缩，随后向字节数组b的off处填充len个压缩后的字节。
+     * 返回本次累计压缩后的字节数，如果返回-1，表示本次没有压缩数据，流已经读到尾部了。
+     */
     public int read(byte[] b, int off, int len) throws IOException {
         // Sanity checks
         ensureOpen();
@@ -180,27 +195,36 @@ public class DeflaterInputStream extends FilterInputStream {
 
         // Read and compress (deflate) input data bytes
         int cnt = 0;
+        // 如果存在待压缩数据，且压缩器还未完成压缩
         while (len > 0 && !def.finished()) {
             int n;
 
             // Read data from the input stream
+            // 如果需要输入更多数据(压缩器内部缓冲区中没有数据)
             if (def.needsInput()) {
+                // 尝试从源头输入流读取压缩前的数据，并将其存入压缩缓冲区
                 n = in.read(buf, 0, buf.length);
+                // 如果没有读到待压缩数据
                 if (n < 0) {
                     // End of the input stream reached
-                    def.finish();
-                } else if (n > 0) {
+                    def.finish();  // 如果没有待压缩数据，则设置刷新模式为FINISH
+                } else if (n > 0) { // 如果仍有待压缩数据
+                    // 将压缩缓冲区中的待压缩数据存入压缩器
                     def.setInput(buf, 0, n);
                 }
             }
 
             // Compress the input data, filling the read buffer
+            // 向字节数组b的指定范围填充压缩后的数据(默认刷新模式为NO_FLUSH)，返回实际填充的字节数
             n = def.deflate(b, off, len);
+            // 累加压缩后的数据
             cnt += n;
             off += n;
             len -= n;
         }
+        // 如果压缩器已经完成压缩
         if (cnt == 0 && def.finished()) {
+            // 指示已经到达输入流尾部
             reachEOF = true;
             cnt = -1;
         }
@@ -220,6 +244,7 @@ public class DeflaterInputStream extends FilterInputStream {
      * @throws IOException if an I/O error occurs or if this stream is
      * already closed
      */
+    // 跳过n个压缩后的字节
     public long skip(long n) throws IOException {
         if (n < 0) {
             throw new IllegalArgumentException("negative skip length");
@@ -255,6 +280,7 @@ public class DeflaterInputStream extends FilterInputStream {
      * @throws IOException if an I/O error occurs or if this stream is
      * already closed
      */
+    // 判断当前输入流是否可用(仍有待解压数据)
     public int available() throws IOException {
         ensureOpen();
         if (reachEOF) {
@@ -269,6 +295,7 @@ public class DeflaterInputStream extends FilterInputStream {
      *
      * @return false, always
      */
+    // 判断当前输入流是否支持存档标记：默认不支持
     public boolean markSupported() {
         return false;
     }
@@ -278,6 +305,7 @@ public class DeflaterInputStream extends FilterInputStream {
      *
      * @param limit maximum bytes that can be read before invalidating the position marker
      */
+    // 设置存档标记，当前输入流不支持标记行为，所以也不会设置存档标记
     public void mark(int limit) {
         // Operation not supported
     }
@@ -287,6 +315,7 @@ public class DeflaterInputStream extends FilterInputStream {
      *
      * @throws IOException always thrown
      */
+    // 对于支持设置存档的输入流，可以重置其"读游标"到存档区的起始位置，此处默认不支持重置操作
     public void reset() throws IOException {
         throw new IOException("mark/reset not supported");
     }

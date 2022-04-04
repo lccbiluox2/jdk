@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,6 @@
 
 package java.io;
 
-
 /**
  * Writes text to a character-output stream, buffering characters so as to
  * provide for the efficient writing of single characters, arrays, and strings.
@@ -34,7 +33,7 @@ package java.io;
  * The default is large enough for most purposes.
  *
  * <p> A newLine() method is provided, which uses the platform's own notion of
- * line separator as defined by the system property <tt>line.separator</tt>.
+ * line separator as defined by the system property {@code line.separator}.
  * Not all platforms use the newline character ('\n') to terminate lines.
  * Calling this method to terminate each output line is therefore preferred to
  * writing a newline character directly.
@@ -54,35 +53,33 @@ package java.io;
  * bytes that would then be written immediately to the file, which can be very
  * inefficient.
  *
+ * @author Mark Reinhold
  * @see PrintWriter
  * @see FileWriter
  * @see OutputStreamWriter
  * @see java.nio.file.Files#newBufferedWriter
- *
- * @author      Mark Reinhold
- * @since       JDK1.1
+ * @since 1.1
  */
-
+// 带有内部缓存区的字符输出流
 public class BufferedWriter extends Writer {
-
-    private Writer out;
-
-    private char cb[];
-    private int nChars, nextChar;
 
     private static int defaultCharBufferSize = 8192;
 
-    /**
-     * Line separator string.  This is the value of the line.separator
-     * property at the moment that the stream was created.
-     */
-    private String lineSeparator;
+    private Writer out; // 最终输出流
+
+    private char[] cb;      // 内部缓冲区
+    private int nChars;     // 内部缓冲区容量
+    private int nextChar;   // 内部缓冲区中下一个可写位置
+
+
+
+    /*▼ 构造器 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * Creates a buffered character-output stream that uses a default-sized
      * output buffer.
      *
-     * @param  out  A Writer
+     * @param out A Writer
      */
     public BufferedWriter(Writer out) {
         this(out, defaultCharBufferSize);
@@ -92,66 +89,46 @@ public class BufferedWriter extends Writer {
      * Creates a new buffered character-output stream that uses an output
      * buffer of the given size.
      *
-     * @param  out  A Writer
-     * @param  sz   Output-buffer size, a positive integer
+     * @param out A Writer
+     * @param sz  Output-buffer size, a positive integer
      *
-     * @exception  IllegalArgumentException  If {@code sz <= 0}
+     * @throws IllegalArgumentException If {@code sz <= 0}
      */
     public BufferedWriter(Writer out, int sz) {
         super(out);
-        if (sz <= 0)
+
+        if(sz<=0) {
             throw new IllegalArgumentException("Buffer size <= 0");
+        }
         this.out = out;
         cb = new char[sz];
         nChars = sz;
         nextChar = 0;
-
-        lineSeparator = java.security.AccessController.doPrivileged(
-            new sun.security.action.GetPropertyAction("line.separator"));
     }
 
-    /** Checks to make sure that the stream has not been closed */
-    private void ensureOpen() throws IOException {
-        if (out == null)
-            throw new IOException("Stream closed");
-    }
+    /*▲ 构造器 ████████████████████████████████████████████████████████████████████████████████┛ */
 
-    /**
-     * Flushes the output buffer to the underlying character stream, without
-     * flushing the stream itself.  This method is non-private only so that it
-     * may be invoked by PrintStream.
-     */
-    void flushBuffer() throws IOException {
-        synchronized (lock) {
-            ensureOpen();
-            if (nextChar == 0)
-                return;
-            out.write(cb, 0, nextChar);
-            nextChar = 0;
-        }
-    }
+
+
+    /*▼ 写 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * Writes a single character.
      *
-     * @exception  IOException  If an I/O error occurs
+     * @throws IOException If an I/O error occurs
      */
+    // 将指定的字符写入到输出流
     public void write(int c) throws IOException {
-        synchronized (lock) {
+        synchronized(lock) {
             ensureOpen();
-            if (nextChar >= nChars)
+
+            if(nextChar >= nChars) {
                 flushBuffer();
+            }
+
+            // 向内部缓冲区存入待写字符
             cb[nextChar++] = (char) c;
         }
-    }
-
-    /**
-     * Our own little min method, to avoid loading java.lang.Math if we've run
-     * out of file descriptors and we're trying to print a stack trace.
-     */
-    private int min(int a, int b) {
-        if (a < b) return a;
-        return b;
     }
 
     /**
@@ -162,41 +139,54 @@ public class BufferedWriter extends Writer {
      * needed.  If the requested length is at least as large as the buffer,
      * however, then this method will flush the buffer and write the characters
      * directly to the underlying stream.  Thus redundant
-     * <code>BufferedWriter</code>s will not copy data unnecessarily.
+     * {@code BufferedWriter}s will not copy data unnecessarily.
      *
-     * @param  cbuf  A character array
-     * @param  off   Offset from which to start reading characters
-     * @param  len   Number of characters to write
+     * @param cbuf A character array
+     * @param off  Offset from which to start reading characters
+     * @param len  Number of characters to write
      *
-     * @exception  IOException  If an I/O error occurs
+     * @throws IndexOutOfBoundsException If {@code off} is negative, or {@code len} is negative,
+     *                                   or {@code off + len} is negative or greater than the length
+     *                                   of the given array
+     * @throws IOException               If an I/O error occurs
      */
-    public void write(char cbuf[], int off, int len) throws IOException {
-        synchronized (lock) {
+    // 将字符数组cbuf中off处起的len个字符写入到输出流
+    public void write(char[] cbuf, int off, int len) throws IOException {
+        synchronized(lock) {
             ensureOpen();
-            if ((off < 0) || (off > cbuf.length) || (len < 0) ||
-                ((off + len) > cbuf.length) || ((off + len) < 0)) {
+
+            if((off<0) || (off>cbuf.length) || (len<0) || ((off + len)>cbuf.length) || ((off + len)<0)) {
                 throw new IndexOutOfBoundsException();
-            } else if (len == 0) {
+            } else if(len == 0) {
                 return;
             }
 
-            if (len >= nChars) {
-                /* If the request length exceeds the size of the output buffer,
-                   flush the buffer and then write the data directly.  In this
-                   way buffered streams will cascade harmlessly. */
+            // 待写入的字符数量超出了缓冲区容量
+            if(len >= nChars) {
+                /*
+                 * If the request length exceeds the size of the output buffer,
+                 * flush the buffer and then write the data directly.
+                 * In this way buffered streams will cascade harmlessly.
+                 */
+                // 刷新缓冲区
                 flushBuffer();
+                // 直接向包装的输出流写入字符
                 out.write(cbuf, off, len);
                 return;
             }
 
-            int b = off, t = off + len;
-            while (b < t) {
+            int b = off;
+            int t = off + len;
+
+            // 先尝试向缓冲区存入待写字符，缓冲区满后需要刷新它
+            while(b<t) {
                 int d = min(nChars - nextChar, t - b);
                 System.arraycopy(cbuf, b, cb, nextChar, d);
                 b += d;
                 nextChar += d;
-                if (nextChar >= nChars)
+                if(nextChar >= nChars) {
                     flushBuffer();
+                }
             }
         }
     }
@@ -204,64 +194,102 @@ public class BufferedWriter extends Writer {
     /**
      * Writes a portion of a String.
      *
-     * <p> If the value of the <tt>len</tt> parameter is negative then no
-     * characters are written.  This is contrary to the specification of this
-     * method in the {@linkplain java.io.Writer#write(java.lang.String,int,int)
-     * superclass}, which requires that an {@link IndexOutOfBoundsException} be
-     * thrown.
+     * @param s   String to be written
+     * @param off Offset from which to start reading characters
+     * @param len Number of characters to be written
      *
-     * @param  s     String to be written
-     * @param  off   Offset from which to start reading characters
-     * @param  len   Number of characters to be written
-     *
-     * @exception  IOException  If an I/O error occurs
+     * @throws IndexOutOfBoundsException If {@code off} is negative,
+     *                                   or {@code off + len} is greater than the length
+     *                                   of the given string
+     * @throws IOException               If an I/O error occurs
+     * @implSpec While the specification of this method in the
+     * {@linkplain java.io.Writer#write(java.lang.String, int, int) superclass}
+     * recommends that an {@link IndexOutOfBoundsException} be thrown
+     * if {@code len} is negative or {@code off + len} is negative,
+     * the implementation in this class does not throw such an exception in
+     * these cases but instead simply writes no characters.
      */
+    // 将字符串str中off处起的len个字符写入到输出流
     public void write(String s, int off, int len) throws IOException {
-        synchronized (lock) {
+        synchronized(lock) {
             ensureOpen();
 
-            int b = off, t = off + len;
-            while (b < t) {
+            int b = off;
+            int t = off + len;
+
+            while(b<t) {
                 int d = min(nChars - nextChar, t - b);
                 s.getChars(b, b + d, cb, nextChar);
                 b += d;
                 nextChar += d;
-                if (nextChar >= nChars)
+                if(nextChar >= nChars) {
                     flushBuffer();
+                }
             }
         }
     }
 
+
     /**
      * Writes a line separator.  The line separator string is defined by the
-     * system property <tt>line.separator</tt>, and is not necessarily a single
+     * system property {@code line.separator}, and is not necessarily a single
      * newline ('\n') character.
      *
-     * @exception  IOException  If an I/O error occurs
+     * @throws IOException If an I/O error occurs
      */
+    // 向输出流写入换行标记
     public void newLine() throws IOException {
-        write(lineSeparator);
+        write(System.lineSeparator());
+    }
+
+    /*▲ 写 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 杂项 ████████████████████████████████████████████████████████████████████████████████┓ */
+
+    /**
+     * Flushes the output buffer to the underlying character stream, without
+     * flushing the stream itself.  This method is non-private only so that it
+     * may be invoked by PrintStream.
+     */
+    // 刷新当前的缓冲输出流：将内部缓冲区中的字符写入到最终输出流
+    void flushBuffer() throws IOException {
+        synchronized(lock) {
+            ensureOpen();
+
+            if(nextChar == 0) {
+                return;
+            }
+
+            out.write(cb, 0, nextChar);
+
+            nextChar = 0;
+        }
     }
 
     /**
      * Flushes the stream.
      *
-     * @exception  IOException  If an I/O error occurs
+     * @throws IOException If an I/O error occurs
      */
+    // 刷新输出流，不仅要刷新内部缓冲区，还要刷新包装的输出流
     public void flush() throws IOException {
-        synchronized (lock) {
+        synchronized(lock) {
             flushBuffer();
             out.flush();
         }
     }
 
+    // 关闭输入流，关闭其会先刷新内部缓冲区
     @SuppressWarnings("try")
     public void close() throws IOException {
-        synchronized (lock) {
-            if (out == null) {
+        synchronized(lock) {
+            if(out == null) {
                 return;
             }
-            try (Writer w = out) {
+
+            try(Writer w = out) {
                 flushBuffer();
             } finally {
                 out = null;
@@ -269,4 +297,24 @@ public class BufferedWriter extends Writer {
             }
         }
     }
+
+    /*▲ 杂项 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /** Checks to make sure that the stream has not been closed */
+    private void ensureOpen() throws IOException {
+        if(out == null) {
+            throw new IOException("Stream closed");
+        }
+    }
+
+    /**
+     * Our own little min method, to avoid loading java.lang.Math if we've run
+     * out of file descriptors and we're trying to print a stack trace.
+     */
+    private int min(int a, int b) {
+        return Math.min(a, b);
+    }
+
 }

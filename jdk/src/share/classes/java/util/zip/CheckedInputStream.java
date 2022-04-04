@@ -36,8 +36,10 @@ import java.io.IOException;
  * @see         Checksum
  * @author      David Connelly
  */
+// 包含数据校验器的输入流，可以对读自输入流的数据进行数据校验
 public
 class CheckedInputStream extends FilterInputStream {
+    // 数据校验
     private Checksum cksum;
 
     /**
@@ -55,6 +57,7 @@ class CheckedInputStream extends FilterInputStream {
      * @return the byte read, or -1 if the end of the stream is reached.
      * @exception IOException if an I/O error has occurred
      */
+    // 读取一个字节，返回读到的字节
     public int read() throws IOException {
         int b = in.read();
         if (b != -1) {
@@ -78,6 +81,7 @@ class CheckedInputStream extends FilterInputStream {
      * <code>buf.length - off</code>
      * @exception IOException if an I/O error has occurred
      */
+    // 读取len个字节，读到的字节存入buf的off处，返回实际读到的字节数
     public int read(byte[] buf, int off, int len) throws IOException {
         len = in.read(buf, off, len);
         if (len != -1) {
@@ -92,6 +96,7 @@ class CheckedInputStream extends FilterInputStream {
      * @return the actual number of bytes skipped
      * @exception IOException if an I/O error has occurred
      */
+    // 跳过n个字节
     public long skip(long n) throws IOException {
         byte[] buf = new byte[512];
         long total = 0;
@@ -110,6 +115,7 @@ class CheckedInputStream extends FilterInputStream {
      * Returns the Checksum for this input stream.
      * @return the Checksum value
      */
+    // 返回数据校验和
     public Checksum getChecksum() {
         return cksum;
     }

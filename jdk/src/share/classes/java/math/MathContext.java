@@ -52,7 +52,7 @@ import java.io.*;
  * @author  Joseph D. Darcy
  * @since 1.5
  */
-
+// 精度控制(封装了精度信息和舍入模式)
 public final class MathContext implements Serializable {
 
     /* ----- Constants ----- */
@@ -75,6 +75,7 @@ public final class MathContext implements Serializable {
      *  precision=0 roundingMode=HALF_UP
      *  </code>
      */
+    // 保持原样
     public static final MathContext UNLIMITED =
         new MathContext(0, RoundingMode.HALF_UP);
 
@@ -84,6 +85,7 @@ public final class MathContext implements Serializable {
      *  rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}, the
      *  IEEE 754R default.
      */
+    // 32位浮点数精度(7个有效数字)，类似float
     public static final MathContext DECIMAL32 =
         new MathContext(7, RoundingMode.HALF_EVEN);
 
@@ -93,6 +95,7 @@ public final class MathContext implements Serializable {
      *  rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}, the
      *  IEEE 754R default.
      */
+    // 64位浮点数精度(16个有效数字)，类似double
     public static final MathContext DECIMAL64 =
         new MathContext(16, RoundingMode.HALF_EVEN);
 
@@ -102,6 +105,7 @@ public final class MathContext implements Serializable {
      *  rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}, the
      *  IEEE 754R default.
      */
+    // 128位浮点数精度(34个有效数字)
     public static final MathContext DECIMAL128 =
         new MathContext(34, RoundingMode.HALF_EVEN);
 
@@ -116,6 +120,7 @@ public final class MathContext implements Serializable {
      *
      * @serial
      */
+    // 精度
     final int precision;
 
     /**
@@ -124,6 +129,7 @@ public final class MathContext implements Serializable {
      * @see RoundingMode
      * @serial
      */
+    // 舍入模式
     final RoundingMode roundingMode;
 
     /* ----- Constructors ----- */
@@ -212,6 +218,7 @@ public final class MathContext implements Serializable {
      * @return an {@code int} which is the value of the {@code precision}
      *         setting
      */
+    // 获取精度
     public int getPrecision() {
         return precision;
     }
@@ -231,7 +238,7 @@ public final class MathContext implements Serializable {
      * @return a {@code RoundingMode} object which is the value of the
      *         {@code roundingMode} setting
      */
-
+    // 获取舍入模式
     public RoundingMode getRoundingMode() {
         return roundingMode;
     }

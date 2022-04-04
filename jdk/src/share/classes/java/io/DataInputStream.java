@@ -39,6 +39,7 @@ package java.io;
  * @see     java.io.DataOutputStream
  * @since   JDK1.0
  */
+// 基础数据输入流
 public
 class DataInputStream extends FilterInputStream implements DataInput {
 
@@ -238,6 +239,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      *             another I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    // 从包装的输入流读取boolean
     public final boolean readBoolean() throws IOException {
         int ch = in.read();
         if (ch < 0)
@@ -261,6 +263,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      *             another I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    // 从包装的输入流读取byte
     public final byte readByte() throws IOException {
         int ch = in.read();
         if (ch < 0)
@@ -284,6 +287,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      *             another I/O error occurs.
      * @see         java.io.FilterInputStream#in
      */
+    // 从包装的输入流读取无符号byte
     public final int readUnsignedByte() throws IOException {
         int ch = in.read();
         if (ch < 0)
@@ -308,6 +312,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      *             another I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    // 从包装的输入流读取short（按大端法读取）
     public final short readShort() throws IOException {
         int ch1 = in.read();
         int ch2 = in.read();
@@ -333,6 +338,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      *             another I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    // 从包装的输入流读取无符号short（按大端法读取）
     public final int readUnsignedShort() throws IOException {
         int ch1 = in.read();
         int ch2 = in.read();
@@ -358,6 +364,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      *             another I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    // 从包装的输入流读取char（按大端法读取）
     public final char readChar() throws IOException {
         int ch1 = in.read();
         int ch2 = in.read();

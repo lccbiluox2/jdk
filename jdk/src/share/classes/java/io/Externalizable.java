@@ -63,6 +63,7 @@ import java.io.ObjectInput;
  * @see java.io.Serializable
  * @since   JDK1.1
  */
+// 序列化接口。如果实现了该接口，则强制要求自定义序列化/反序列化逻辑
 public interface Externalizable extends java.io.Serializable {
     /**
      * The object implements the writeExternal method to save its contents
@@ -79,6 +80,7 @@ public interface Externalizable extends java.io.Serializable {
      * @param out the stream to write the object to
      * @exception IOException Includes any I/O exceptions that may occur
      */
+    // 序列化逻辑
     void writeExternal(ObjectOutput out) throws IOException;
 
     /**
@@ -93,5 +95,6 @@ public interface Externalizable extends java.io.Serializable {
      * @exception ClassNotFoundException If the class for an object being
      *              restored cannot be found.
      */
+    // 反序列化逻辑
     void readExternal(ObjectInput in) throws IOException, ClassNotFoundException;
 }

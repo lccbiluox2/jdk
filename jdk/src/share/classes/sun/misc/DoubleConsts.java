@@ -31,7 +31,7 @@ package sun.misc;
  *
  * @author Joseph D. Darcy
  */
-
+// 双精度浮点数结构常量
 public class DoubleConsts {
     /**
      * Don't let anyone instantiate this class.
@@ -59,6 +59,7 @@ public class DoubleConsts {
      * The number of logical bits in the significand of a
      * <code>double</code> number, including the implicit bit.
      */
+    // 符号位和小数位所占的位数之和
     public static final int SIGNIFICAND_WIDTH   = 53;
 
     /**
@@ -66,6 +67,7 @@ public class DoubleConsts {
      * It is equal to the value returned by
      * <code>Math.ilogb(Double.MAX_VALUE)</code>.
      */
+    // 符号位和小数位所占的位数之和
     public static final int     MAX_EXPONENT    = 1023;
 
     /**
@@ -92,18 +94,21 @@ public class DoubleConsts {
     /**
      * Bit mask to isolate the sign bit of a <code>double</code>.
      */
+    // 符号位掩码
     public static final long    SIGN_BIT_MASK   = 0x8000000000000000L;
 
     /**
      * Bit mask to isolate the exponent field of a
      * <code>double</code>.
      */
+    // 指数位掩码
     public static final long    EXP_BIT_MASK    = 0x7FF0000000000000L;
 
     /**
      * Bit mask to isolate the significand field of a
      * <code>double</code>.
      */
+    // 小数位掩码
     public static final long    SIGNIF_BIT_MASK = 0x000FFFFFFFFFFFFFL;
 
     static {

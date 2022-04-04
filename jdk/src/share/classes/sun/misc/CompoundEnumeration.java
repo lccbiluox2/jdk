@@ -32,8 +32,15 @@ import java.util.NoSuchElementException;
  * A useful utility class that will enumerate over an array of
  * enumerations.
  */
+/*
+ * 复合枚举类型
+ *
+ * 其内部定义了Enumeration数组字段，其自身又是Enumeration的子类
+ * 这意味着该类型可以嵌套存储Enumeration类型
+ */
 public class CompoundEnumeration<E> implements Enumeration<E> {
     private Enumeration<E>[] enums;
+    // 游标，用于遍历元素
     private int index = 0;
 
     public CompoundEnumeration(Enumeration<E>[] enums) {
@@ -50,10 +57,12 @@ public class CompoundEnumeration<E> implements Enumeration<E> {
         return false;
     }
 
+    // 是否存在未遍历的元素
     public boolean hasMoreElements() {
         return next();
     }
 
+    // 返回下一个元素
     public E nextElement() {
         if (!next()) {
             throw new NoSuchElementException();

@@ -210,6 +210,11 @@ import sun.util.logging.PlatformLogger;
  * @see <a href="../../../platform/serialization/spec/input.html"> Object Serialization Specification, Section 3, Object Input Classes</a>
  * @since   JDK1.1
  */
+/*
+ * 对象输入流，参与反序列化过程
+ *
+ * 对于实现了Externalizable接口的类，需要自行实现反序列化逻辑
+ */
 public class ObjectInputStream
     extends InputStream implements ObjectInput, ObjectStreamConstants
 {
@@ -246,6 +251,7 @@ public class ObjectInputStream
 
     static {
         /* Setup access so sun.misc can invoke package private functions. */
+        // 设置反序列化过滤器
         sun.misc.SharedSecrets.setJavaOISAccess(new JavaOISAccess() {
             public void setObjectInputFilter(ObjectInputStream stream, ObjectInputFilter filter) {
                 stream.setInternalObjectInputFilter(filter);
@@ -279,17 +285,22 @@ public class ObjectInputStream
     }
 
     /** filter stream for handling block data conversion */
+    // 块数据输入流
     private final BlockDataInputStream bin;
     /** validation callback list */
+    // 验证回调列表
     private final ValidationList vlist;
     /** recursion depth */
+    // 序列化嵌套深度
     private long depth;
     /** Total number of references to any type of object, class, enum, proxy, etc. */
+    // 总计反序列化的对象数量
     private long totalObjectRefs;
     /** whether stream is closed */
     private boolean closed;
 
     /** wire handle -> obj/exception map */
+    // 共享对象哈希表
     private final HandleTable handles;
     /** scratch field for passing handle values up/down call stack */
     private int passHandle = NULL_HANDLE;
@@ -300,8 +311,10 @@ public class ObjectInputStream
     private byte[] primVals;
 
     /** if true, invoke readObjectOverride() instead of readObject() */
+    // 是否使用子类实现的readObjectOverride()方法，而不是使用默认的反序列化逻辑
     private final boolean enableOverride;
     /** if true, invoke resolveObject() */
+    // 是否需要调用resolveObject()方法，默认为false
     private boolean enableResolve;
 
     /**
@@ -309,12 +322,14 @@ public class ObjectInputStream
      * object currently being deserialized and descriptor for current class.
      * Null when not during readObject upcall.
      */
+    // 序列化上下文
     private SerialCallbackContext curContext;
 
     /**
      * Filter of class descriptors and classes read from the stream;
      * may be null.
      */
+    // 反序列化过滤器
     private ObjectInputFilter serialFilter;
 
     /**
@@ -346,7 +361,9 @@ public class ObjectInputStream
         vlist = new ValidationList();
         serialFilter = ObjectInputFilter.Config.getSerialFilter();
         enableOverride = false;
+        // 读取序列化头（包含一个魔数和一个版本号）
         readStreamHeader();
+        // 设置待写数据处于块模式下
         bin.setBlockDataMode(true);
     }
 
@@ -409,23 +426,28 @@ public class ObjectInputStream
      *          stream instead of objects.
      * @throws  IOException Any of the usual Input/Output related exceptions.
      */
+    // 从输入流读取共享对象
     public final Object readObject()
         throws IOException, ClassNotFoundException
     {
         if (enableOverride) {
+            // 使用子类实现的反序列化逻辑
             return readObjectOverride();
         }
 
         // if nested read, passHandle contains handle of enclosing object
         int outerHandle = passHandle;
         try {
+            // 使用默认的反序列化逻辑，读取共享对象obj
             Object obj = readObject0(false);
             handles.markDependency(outerHandle, passHandle);
             ClassNotFoundException ex = handles.lookupException(passHandle);
             if (ex != null) {
                 throw ex;
             }
+            // 反序列化完成后，对反序列化的对象执行验证
             if (depth == 0) {
+                // 从前往后，按优先级从高到低执行回调逻辑
                 vlist.doCallbacks();
             }
             return obj;
@@ -454,6 +476,7 @@ public class ObjectInputStream
      * @see #readObject()
      * @since 1.2
      */
+    // [子类覆盖]如果开启了enableOverride，则会调用该方法来替代默认的反序列化逻辑
     protected Object readObjectOverride()
         throws IOException, ClassNotFoundException
     {
@@ -505,6 +528,7 @@ public class ObjectInputStream
      * @throws  IOException if an I/O error occurs during deserialization
      * @since   1.4
      */
+    // 从输入流读取非共享对象
     public Object readUnshared() throws IOException, ClassNotFoundException {
         // if nested read, passHandle contains handle of enclosing object
         int outerHandle = passHandle;
@@ -515,7 +539,9 @@ public class ObjectInputStream
             if (ex != null) {
                 throw ex;
             }
+            // 反序列化完成后，对反序列化的对象执行验证
             if (depth == 0) {
+                // 从前往后，按优先级从高到低执行回调逻辑
                 vlist.doCallbacks();
             }
             return obj;
@@ -538,6 +564,12 @@ public class ObjectInputStream
      * @throws  IOException if an I/O error occurs.
      * @throws  NotActiveException if the stream is not currently reading
      *          objects.
+     */
+    /*
+     * 默认反序列化
+     *
+     * 读取目标类的非static和非transient字段
+     * 只能从readObject()中调用此方法，否则会抛异常
      */
     public void defaultReadObject()
         throws IOException, ClassNotFoundException
@@ -577,6 +609,11 @@ public class ObjectInputStream
      * @throws  NotActiveException if the stream is not currently reading
      *          objects.
      * @since 1.2
+     */
+    /*
+     * 返回一个PutField对象，其中存放了反序列化字段
+     *
+     * 注：该方法需要在待反序列化对象自行实现的readObject()方法内被调用
      */
     public ObjectInputStream.GetField readFields()
         throws IOException, ClassNotFoundException
@@ -619,6 +656,7 @@ public class ObjectInputStream
      *          so it is invalid to register a callback.
      * @throws  InvalidObjectException The validation object is null.
      */
+    // 注册验证回调，priority指示当前回调的优先级，priority越大，优先级越高(排在调用链前面)
     public void registerValidation(ObjectInputValidation obj, int prio)
         throws NotActiveException, InvalidObjectException
     {
@@ -669,6 +707,7 @@ public class ObjectInputStream
      * @throws  ClassNotFoundException if class of a serialized object cannot
      *          be found.
      */
+    // 解析非代理类对象的序列化描述符
     protected Class<?> resolveClass(ObjectStreamClass desc)
         throws IOException, ClassNotFoundException
     {
@@ -736,6 +775,7 @@ public class ObjectInputStream
      * @see ObjectOutputStream#annotateProxyClass(Class)
      * @since 1.3
      */
+    // 解析代理类的类对象，interfaces是代理接口
     protected Class<?> resolveProxyClass(String[] interfaces)
         throws IOException, ClassNotFoundException
     {
@@ -761,6 +801,7 @@ public class ObjectInputStream
             classObjs[i] = cl;
         }
         try {
+            // 返回代理类的类对象
             return Proxy.getProxyClass(
                 hasNonPublicInterface ? nonPublicLoader : latestLoader,
                 classObjs);
@@ -796,6 +837,7 @@ public class ObjectInputStream
      * @return  the substituted object
      * @throws  IOException Any of the usual Input/Output exceptions.
      */
+    // 解析对象
     protected Object resolveObject(Object obj) throws IOException {
         return obj;
     }
@@ -847,6 +889,7 @@ public class ObjectInputStream
      * @throws  StreamCorruptedException if control information in the stream
      *          is inconsistent
      */
+    // [子类覆盖]读取序列化头（包含一个魔数和一个版本号）
     protected void readStreamHeader()
         throws IOException, StreamCorruptedException
     {
@@ -875,6 +918,7 @@ public class ObjectInputStream
      * @see java.io.ObjectOutputStream#writeClassDescriptor(java.io.ObjectStreamClass)
      * @since 1.3
      */
+    // 读取非代理对象的序列化描述符
     protected ObjectStreamClass readClassDescriptor()
         throws IOException, ClassNotFoundException
     {
@@ -889,6 +933,7 @@ public class ObjectInputStream
      * @return  the byte read, or -1 if the end of the stream is reached.
      * @throws  IOException If an I/O error has occurred.
      */
+    // 从块数据输入流读取一个字节，返回-1表示读取结束
     public int read() throws IOException {
         return bin.read();
     }
@@ -906,6 +951,7 @@ public class ObjectInputStream
      * @throws  IOException If an I/O error has occurred.
      * @see java.io.DataInputStream#readFully(byte[],int,int)
      */
+    // 从块数据输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
     public int read(byte[] buf, int off, int len) throws IOException {
         if (buf == null) {
             throw new NullPointerException();
@@ -924,6 +970,7 @@ public class ObjectInputStream
      * @throws  IOException if there are I/O errors while reading from the
      *          underlying <code>InputStream</code>
      */
+    // 返回剩余可不被阻塞地读取（或跳过）的字节数（估计值）
     public int available() throws IOException {
         return bin.available();
     }
@@ -953,6 +1000,7 @@ public class ObjectInputStream
      * @throws  EOFException If end of file is reached.
      * @throws  IOException If other I/O error has occurred.
      */
+    // 从块数据输入流读取boolean值
     public boolean readBoolean() throws IOException {
         return bin.readBoolean();
     }
@@ -1063,6 +1111,7 @@ public class ObjectInputStream
      * @throws  EOFException If end of file is reached.
      * @throws  IOException If other I/O error has occurred.
      */
+    // 从块数据输入流读取足够字节填满buf
     public void readFully(byte[] buf) throws IOException {
         bin.readFully(buf, 0, buf.length, false);
     }
@@ -1076,6 +1125,7 @@ public class ObjectInputStream
      * @throws  EOFException If end of file is reached.
      * @throws  IOException If other I/O error has occurred.
      */
+    // 从块数据输入流读取len个字节写入buf的off处
     public void readFully(byte[] buf, int off, int len) throws IOException {
         int endoff = off + len;
         if (off < 0 || len < 0 || endoff > buf.length || endoff < 0) {
@@ -1091,6 +1141,7 @@ public class ObjectInputStream
      * @return  the actual number of bytes skipped.
      * @throws  IOException If an I/O error has occurred.
      */
+    // 跳过len个字节
     public int skipBytes(int len) throws IOException {
         return bin.skipBytes(len);
     }
@@ -1120,6 +1171,7 @@ public class ObjectInputStream
      * @throws  UTFDataFormatException if read bytes do not represent a valid
      *          modified UTF-8 encoding of a string
      */
+    // 读取一个UTF8编码格式的小字符串
     public String readUTF() throws IOException {
         return bin.readUTF();
     }
@@ -1219,6 +1271,7 @@ public class ObjectInputStream
      * @throws InvalidClassException if it rejected by the filter or
      *        a {@link RuntimeException} is thrown
      */
+    // 过滤检查；arrayLength指示数组长度，如果不是数组，其值为-1
     private void filterCheck(Class<?> clazz, int arrayLength)
             throws InvalidClassException {
         if (serialFilter != null) {
@@ -1259,6 +1312,7 @@ public class ObjectInputStream
     /**
      * Provide access to the persistent fields read from the input stream.
      */
+    // 待反序列化字段集
     public static abstract class GetField {
 
         /**
@@ -1424,6 +1478,7 @@ public class ObjectInputStream
         if (sm == null) {
             return;
         }
+        // 从subclassAudits中移除subclassAuditsQueue中包含的元素
         processQueue(Caches.subclassAuditsQueue, Caches.subclassAudits);
         WeakClassKey key = new WeakClassKey(cl, Caches.subclassAuditsQueue);
         Boolean result = Caches.subclassAudits.get(key);
@@ -1480,9 +1535,13 @@ public class ObjectInputStream
     /**
      * Underlying readObject implementation.
      */
+    // 默认的反序列化逻辑：从输入流读取指定的对象，unshared指示该对象是否为非共享
     private Object readObject0(boolean unshared) throws IOException {
+        // 获取当前的块模式
         boolean oldMode = bin.getBlockDataMode();
+        // 如果处在块模式下
         if (oldMode) {
+            // 获取当前块剩余未读数据量
             int remain = bin.currentBlockRemaining();
             if (remain > 0) {
                 throw new OptionalDataException(remain);
@@ -1576,6 +1635,13 @@ public class ObjectInputStream
      * occurred.  Expects that passHandle is set to given object's handle prior
      * to calling this method.
      */
+    /*
+     * 如果启用了resolveObject并且给定对象没有与之关联的异常，
+     * 则调用resolveObject以确定对象的替换，并相应地更新句柄表。
+     *
+     * 返回替换对象，如果未发生替换，则回显提供的对象。
+     * 期望在调用此方法之前将passHandle设置为给定对象的句柄。
+     */
     private Object checkResolve(Object obj) throws IOException {
         if (!enableResolve || handles.lookupException(passHandle) != null) {
             return obj;
@@ -1627,6 +1693,7 @@ public class ObjectInputStream
     /**
      * Reads in null code, sets passHandle to NULL_HANDLE and returns null.
      */
+    // 读取null
     private Object readNull() throws IOException {
         if (bin.readByte() != TC_NULL) {
             throw new InternalError();
@@ -1639,6 +1706,7 @@ public class ObjectInputStream
      * Reads in object handle, sets passHandle to the read handle, and returns
      * object associated with the handle.
      */
+    // 读取共享对象在对象顺序表中的位置，unshared必须为false
     private Object readHandle(boolean unshared) throws IOException {
         if (bin.readByte() != TC_REFERENCE) {
             throw new InternalError();
@@ -1671,6 +1739,7 @@ public class ObjectInputStream
      * ClassNotFoundException will be associated with the class' handle in the
      * handle table).
      */
+    // 读取类对象，unshared指示该对象是否非共享
     private Class<?> readClass(boolean unshared) throws IOException {
         if (bin.readByte() != TC_CLASS) {
             throw new InternalError();
@@ -1694,6 +1763,7 @@ public class ObjectInputStream
      * resolved to a class in the local VM, a ClassNotFoundException is
      * associated with the class descriptor's handle.
      */
+    // 读取序列化描述符
     private ObjectStreamClass readClassDesc(boolean unshared)
         throws IOException
     {
@@ -1734,6 +1804,7 @@ public class ObjectInputStream
      * descriptor cannot be resolved to a class in the local VM, a
      * ClassNotFoundException is associated with the descriptor's handle.
      */
+    // 读取代理类对象的序列化描述符
     private ObjectStreamClass readProxyDesc(boolean unshared)
         throws IOException
     {
@@ -1746,6 +1817,8 @@ public class ObjectInputStream
         passHandle = NULL_HANDLE;
 
         int numIfaces = bin.readInt();
+
+        // 读取代理接口信息
         String[] ifaces = new String[numIfaces];
         for (int i = 0; i < numIfaces; i++) {
             ifaces[i] = bin.readUTF();
@@ -1755,6 +1828,7 @@ public class ObjectInputStream
         ClassNotFoundException resolveEx = null;
         bin.setBlockDataMode(true);
         try {
+            // 解析代理类的类对象，interfaces是代理接口
             if ((cl = resolveProxyClass(ifaces)) == null) {
                 resolveEx = new ClassNotFoundException("null class");
             } else if (!Proxy.isProxyClass(cl)) {
@@ -1799,6 +1873,7 @@ public class ObjectInputStream
      * class descriptor cannot be resolved to a class in the local VM, a
      * ClassNotFoundException is associated with the descriptor's handle.
      */
+    // 读取非代理类对象的序列化描述符
     private ObjectStreamClass readNonProxyDesc(boolean unshared)
         throws IOException
     {
@@ -1812,6 +1887,7 @@ public class ObjectInputStream
 
         ObjectStreamClass readDesc = null;
         try {
+            // 读取非代理对象序列化描述符
             readDesc = readClassDescriptor();
         } catch (ClassNotFoundException ex) {
             throw (IOException) new InvalidClassException(
@@ -1823,6 +1899,7 @@ public class ObjectInputStream
         bin.setBlockDataMode(true);
         final boolean checksRequired = isCustomSubclass();
         try {
+            // 解析非代理类对象
             if ((cl = resolveClass(readDesc)) == null) {
                 resolveEx = new ClassNotFoundException("null class");
             } else if (checksRequired) {
@@ -1855,14 +1932,17 @@ public class ObjectInputStream
      * Reads in and returns new string.  Sets passHandle to new string's
      * assigned handle.
      */
+    // 对String类型的对象进行反序列化
     private String readString(boolean unshared) throws IOException {
         String str;
         byte tc = bin.readByte();
         switch (tc) {
+            // 读取小字符串
             case TC_STRING:
                 str = bin.readUTF();
                 break;
 
+            // 读取大字符串
             case TC_LONGSTRING:
                 str = bin.readLongUTF();
                 break;
@@ -1880,6 +1960,7 @@ public class ObjectInputStream
      * Reads in and returns array object, or null if array class is
      * unresolvable.  Sets passHandle to array's assigned handle.
      */
+    // 对数组类型的对象进行反序列化
     private Object readArray(boolean unshared) throws IOException {
         if (bin.readByte() != TC_ARRAY) {
             throw new InternalError();
@@ -1944,6 +2025,7 @@ public class ObjectInputStream
      * Reads in and returns enum constant, or null if enum type is
      * unresolvable.  Sets passHandle to enum constant's assigned handle.
      */
+    // 对枚举类型的对象进行反序列化
     private Enum<?> readEnum(boolean unshared) throws IOException {
         if (bin.readByte() != TC_ENUM) {
             throw new InternalError();
@@ -1990,6 +2072,7 @@ public class ObjectInputStream
      * associated with object's handle).  Sets passHandle to object's assigned
      * handle.
      */
+    // 对Serializable类型(包含Externalizable类型)的对象进行反序列化
     private Object readOrdinaryObject(boolean unshared)
         throws IOException
     {
@@ -2059,6 +2142,7 @@ public class ObjectInputStream
      * Expects that passHandle is set to obj's handle before this method is
      * called.
      */
+    // 对Externalizable类型的对象进行反序列化
     private void readExternalData(Externalizable obj, ObjectStreamClass desc)
         throws IOException
     {
@@ -2113,6 +2197,7 @@ public class ObjectInputStream
      * object in stream, from superclass to subclass.  Expects that passHandle
      * is set to obj's handle before this method is called.
      */
+    // 对Serializable类型(非Externalizable类型)的对象进行反序列化
     private void readSerialData(Object obj, ObjectStreamClass desc)
         throws IOException
     {
@@ -2219,6 +2304,7 @@ public class ObjectInputStream
      * descriptor.  If obj is non-null, sets field values in obj.  Expects that
      * passHandle is set to obj's handle before this method is called.
      */
+    // 对指定的对象obj执行默认的反序列化过程
     private void defaultReadFields(Object obj, ObjectStreamClass desc)
         throws IOException
     {
@@ -2313,6 +2399,7 @@ public class ObjectInputStream
     /**
      * Default GetField implementation.
      */
+    // 待反序列化字段集的默认实现
     private class GetFieldImpl extends GetField {
 
         /** class descriptor describing serializable fields */
@@ -2438,6 +2525,7 @@ public class ObjectInputStream
      * Prioritized list of callbacks to be performed once object graph has been
      * completely deserialized.
      */
+    // 验证回调列表
     private static class ValidationList {
 
         private static class Callback {
@@ -2457,6 +2545,7 @@ public class ObjectInputStream
         }
 
         /** linked list of callbacks */
+        // 回调链，在验证对象是从前到后依次触发
         private Callback list;
 
         /**
@@ -2469,6 +2558,7 @@ public class ObjectInputStream
          * Registers callback.  Throws InvalidObjectException if callback
          * object is null.
          */
+        // 注册验证回调，priority指示当前回调的优先级，priority越大，优先级越高(排在调用链前面)
         void register(ObjectInputValidation obj, int priority)
             throws InvalidObjectException
         {
@@ -2496,6 +2586,7 @@ public class ObjectInputStream
          * throws an InvalidObjectException, the callback process is terminated
          * and the exception propagated upwards.
          */
+        // 从前往后，按优先级从高到低执行回调逻辑
         void doCallbacks() throws InvalidObjectException {
             try {
                 while (list != null) {
@@ -2677,6 +2768,7 @@ public class ObjectInputStream
      * mode, no data is buffered in advance; when in block data mode, all data
      * for the current data block is read in at once (and buffered).
      */
+    // 块数据输入流
     private class BlockDataInputStream
         extends InputStream implements DataInput
     {
@@ -2690,26 +2782,32 @@ public class ObjectInputStream
         private static final int HEADER_BLOCKED = -2;
 
         /** buffer for reading general/block data */
-        private final byte[] buf = new byte[MAX_BLOCK_SIZE];
+        private final byte[] buf = new byte[MAX_BLOCK_SIZE]; // 块数据缓冲区
         /** buffer for reading block data headers */
-        private final byte[] hbuf = new byte[MAX_HEADER_SIZE];
+        private final byte[] hbuf = new byte[MAX_HEADER_SIZE]; // 块数据头缓冲区
         /** char buffer for fast string reads */
-        private final char[] cbuf = new char[CHAR_BUF_SIZE];
+        private final char[] cbuf = new char[CHAR_BUF_SIZE]; // 字符数据缓冲区(只取byte部分)
 
         /** block data mode */
+        // 待读数据是否处于块模式下（在块模式下读取数据时，会先读取一个包含长度信息的头信息）
         private boolean blkmode = false;
 
         // block data state fields; values meaningful only when blkmode true
         /** current offset into buf */
+        // 指向buf的游标，标记为缓冲区未读数据的起始位置
         private int pos = 0;
         /** end offset of valid data in buf, or -1 if no more block data */
+        // 指向buf的游标，标记为缓冲区未读数据的末尾
         private int end = -1;
         /** number of bytes in current block yet to be read from stream */
+        // 当前数据块未读的数据(一部分已经读到了buf中)
         private int unread = 0;
 
         /** underlying stream (wrapped in peekable filter stream) */
+        // 【最终输入流】：包含数据读取的源头，比如文件
         private final PeekInputStream in;
         /** loopback stream (for data reads that span data blocks) */
+        // 包装了当前块数据输入流this的【基础数据输入流】
         private final DataInputStream din;
 
         /**
@@ -2772,8 +2870,9 @@ public class ObjectInputStream
          * stream is a block data header, returns the block data length
          * specified by the header, else returns -1.
          */
+        // 尝试读取下一个块数据头，如果canBlock为false，则当没有可用字节时，返回HEADER_BLOCKED
         private int readBlockHeader(boolean canBlock) throws IOException {
-            if (defaultDataEnd) {
+            if(defaultDataEnd) {
                 /*
                  * Fix for 4360508: stream is currently at the end of a field
                  * value block written via default serialization; since there
@@ -2782,32 +2881,38 @@ public class ObjectInputStream
                  */
                 return -1;
             }
+
             try {
-                for (;;) {
+                for(; ; ) {
+                    // 如果当前已经没有可用字节，则返回HEADER_BLOCKED
                     int avail = canBlock ? Integer.MAX_VALUE : in.available();
-                    if (avail == 0) {
+                    if(avail == 0) {
                         return HEADER_BLOCKED;
                     }
 
+                    // 查看下一个字节
                     int tc = in.peek();
-                    switch (tc) {
+                    switch(tc) {
+                        // 小数据块标记
                         case TC_BLOCKDATA:
-                            if (avail < 2) {
+                            if(avail<2) {
                                 return HEADER_BLOCKED;
                             }
+                            // 读取2个字节：小数据块标记，数据所占字节数量在byte范围内
                             in.readFully(hbuf, 0, 2);
                             return hbuf[1] & 0xFF;
 
+                        // 大数据块标记
                         case TC_BLOCKDATALONG:
-                            if (avail < 5) {
+                            if(avail<5) {
                                 return HEADER_BLOCKED;
                             }
+
+                            // 读取5个字节：大数据块标记，数据所占字节数量在int范围内
                             in.readFully(hbuf, 0, 5);
                             int len = Bits.getInt(hbuf, 1);
-                            if (len < 0) {
-                                throw new StreamCorruptedException(
-                                    "illegal block data header length: " +
-                                    len);
+                            if(len<0) {
+                                throw new StreamCorruptedException("illegal block data header length: " + len);
                             }
                             return len;
 
@@ -2817,23 +2922,21 @@ public class ObjectInputStream
                          * level than other typecodes, since primitive data
                          * reads may span data blocks separated by a TC_RESET.
                          */
+                        // 重置输入流/输出流，即丢弃之前缓存的读取信息
                         case TC_RESET:
                             in.read();
                             handleReset();
                             break;
 
                         default:
-                            if (tc >= 0 && (tc < TC_BASE || tc > TC_MAX)) {
-                                throw new StreamCorruptedException(
-                                    String.format("invalid type code: %02X",
-                                    tc));
+                            if(tc >= 0 && (tc<TC_BASE || tc>TC_MAX)) {
+                                throw new StreamCorruptedException(String.format("invalid type code: %02X", tc));
                             }
                             return -1;
                     }
                 }
-            } catch (EOFException ex) {
-                throw new StreamCorruptedException(
-                    "unexpected EOF while reading block data header");
+            } catch(EOFException ex) {
+                throw new StreamCorruptedException("unexpected EOF while reading block data header");
             }
         }
 
@@ -2844,32 +2947,39 @@ public class ObjectInputStream
          * the next element in the stream is not a data block, sets pos and
          * unread to 0 and end to -1.
          */
+        // 用块数据重新填充内部缓冲区buf(会先清空缓冲区现有数据)
         private void refill() throws IOException {
             try {
                 do {
                     pos = 0;
-                    if (unread > 0) {
-                        int n =
-                            in.read(buf, 0, Math.min(unread, MAX_BLOCK_SIZE));
-                        if (n >= 0) {
+
+                    // 如果存在下一块未读数据
+                    if(unread>0) {
+                        // 取出一部分数据填充缓冲区
+                        int n = in.read(buf, 0, Math.min(unread, MAX_BLOCK_SIZE));
+                        if(n >= 0) {
                             end = n;
                             unread -= n;
                         } else {
-                            throw new StreamCorruptedException(
-                                "unexpected EOF in middle of data block");
+                            throw new StreamCorruptedException("unexpected EOF in middle of data block");
                         }
                     } else {
+                        // 读取下一个块数据头(可阻塞的)
                         int n = readBlockHeader(true);
-                        if (n >= 0) {
+
+                        // 读到了下一个块数据的长度
+                        if(n >= 0) {
                             end = 0;
                             unread = n;
+
+                            // 无效的块数据头
                         } else {
                             end = -1;
                             unread = 0;
                         }
                     }
-                } while (pos == end);
-            } catch (IOException ex) {
+                } while(pos == end);
+            } catch(IOException ex) {
                 pos = 0;
                 end = -1;
                 unread = 0;
@@ -2928,17 +3038,24 @@ public class ObjectInputStream
          * mode.
          */
 
+        // 从当前块数据输入流读取一个字节，返回-1表示读取结束
         public int read() throws IOException {
+            // 处在块模式下
             if (blkmode) {
+                // 如果缓冲区为空
                 if (pos == end) {
+                    // 用块数据重新填充内部缓冲区buf(会先清空缓冲区现有数据)
                     refill();
                 }
+                // 从缓冲区读取数据
                 return (end >= 0) ? (buf[pos++] & 0xFF) : -1;
             } else {
+                // 从【最终输入流】读取数据
                 return in.read();
             }
         }
 
+        // 从当前块数据输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
         public int read(byte[] b, int off, int len) throws IOException {
             return read(b, off, len, false);
         }
@@ -3013,13 +3130,21 @@ public class ObjectInputStream
          * buffer before copying them to b (to avoid exposing a reference to
          * b).
          */
+        /*
+         * 从当前块数据输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+         * copy指示在非块模式下，是否需要将最终输入流的数据先填充到缓冲区
+         */
         int read(byte[] b, int off, int len, boolean copy) throws IOException {
             if (len == 0) {
                 return 0;
-            } else if (blkmode) {
+            } else if (blkmode) { // 处在块模式下
+                // 如果缓冲区为空
                 if (pos == end) {
+                    // 用块数据重新填充内部缓冲区buf(会先清空缓冲区现有数据)
                     refill();
                 }
+
+                // 没有可读数据
                 if (end < 0) {
                     return -1;
                 }
@@ -3027,13 +3152,15 @@ public class ObjectInputStream
                 System.arraycopy(buf, pos, b, off, nread);
                 pos += nread;
                 return nread;
-            } else if (copy) {
+            } else if (copy) {  // 不在块模式，且copy为true时，需要先将最终输入流的数据填充到缓冲区
+
                 int nread = in.read(buf, 0, Math.min(len, MAX_BLOCK_SIZE));
                 if (nread > 0) {
                     System.arraycopy(buf, 0, b, off, nread);
                 }
                 return nread;
             } else {
+                // 直接从【最终输入流】读取
                 return in.read(b, off, len);
             }
         }
@@ -3045,15 +3172,27 @@ public class ObjectInputStream
          * and read the requested data from within data blocks when in block
          * data mode.
          */
-
+        /*
+         * 从当前块数据输入流读取数据以填满字节数组b
+         * 填不满字节数组b不会返回，除非读取过程中发生了异常
+         */
         public void readFully(byte[] b) throws IOException {
             readFully(b, 0, b.length, false);
         }
 
+        /*
+         * 从当前块数据输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+         * 读不够len个字节不会返回，除非读取过程中发生了异常
+         */
         public void readFully(byte[] b, int off, int len) throws IOException {
             readFully(b, off, len, false);
         }
 
+        /*
+         * 从当前块数据输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+         * 读不够len个字节不会返回，除非读取过程中发生了异常
+         * copy指示在非块模式下，是否需要将最终输入流的数据先填充到缓冲区
+         */
         public void readFully(byte[] b, int off, int len, boolean copy)
             throws IOException
         {
@@ -3071,6 +3210,7 @@ public class ObjectInputStream
             return din.skipBytes(n);
         }
 
+        // 从当前块数据输入流读取boolean值
         public boolean readBoolean() throws IOException {
             int v = read();
             if (v < 0) {
@@ -3079,6 +3219,7 @@ public class ObjectInputStream
             return (v != 0);
         }
 
+        // 从当前块数据输入流读取byte值
         public byte readByte() throws IOException {
             int v = read();
             if (v < 0) {
@@ -3087,6 +3228,7 @@ public class ObjectInputStream
             return (byte) v;
         }
 
+        // 从当前块数据输入流读取无符号byte值
         public int readUnsignedByte() throws IOException {
             int v = read();
             if (v < 0) {
@@ -3095,47 +3237,66 @@ public class ObjectInputStream
             return v;
         }
 
+        // 从当前块数据输入流读取char值
         public char readChar() throws IOException {
+            // 未处在块模式
             if (!blkmode) {
                 pos = 0;
+                // 尝试从【最终输入流】中读取2个字节存储到buf中
                 in.readFully(buf, 0, 2);
-            } else if (end - pos < 2) {
+            } else if (end - pos < 2) { // 处在块模式下，且缓冲区中有足够数据
+                // 从基础数据输入流中读取char并返回
                 return din.readChar();
             }
+
+            // 从字节数组buf的pos处读取char值
             char v = Bits.getChar(buf, pos);
             pos += 2;
             return v;
         }
 
+        // 从当前块数据输入流读取short值
         public short readShort() throws IOException {
+            // 未处在块模式
             if (!blkmode) {
                 pos = 0;
+                // 尝试从【最终输入流】中读取2个字节存储到buf中
                 in.readFully(buf, 0, 2);
-            } else if (end - pos < 2) {
+            } else if (end - pos < 2) { // 处在块模式下，且缓冲区中有足够数据
                 return din.readShort();
             }
+
+            // 从字节数组buf的pos处读取short值
             short v = Bits.getShort(buf, pos);
             pos += 2;
             return v;
         }
 
+        // 从当前块数据输入流读取无符号short值
         public int readUnsignedShort() throws IOException {
+            // 未处在块模式
             if (!blkmode) {
                 pos = 0;
+                // 尝试从【最终输入流】中读取2个字节存储到buf中
                 in.readFully(buf, 0, 2);
-            } else if (end - pos < 2) {
+            } else if (end - pos < 2) { // 处在块模式下，且缓冲区中有足够数据
                 return din.readUnsignedShort();
             }
+
+            // 从字节数组buf的pos处读取无符号short值
             int v = Bits.getShort(buf, pos) & 0xFFFF;
             pos += 2;
             return v;
         }
 
+        // 从当前块数据输入流读取int值
         public int readInt() throws IOException {
+            // 未处在块模式
             if (!blkmode) {
                 pos = 0;
+                // 尝试从【最终输入流】中读取4个字节存储到buf中
                 in.readFully(buf, 0, 4);
-            } else if (end - pos < 4) {
+            } else if (end - pos < 4) { // 处在块模式下，且缓冲区中有足够数据
                 return din.readInt();
             }
             int v = Bits.getInt(buf, pos);
@@ -3143,23 +3304,32 @@ public class ObjectInputStream
             return v;
         }
 
+        // 从当前块数据输入流读取float值
         public float readFloat() throws IOException {
-            if (!blkmode) {
+            // 未处在块模式
+            if(!blkmode) {
                 pos = 0;
+                // 尝试从【最终输入流】中读取4个字节存储到buf中
                 in.readFully(buf, 0, 4);
-            } else if (end - pos < 4) {
+
+                // 处在块模式下，且缓冲区中有足够数据
+            } else if(pos + 4>end) {
                 return din.readFloat();
             }
+
             float v = Bits.getFloat(buf, pos);
             pos += 4;
             return v;
         }
 
+        // 从当前块数据输入流读取long值
         public long readLong() throws IOException {
+            // 未处在块模式
             if (!blkmode) {
                 pos = 0;
+                // 尝试从【最终输入流】中读取8个字节存储到buf中
                 in.readFully(buf, 0, 8);
-            } else if (end - pos < 8) {
+            } else if (end - pos < 8) {  // 处在块模式下，且缓冲区中有足够数据
                 return din.readLong();
             }
             long v = Bits.getLong(buf, pos);
@@ -3167,13 +3337,19 @@ public class ObjectInputStream
             return v;
         }
 
+        // 从当前块数据输入流读取double值
         public double readDouble() throws IOException {
-            if (!blkmode) {
+            // 未处在块模式
+            if(!blkmode) {
                 pos = 0;
+                // 尝试从【最终输入流】中读取8个字节存储到buf中
                 in.readFully(buf, 0, 8);
-            } else if (end - pos < 8) {
+
+                // 处在块模式下，且缓冲区中有足够数据
+            } else if(pos + 8>end) {
                 return din.readDouble();
             }
+
             double v = Bits.getDouble(buf, pos);
             pos += 8;
             return v;
@@ -3196,101 +3372,124 @@ public class ObjectInputStream
          * of primitive data values more efficiently.
          */
 
+        // 从当前块数据输入流读取len个boolean值填充到数组off处
         void readBooleans(boolean[] v, int off, int len) throws IOException {
             int stop, endoff = off + len;
-            while (off < endoff) {
-                if (!blkmode) {
+
+            while(off<endoff) {
+                // 未处在块模式
+                if(!blkmode) {
                     int span = Math.min(endoff - off, MAX_BLOCK_SIZE);
                     in.readFully(buf, 0, span);
                     stop = off + span;
                     pos = 0;
-                } else if (end - pos < 1) {
+
+                    // 处在块模式下，且缓冲区中有足够数据
+                } else if(pos + 1>end) {
                     v[off++] = din.readBoolean();
                     continue;
                 } else {
                     stop = Math.min(endoff, off + end - pos);
                 }
 
-                while (off < stop) {
+                while(off<stop) {
                     v[off++] = Bits.getBoolean(buf, pos++);
                 }
             }
         }
 
+        // 从当前块数据输入流读取len个char值填充到数组off处
         void readChars(char[] v, int off, int len) throws IOException {
             int stop, endoff = off + len;
-            while (off < endoff) {
-                if (!blkmode) {
+            while(off<endoff) {
+                // 未处在块模式
+                if(!blkmode) {
                     int span = Math.min(endoff - off, MAX_BLOCK_SIZE >> 1);
                     in.readFully(buf, 0, span << 1);
                     stop = off + span;
                     pos = 0;
-                } else if (end - pos < 2) {
+
+                    // 处在块模式下，且缓冲区中有足够数据
+                } else if(pos + 2>end) {
                     v[off++] = din.readChar();
                     continue;
                 } else {
                     stop = Math.min(endoff, off + ((end - pos) >> 1));
                 }
 
-                while (off < stop) {
+                while(off<stop) {
                     v[off++] = Bits.getChar(buf, pos);
                     pos += 2;
                 }
             }
         }
 
+
+        // 从当前块数据输入流读取len个short值填充到数组off处
         void readShorts(short[] v, int off, int len) throws IOException {
             int stop, endoff = off + len;
-            while (off < endoff) {
-                if (!blkmode) {
+            while(off<endoff) {
+                // 未处在块模式
+                if(!blkmode) {
                     int span = Math.min(endoff - off, MAX_BLOCK_SIZE >> 1);
                     in.readFully(buf, 0, span << 1);
                     stop = off + span;
                     pos = 0;
-                } else if (end - pos < 2) {
+
+                    // 处在块模式下，且缓冲区中有足够数据
+                } else if(pos + 2>end) {
                     v[off++] = din.readShort();
                     continue;
                 } else {
                     stop = Math.min(endoff, off + ((end - pos) >> 1));
                 }
 
-                while (off < stop) {
+                while(off<stop) {
                     v[off++] = Bits.getShort(buf, pos);
                     pos += 2;
                 }
             }
         }
 
+
+        // 从当前块数据输入流读取len个int值填充到数组off处
         void readInts(int[] v, int off, int len) throws IOException {
             int stop, endoff = off + len;
-            while (off < endoff) {
-                if (!blkmode) {
+            while(off<endoff) {
+                // 未处在块模式
+                if(!blkmode) {
                     int span = Math.min(endoff - off, MAX_BLOCK_SIZE >> 2);
                     in.readFully(buf, 0, span << 2);
                     stop = off + span;
                     pos = 0;
-                } else if (end - pos < 4) {
+
+                    // 处在块模式下，且缓冲区中有足够数据
+                } else if(pos + 4>end) {
                     v[off++] = din.readInt();
                     continue;
                 } else {
                     stop = Math.min(endoff, off + ((end - pos) >> 2));
                 }
 
-                while (off < stop) {
+                while(off<stop) {
                     v[off++] = Bits.getInt(buf, pos);
                     pos += 4;
                 }
             }
         }
 
+        // 从当前块数据输入流读取len个float值填充到数组off处
         void readFloats(float[] v, int off, int len) throws IOException {
             int span, endoff = off + len;
-            while (off < endoff) {
-                if (!blkmode) {
+            while(off<endoff) {
+                // 未处在块模式
+                if(!blkmode) {
                     span = Math.min(endoff - off, MAX_BLOCK_SIZE >> 2);
                     in.readFully(buf, 0, span << 2);
                     pos = 0;
-                } else if (end - pos < 4) {
+
+                    // 处在块模式下，且缓冲区中有足够数据
+                } else if(pos + 4>end) {
                     v[off++] = din.readFloat();
                     continue;
                 } else {
@@ -3303,36 +3502,44 @@ public class ObjectInputStream
             }
         }
 
+        // 从当前块数据输入流读取len个long值填充到数组off处
         void readLongs(long[] v, int off, int len) throws IOException {
             int stop, endoff = off + len;
-            while (off < endoff) {
-                if (!blkmode) {
+            while(off<endoff) {
+                // 未处在块模式
+                if(!blkmode) {
                     int span = Math.min(endoff - off, MAX_BLOCK_SIZE >> 3);
                     in.readFully(buf, 0, span << 3);
                     stop = off + span;
                     pos = 0;
-                } else if (end - pos < 8) {
+
+                    // 处在块模式下，且缓冲区中有足够数据
+                } else if(pos + 8>end) {
                     v[off++] = din.readLong();
                     continue;
                 } else {
                     stop = Math.min(endoff, off + ((end - pos) >> 3));
                 }
 
-                while (off < stop) {
+                while(off<stop) {
                     v[off++] = Bits.getLong(buf, pos);
                     pos += 8;
                 }
             }
         }
 
+        // 从当前块数据输入流读取len个double值填充到数组off处
         void readDoubles(double[] v, int off, int len) throws IOException {
             int span, endoff = off + len;
-            while (off < endoff) {
-                if (!blkmode) {
+            while(off<endoff) {
+                // 未处在块模式
+                if(!blkmode) {
                     span = Math.min(endoff - off, MAX_BLOCK_SIZE >> 3);
                     in.readFully(buf, 0, span << 3);
                     pos = 0;
-                } else if (end - pos < 8) {
+
+                    // 处在块模式下，且缓冲区中有足够数据
+                } else if(pos + 8>end) {
                     v[off++] = din.readDouble();
                     continue;
                 } else {
@@ -3350,6 +3557,7 @@ public class ObjectInputStream
          * identical to standard UTF, except that it uses an 8 byte header
          * (instead of the standard 2 bytes) to convey the UTF encoding length.
          */
+        // 读取一个UTF8编码格式的小字符串
         String readLongUTF() throws IOException {
             return readUTFBody(readLong());
         }
@@ -3359,6 +3567,7 @@ public class ObjectInputStream
          * or 8-byte length header) of a UTF encoding, which occupies the next
          * utflen bytes.
          */
+        // 读取utflen个utf8格式的字节，并将其解码为字符串
         private String readUTFBody(long utflen) throws IOException {
             StringBuilder sbuf = new StringBuilder();
             if (!blkmode) {

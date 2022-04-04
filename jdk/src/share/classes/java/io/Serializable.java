@@ -186,6 +186,8 @@ package java.io;
  * @see java.io.ObjectInput
  * @see java.io.Externalizable
  * @since   JDK1.1
+ *
+ * 将对象序列化/反序列化，是对象的一种固化行为
  */
 public interface Serializable {
 }

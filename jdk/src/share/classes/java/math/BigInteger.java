@@ -119,7 +119,13 @@ import sun.misc.FloatConsts;
  * @author  Timothy Buktu
  * @since JDK1.1
  */
-
+/*
+ * 大整数
+ *
+ * BigInteger将符号位和数值分开存储，其存储数据的基本原理是将数据切割成不同的分段后存入数组
+ *
+ * 注：该对象本身是不可变的，类似String，在运算之后会产生一个新对象
+ */
 public class BigInteger extends Number implements Comparable<BigInteger> {
     /**
      * The signum of this BigInteger: -1 for negative, 0 for zero, or
@@ -129,6 +135,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      *
      * @serial
      */
+    // BigInteger符号位，用-1、0、1分别表示该数值为负数、0、正数
     final int signum;
 
     /**
@@ -140,6 +147,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * value.  Note that this implies that the BigInteger zero has a
      * zero-length mag array.
      */
+    // BigInteger数值
     final int[] mag;
 
     // These "redundant fields" are initialized with recognizable nonsense
@@ -410,7 +418,9 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      *         {@link Character#MAX_RADIX}, inclusive.
      * @see    Character#digit
      */
+    // ▶ 1 将radix进制形式的val解析为BigInteger
     public BigInteger(String val, int radix) {
+        // 数字位数
         int cursor = 0, numDigits;
         final int len = val.length();
 
@@ -420,21 +430,25 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
             throw new NumberFormatException("Zero length BigInteger");
 
         // Check for at most one leading sign
+        // 记录数据时正数还是负数
         int sign = 1;
         int index1 = val.lastIndexOf('-');
         int index2 = val.lastIndexOf('+');
         if (index1 >= 0) {
+            // 减号位置不对或加号减号都出现了，抛异常
             if (index1 != 0 || index2 >= 0) {
                 throw new NumberFormatException("Illegal embedded sign character");
             }
             sign = -1;
             cursor = 1;
         } else if (index2 >= 0) {
+            // 加号位置不对，抛异常
             if (index2 != 0) {
                 throw new NumberFormatException("Illegal embedded sign character");
             }
             cursor = 1;
         }
+        // 只有符号没有数字，抛异常
         if (cursor == len)
             throw new NumberFormatException("Zero length BigInteger");
 
@@ -444,46 +458,90 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
             cursor++;
         }
 
+        // 字符串中只有0
         if (cursor == len) {
+            // 符号位设置为0
             signum = 0;
             mag = ZERO.mag;
             return;
         }
 
+        // 记录当前数字有多少位
         numDigits = len - cursor;
+        // 符号位，-1? 0? 1?
         signum = sign;
 
         // Pre-allocate array of expected size. May be too large but can
         // never be too small. Typically exact.
+        //  计算当前的数字需要多少个二进制位才能表示（后面多加了一个1）
         long numBits = ((numDigits * bitsPerDigit[radix]) >>> 10) + 1;
         if (numBits + 31 >= (1L << 32)) {
+            // 限制了BigInteger能表示的数字范围
             reportOverflow();
         }
+        /*
+         * 计算numBits个二进制位至少需要用几个int表示
+         * （因为二进制位很长时，需要分段表示，每段用一个int表示）
+         * numBits在上面多加了1，此处又加了31，这相当于：
+         * 假设原始的数字表示成n个二进制位，那么这里需要使用的int数量就是n/32+1
+         */
         int numWords = (int) (numBits + 31) >>> 5;
+        // 为存储当前数字分配数组空间，该数组暂称作：[大数数组]
         int[] magnitude = new int[numWords];
 
-        // Process first (potentially short) digit group
+        /*
+         * Process first (potentially short) digit group
+         *
+         * 对大数进行分割，初计算第一组数字的长度。
+         * 分割大数时，需要确定一个分割量，比如对于10进制数，这个分割量就是9（参见digitsPerInt[10]）
+         * 这意味着每9个10进制数字会被分为一组。
+         * 原因是一个int可以安全地表示9位的十进制数，但表示10位十进制数是不安全的（最大2147483647最小-2147483648）
+         *
+         * 值得注意的是，numWords是按一个int代表32个二进制位计算出来的
+         * 但此处又让一个int表示9个十进制位，即一个int最多表示30个二进制
+         * 显然按目前这么个表示法，[大数数组]空间是不够用的
+         * 所以，在后续运算中，会继续往当前分组所代表的数字上累加数据，直到每个[大数数组]中的元素被充分利用。
+         * 累加时发生的溢出会累积到下一个元素上。
+         *
+         * 假设有十进制数字12|345678901|234567890，那么此刻firstGroupLen=20%9=2
+         */
         int firstGroupLen = numDigits % digitsPerInt[radix];
         if (firstGroupLen == 0)
+            // 整分，无余数
             firstGroupLen = digitsPerInt[radix];
+        // 截取第一组数字
         String group = val.substring(cursor, cursor += firstGroupLen);
+        // 第一组数字存入[大数数组]的最后一个位置
         magnitude[numWords - 1] = Integer.parseInt(group, radix);
         if (magnitude[numWords - 1] < 0)
             throw new NumberFormatException("Illegal digit");
 
         // Process remaining digit groups
+        /* 处理剩余数字 */
+
+        /*
+         * 以10进制数字举例
+         * 分组时按每9个十进制为一组，其最大表示的值为999,999,999
+         * 那么此处的superRadix就是1,000,000,000
+         */
         int superRadix = intRadix[radix];
         int groupVal = 0;
         while (cursor < len) {
+            // 截取下一组数字
             group = val.substring(cursor, cursor += digitsPerInt[radix]);
+            // 解析当前这组数字为int
             groupVal = Integer.parseInt(group, radix);
             if (groupVal < 0)
+                // 比如10进制数字，一组数字是9位，而9位的十进制数字放到int里不可能为负，也就是说不可能溢出
                 throw new NumberFormatException("Illegal digit");
+            // 将各分组数据按照一定的规则存入[大数数组]
             destructiveMulAdd(magnitude, superRadix, groupVal);
         }
         // Required for cases where the array was overallocated.
+        // 压缩数组val，只保留有效元素
         mag = trustedStripLeadingZeroInts(magnitude);
         if (mag.length >= MAX_MAG_LENGTH) {
+            // 再次限制BigInteger能表示的数字范围
             checkRange();
         }
     }
@@ -557,6 +615,15 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
 
     // bitsPerDigit in the given radix times 1024
     // Rounded up to avoid underallocation.
+    /*
+     * 假设拥有n位的radix进制数字至少需要m个2进制位才能表示，那么：
+     * radix^n - 1 = 2^m -1
+     * 解上述方程得：m = ln(radix)/ln(2) * n
+     * 其中，m就是bitsPerDigit[radix]的含义
+     * 这里为了对计算结果取整，将n扩大为1024
+     *
+     * 比如bitsPerDigit[10]==3402，这意味着一个1024位的10进制数字至少需要3402个二进制位才能表示
+     */
     private static long bitsPerDigit[] = { 0, 0,
         1024, 1624, 2048, 2378, 2648, 2875, 3072, 3247, 3402, 3543, 3672,
         3790, 3899, 4001, 4096, 4186, 4271, 4350, 4426, 4498, 4567, 4633,
@@ -564,17 +631,35 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
                                            5253, 5295};
 
     // Multiply x array times word y in place, and add word z
+    /*
+     * Multiply x array times word y in place, and add word z
+     *
+     * 将z表示的数据存入数组x，且维持语义不变
+     * 这里所谓的语义就是从前到后遍历x
+     * 取出的每个int的二进制位连在一起就代表大数的二进制位
+     */
     private static void destructiveMulAdd(int[] x, int y, int z) {
+        /* 循环计算x[i]*y+z，为的是充分利用x的存储空间 */
+
         // Perform the multiplication word by word
         long ylong = y & LONG_MASK;
         long zlong = z & LONG_MASK;
         int len = x.length;
 
+        // 保存两个int的计算结果
         long product = 0;
+        // 保存溢出信息
         long carry = 0;
+        /*
+         * 从后往前遍历[大数数组]
+         * 不断提升当前位置的数字到相应的数位
+         * 溢出的数据保存到前一个元素上
+         */
         for (int i = len-1; i >= 0; i--) {
             product = ylong * (x[i] & LONG_MASK) + carry;
+            // 当前位置只保留低位
             x[i] = (int)product;
+            // carry保存高位信息
             carry = product >>> 32;
         }
 
@@ -582,11 +667,22 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
         long sum = (x[len-1] & LONG_MASK) + zlong;
         x[len-1] = (int)sum;
         carry = sum >>> 32;
+        /*
+         * 从后往前遍历[大数数组]
+         * 通过不断地累加“消耗”掉当前分组中的数字z
+         */
         for (int i = len-2; i >= 0; i--) {
             sum = (x[i] & LONG_MASK) + carry;
+            // 当前位置只保留低位
             x[i] = (int)sum;
+            // carry保存高位信息
             carry = sum >>> 32;
         }
+
+        /*
+         * 经过以上操作以后，从前到后遍历[大数数组]
+         * 遍历得到的各int元素组成的二进制位连起来就是大数的二进制位
+         */
     }
 
     /**
@@ -623,6 +719,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
         this(1, randomBits(numBits, rnd));
     }
 
+    // 返回随机填充的byte数组（前导0是无效位），numBits代表byte中的有效位（即主观需要numBits个随机的bit位）
     private static byte[] randomBits(int numBits, Random rnd) {
         if (numBits < 0)
             throw new IllegalArgumentException("numBits must be non-negative");
@@ -631,7 +728,9 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
 
         // Generate random bytes and mask out any excess bits
         if (numBytes > 0) {
+            // 随机均匀地生成byte以填充randomBits数组，有正有负
             rnd.nextBytes(randomBits);
+            // 无效位的数量（比如只需要3个bit位，那么返回一个byte后，其中包含5个无效位）
             int excessBits = 8*numBytes - numBits;
             randomBits[0] &= (1 << (8-excessBits)) - 1;
         }
@@ -783,7 +882,8 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
     * @throws ArithmeticException {@code this < 0} or {@code this} is too large.
     * @since 1.5
     */
-    public BigInteger nextProbablePrime() {
+   // （可能）返回大于当前BigInteger的下一个质数，返回合数的概率不超过2^(-100)
+   public BigInteger nextProbablePrime() {
         if (this.signum < 0)
             throw new ArithmeticException("start < 0: " + this);
 
@@ -3316,6 +3416,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * @return {@code this | (1<<n)}
      * @throws ArithmeticException {@code n} is negative.
      */
+    // 将右起第n位设置为1（从第0位开始算）
     public BigInteger setBit(int n) {
         if (n < 0)
             throw new ArithmeticException("Negative bit address");
@@ -3340,6 +3441,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * @return {@code this & ~(1<<n)}
      * @throws ArithmeticException {@code n} is negative.
      */
+    // 将右起第n位设置为0（从第0位开始算）
     public BigInteger clearBit(int n) {
         if (n < 0)
             throw new ArithmeticException("Negative bit address");
@@ -3364,6 +3466,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * @return {@code this ^ (1<<n)}
      * @throws ArithmeticException {@code n} is negative.
      */
+    // 反转右起第n位，即1变0，或0变1（从第0位开始算）
     public BigInteger flipBit(int n) {
         if (n < 0)
             throw new ArithmeticException("Negative bit address");
@@ -3387,6 +3490,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      *
      * @return index of the rightmost one bit in this BigInteger.
      */
+    // 返回右起第一个1出现的索引
     public int getLowestSetBit() {
         @SuppressWarnings("deprecation") int lsb = lowestSetBit - 2;
         if (lsb == -2) {  // lowestSetBit not initialized yet
@@ -3418,6 +3522,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * @return number of bits in the minimal two's-complement
      *         representation of this BigInteger, <i>excluding</i> a sign bit.
      */
+    // 返回二进制位长度（不包括符号位）
     public int bitLength() {
         @SuppressWarnings("deprecation") int n = bitLength - 1;
         if (n == -1) { // bitLength not initialized yet
@@ -3452,6 +3557,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * @return number of bits in the two's complement representation
      *         of this BigInteger that differ from its sign bit.
      */
+    // 返回二进制位中值为1的bit位的数量（如果是负数，不包括最高位的1，即不包括符号位）
     public int bitCount() {
         @SuppressWarnings("deprecation") int bc = bitCount - 1;
         if (bc == -1) {  // bitCount not initialized yet
@@ -3488,6 +3594,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * @return {@code true} if this BigInteger is probably prime,
      *         {@code false} if it's definitely composite.
      */
+    // 测试当前数值是否为质数，出错的概率不超过2^(-certainty)
     public boolean isProbablePrime(int certainty) {
         if (certainty <= 0)
             return true;
@@ -4125,6 +4232,8 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
     /**
      * Returns the input array stripped of any leading zero bytes.
      * Since the source is trusted the copying may be skipped.
+     *
+     * // 压缩数组val，砍掉val中前导空元素（没有参与存储大数）
      */
     private static int[] trustedStripLeadingZeroInts(int val[]) {
         int vlen = val.length;
@@ -4138,9 +4247,12 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
 
     /**
      * Returns a copy of the input array stripped of any leading zero bytes.
+     *
+     *  将数组a的二进制位从高到低依次存储到int数组中（剥离前导0）
      */
     private static int[] stripLeadingZeroBytes(byte a[]) {
         int byteLength = a.length;
+        // 记录第一个非0值出现的位置
         int keep;
 
         // Find first nonzero byte
@@ -4148,7 +4260,9 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
             ;
 
         // Allocate new array and copy relevant part of input array
+        // 需要几个int存储当前字节
         int intLength = ((byteLength - keep) + 3) >>> 2;
+        // 分配数组内存存储a中的有效字节
         int[] result = new int[intLength];
         int b = byteLength - 1;
         for (int i = intLength-1; i >= 0; i--) {
@@ -4277,6 +4391,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
     /*
      * These two arrays are the integer analogue of above.
      */
+    // 用一个int表示9个十进制数字组成的序列是安全的，该参数作为大数的分组依据
     private static int digitsPerInt[] = {0, 0, 30, 19, 15, 13, 11,
         11, 10, 9, 9, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6,
         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5};

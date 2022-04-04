@@ -51,6 +51,18 @@ import java.util.function.Consumer;
  * @see Iterable
  * @since 1.2
  */
+/*
+ * 外部迭代器，支持对容器中的元素进行遍历和移除，还支持流式遍历
+ *
+ * 外部迭代器的特点是：可拔插
+ * 其迭代行为可以挂载到待比较对象的外部
+ *
+ * 此外，外部迭代器往往用来支撑内部迭代器的实现。
+ *
+ * 注1：区别于内部迭代器Iterable
+ * 注2：区别于枚举器Enumeration
+ * 注3：区别于流迭代器Spliterator
+ */
 public interface Iterator<E> {
     /**
      * Returns {@code true} if the iteration has more elements.
@@ -59,6 +71,7 @@ public interface Iterator<E> {
      *
      * @return {@code true} if the iteration has more elements
      */
+    // 是否存在下一个未遍历元素
     boolean hasNext();
 
     /**
@@ -67,6 +80,7 @@ public interface Iterator<E> {
      * @return the next element in the iteration
      * @throws NoSuchElementException if the iteration has no more elements
      */
+    // 返回下一个元素
     E next();
 
     /**
@@ -89,6 +103,7 @@ public interface Iterator<E> {
      *         been called after the last call to the {@code next}
      *         method
      */
+    // 移除上一个遍历的元素
     default void remove() {
         throw new UnsupportedOperationException("remove");
     }
@@ -110,6 +125,7 @@ public interface Iterator<E> {
      * @throws NullPointerException if the specified action is null
      * @since 1.8
      */
+    // 流式遍历。遍历每个元素，并对其执行相应的择取操作
     default void forEachRemaining(Consumer<? super E> action) {
         Objects.requireNonNull(action);
         while (hasNext())

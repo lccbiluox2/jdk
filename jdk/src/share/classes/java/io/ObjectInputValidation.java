@@ -35,11 +35,13 @@ package java.io;
  * @see     ObjectInputStream#registerValidation(java.io.ObjectInputValidation, int)
  * @since   JDK1.1
  */
+// 反序列化的校验回调
 public interface ObjectInputValidation {
     /**
      * Validates the object.
      *
      * @exception InvalidObjectException If the object cannot validate itself.
      */
+    // 反序列化完成后，对反序列化的对象进行验证
     public void validateObject() throws InvalidObjectException;
 }

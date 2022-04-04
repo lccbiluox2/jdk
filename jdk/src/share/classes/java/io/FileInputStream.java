@@ -45,21 +45,26 @@ import sun.nio.ch.FileChannelImpl;
  * @see     java.nio.file.Files#newInputStream
  * @since   JDK1.0
  */
+// 文件输入流：将文件作为输入源
 public
 class FileInputStream extends InputStream
 {
     /* File Descriptor - handle to the open file */
+    // 该输入流关联的文件描述符
     private final FileDescriptor fd;
 
     /**
      * The path of the referenced file
      * (null if the stream is created with a file descriptor)
      */
+    // 输入流的path（获取数据的源头），使用File的path来初始化
     private final String path;
 
+    // 当前输入流关联的通道，调用getChannel()后才会对其初始化
     private FileChannel channel = null;
 
     private final Object closeLock = new Object();
+    // 输入流是否已关闭
     private volatile boolean closed = false;
 
     /**
@@ -89,6 +94,7 @@ class FileInputStream extends InputStream
      *               to the file.
      * @see        java.lang.SecurityManager#checkRead(java.lang.String)
      */
+    // 创建指定文件（名）的输入流
     public FileInputStream(String name) throws FileNotFoundException {
         this(name != null ? new File(name) : null);
     }
@@ -120,8 +126,10 @@ class FileInputStream extends InputStream
      * @see        java.io.File#getPath()
      * @see        java.lang.SecurityManager#checkRead(java.lang.String)
      */
+    // 创建指定文件的输入流
     public FileInputStream(File file) throws FileNotFoundException {
         String name = (file != null ? file.getPath() : null);
+        // 检查访问权限
         SecurityManager security = System.getSecurityManager();
         if (security != null) {
             security.checkRead(name);
@@ -132,9 +140,13 @@ class FileInputStream extends InputStream
         if (file.isInvalid()) {
             throw new FileNotFoundException("Invalid file path");
         }
+        // 为当前流锁定文件描述符
         fd = new FileDescriptor();
+        // 与此同时，将当前文件(流)记录到关联的文件描述符fd中
         fd.attach(this);
+        // 用File的path初始化输入流的path（获取数据的源头）
         path = name;
+        // 打开指定名称的文件，以便读取内容
         open(name);
     }
 
@@ -162,6 +174,7 @@ class FileInputStream extends InputStream
      *                 file descriptor.
      * @see        SecurityManager#checkRead(java.io.FileDescriptor)
      */
+    // 直接使用文件描述符初始化输入流
     public FileInputStream(FileDescriptor fdObj) {
         SecurityManager security = System.getSecurityManager();
         if (fdObj == null) {
@@ -177,6 +190,7 @@ class FileInputStream extends InputStream
          * FileDescriptor is being shared by streams.
          * Register this stream with FileDescriptor tracker.
          */
+        // 将当前文件(流)记录到关联的文件描述符fd中
         fd.attach(this);
     }
 
@@ -191,6 +205,11 @@ class FileInputStream extends InputStream
      * Opens the specified file for reading.
      * @param name the name of the file
      */
+    /*
+     * 打开指定名称的文件，以便读取内容
+     *
+     * 该步骤会为FileDescriptor中的handle（文件句柄）赋值
+     */
     private void open(String name) throws FileNotFoundException {
         open0(name);
     }
@@ -202,6 +221,9 @@ class FileInputStream extends InputStream
      * @return     the next byte of data, or <code>-1</code> if the end of the
      *             file is reached.
      * @exception  IOException  if an I/O error occurs.
+     */
+    /*
+     * 尝试从当前输入流读取一个字节，读取成功直接返回，读取失败返回-1
      */
     public int read() throws IOException {
         return read0();
@@ -216,6 +238,10 @@ class FileInputStream extends InputStream
      * @param len the number of bytes that are written
      * @exception IOException If an I/O error has occurred.
      */
+    /*
+     * 尝试从当前输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+     * 返回值表示成功读取的字节数量(可能小于预期值)，返回-1表示已经没有可读内容了
+     */
     private native int readBytes(byte b[], int off, int len) throws IOException;
 
     /**
@@ -228,6 +254,10 @@ class FileInputStream extends InputStream
      *             <code>-1</code> if there is no more data because the end of
      *             the file has been reached.
      * @exception  IOException  if an I/O error occurs.
+     */
+    /*
+     * 尝试从当前输入流读取dst.length个字节，并将读到的内容插入到dst的起点处
+     * 返回值表示成功读取的字节数量(可能小于预期值)，返回-1表示已经没有可读内容了
      */
     public int read(byte b[]) throws IOException {
         return readBytes(b, 0, b.length);
@@ -302,6 +332,7 @@ class FileInputStream extends InputStream
      * @exception  IOException  if this file input stream has been closed by calling
      *             {@code close} or an I/O error occurs.
      */
+    // 返回剩余可不被阻塞地读取（或跳过）的字节数（估计值）
     public int available() throws IOException {
         return available0();
     }
@@ -348,6 +379,7 @@ class FileInputStream extends InputStream
      * @exception  IOException  if an I/O error occurs.
      * @see        java.io.FileDescriptor
      */
+    // 返回当前输入流锁定的文件描述符
     public final FileDescriptor getFD() throws IOException {
         if (fd != null) {
             return fd;
@@ -371,9 +403,12 @@ class FileInputStream extends InputStream
      * @since 1.4
      * @spec JSR-51
      */
+    // 返回当前文件输入流关联的只读通道
     public FileChannel getChannel() {
         synchronized (this) {
+            // 线程安全，双重检查机制
             if (channel == null) {
+                // 为输入流关联一个通道（懒加载）
                 channel = FileChannelImpl.open(fd, path, true, false, this);
             }
             return channel;

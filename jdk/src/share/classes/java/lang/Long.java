@@ -51,17 +51,20 @@ import java.math.*;
  * @author  Joseph D. Darcy
  * @since   JDK1.0
  */
+// long的包装类
 public final class Long extends Number implements Comparable<Long> {
     /**
      * A constant holding the minimum value a {@code long} can
      * have, -2<sup>63</sup>.
      */
+    // long最小值
     @Native public static final long MIN_VALUE = 0x8000000000000000L;
 
     /**
      * A constant holding the maximum value a {@code long} can
      * have, 2<sup>63</sup>-1.
      */
+    // long最大值
     @Native public static final long MAX_VALUE = 0x7fffffffffffffffL;
 
     /**
@@ -935,6 +938,7 @@ public final class Long extends Number implements Comparable<Long> {
      *
      * @serial
      */
+    // 当前类包装的值
     private final long value;
 
     /**
@@ -1340,6 +1344,7 @@ public final class Long extends Number implements Comparable<Long> {
      *
      * @since 1.5
      */
+    // 当前类型所占bit[位]数
     @Native public static final int SIZE = 64;
 
     /**
@@ -1348,6 +1353,7 @@ public final class Long extends Number implements Comparable<Long> {
      *
      * @since 1.8
      */
+    // 当前类型所占字节数
     public static final int BYTES = SIZE / Byte.SIZE;
 
     /**

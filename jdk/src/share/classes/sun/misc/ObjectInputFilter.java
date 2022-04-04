@@ -88,8 +88,35 @@ import sun.util.logging.PlatformLogger;
  * method in this interface and its nested classes will cause a
  * {@link NullPointerException} to be thrown.
  *
+ * 在反序列化期间过滤类，数组长度和图表度量。
+ * 警告：不受信任数据的反序列化本质上是危险的，应该避免。 应根据Secure Coding Guidelines for Java SE的“序列化和反序列化”
+ * 部分仔细验证不受信任的数据。 Serialization Filtering描述了防御性使用串行过滤器的最佳实践。
+ *
+ * 如果在ObjectInputStream上设置，则调用checkInput(FilterInfo)方法以验证类，每个数组的长度，
+ * 从流中读取的对象数，图的深度以及从流中读取的总字节数。
+ * 可以通过setObjectInputFilter为单个ObjectInputStream设置过滤器。 可以通过Config.setSerialFilter
+ * 设置过滤器，以影响无法设置过滤器的每个ObjectInputStream 。
+ *
+ * 过滤器确定参数是ALLOWED还是REJECTED，并应返回相应的状态。 如果过滤器无法确定状态，则应返回UNDECIDED 。
+ * 应根据特定用例和预期类型设计过滤器。 为特定用途设计的过滤器可以传递给过滤器范围之外的类。 如果过滤器
+ * 的目的是列出黑名单，那么它可以拒绝匹配的候选类，并为其他人报告UNDECIDED。 可以用类被称为过滤等于null ，
+ * arrayLength等于-1，深度，引用的数量，以及流大小，并返回反映只有一个或只有一些值的状态。 这允许
+ * 过滤器具体说明其报告的选择并使用其他过滤器而不强制允许或拒绝状态。
+ *
+ * 通常，自定义筛选器应检查是否配置了流程范围的筛选器，如果是，则将其推迟。 例如，
+ *
+ *    ObjectInputFilter.Status checkInput(FilterInfo info) { ObjectInputFilter serialFilter = ObjectInputFilter.Config.getSerialFilter(); if (serialFilter != null) { ObjectInputFilter.Status status = serialFilter.checkInput(info); if (status != ObjectInputFilter.Status.UNDECIDED) { // The process-wide filter overrides this filter return status; } } if (info.serialClass() != null && Remote.class.isAssignableFrom(info.serialClass())) { return Status.REJECTED; // Do not allow Remote objects } return Status.UNDECIDED; }
+ * 除非另有说明，否则将null参数传递给此接口中的方法及其嵌套类将导致抛出NullPointerException 。
+ *
+ *
+ * https://www.1024sky.cn/blog/article/4538
+ *
+ * todo: https://blog.csdn.net/qq_21383435/article/details/123960064
+ *
  * @since 8u
  */
+// 反序列化过滤器，可以过滤掉不规范的对象，防止恶意反序列化
+
 @FunctionalInterface
 public interface ObjectInputFilter {
 
@@ -247,11 +274,14 @@ public interface ObjectInputFilter {
         static {
             configuredFilter = AccessController
                     .doPrivileged((PrivilegedAction<ObjectInputFilter>) () -> {
+                        // 获取"jdk.serialFilter"属性指定的反序列化过滤器
                         String props = System.getProperty(SERIAL_FILTER_PROPNAME);
+                        // 没有找到
                         if (props == null) {
                             props = Security.getProperty(SERIAL_FILTER_PROPNAME);
                         }
                         if (props != null) {
+                            // 获取一个日志
                             PlatformLogger log = PlatformLogger.getLogger("java.io.serialization");
                             log.info("Creating serialization filter from {0}", props);
                             try {

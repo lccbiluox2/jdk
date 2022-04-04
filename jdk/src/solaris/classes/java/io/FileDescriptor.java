@@ -43,22 +43,62 @@ import java.util.List;
  * @see     java.io.FileOutputStream
  * @since   JDK1.0
  */
+/*
+ * 文件描述符用来保存操作系统中的标准流id和对文件的引用handle
+ *
+ * FileDescriptor实例会被FileInputStream/FileOutputStream/RandomAccessFile持有，
+ * 这三个类在打开文件时，在JNI代码中使用open执行系统调用打开文件，得到文件描述符在JNI代码中设置到FileDescriptor的fd成员变量上
+ *
+ * 关闭FileInputStream/FileOutputStream/RandomAccessFile时，会关闭底层对应的文件描述符。
+ * 关闭是文件底层是通过使用close执行系统调用实现的。
+ *
+ * 简单理解：在Java中，文件描述符是"文件"的抽象表示。文件可以是：file、socket或其他IO连接
+ *
+ * 注：应用程序不应创建自己的文件描述符。
+ */
 public final class FileDescriptor {
 
+    /*
+     * 当前文件描述符在本地(native层)的引用
+     *
+     * 每个打开的文件都会为它分配一个fd值作为其唯一编号，通过该值可以找到对应的文件并进行相关操作。
+     *
+     * 在windows上，文件描述符是文件句柄结构中的一个字段。
+     */
     private int fd;
+//    /*
+//     * 文件句柄(windows下的概念)
+//     *
+//     * 句柄是Windows下各种对象的标识符，比如文件、资源、菜单、光标等等。
+//     * 文件句柄和文件描述符类似，它也是一个非负整数，也用于定位文件数据在内存中的位置。
+//     *
+//     * 在Windows中，文件句柄可以看做是FILE*，即文件指针。
+//     */
+//    private long handle;
 
+    // 存放文件描述符关联的唯一流对象（绝大多数情况）
     private Closeable parent;
+    // 存放关联了文件描述符的所有文件(流)对象（使用流的带有文件描述符参数的构造方法会用到此字段）
     private List<Closeable> otherParents;
+    // 判断fd是否被释放
     private boolean closed;
+
+//    // 判断当前文件是否处于追加(append)模式
+//    private boolean append;
+//        // 在为明确关闭FileDescriptor的情况下对其进行清理
+//        private PhantomCleanable<FileDescriptor> cleanup;
+
 
     /**
      * Constructs an (invalid) FileDescriptor
      * object.
      */
+    // 构造一个无效的文件描述符，后续设置其fd和handle
     public /**/ FileDescriptor() {
         fd = -1;
     }
 
+    // 构造标准流（输入流、输出流、错误流）的文件描述符
     private /* */ FileDescriptor(int fd) {
         this.fd = fd;
     }
@@ -70,6 +110,7 @@ public final class FileDescriptor {
      *
      * @see     java.lang.System#in
      */
+    // 标准输入流，被封装为System.in
     public static final FileDescriptor in = new FileDescriptor(0);
 
     /**
@@ -78,6 +119,7 @@ public final class FileDescriptor {
      * known as <code>System.out</code>.
      * @see     java.lang.System#out
      */
+    // 标准输出流，被封装为System.out
     public static final FileDescriptor out = new FileDescriptor(1);
 
     /**
@@ -87,6 +129,7 @@ public final class FileDescriptor {
      *
      * @see     java.lang.System#err
      */
+    // 标准错误流，被封装为System.err
     public static final FileDescriptor err = new FileDescriptor(2);
 
     /**
@@ -96,6 +139,7 @@ public final class FileDescriptor {
      *          valid, open file, socket, or other active I/O connection;
      *          <code>false</code> otherwise.
      */
+    // 判断文件描述符是否有效，判断依据是handle或fd
     public boolean valid() {
         return fd != -1;
     }

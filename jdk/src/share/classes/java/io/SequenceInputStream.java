@@ -42,9 +42,14 @@ import java.util.Vector;
  * @author  Author van Hoff
  * @since   JDK1.0
  */
+// 输入流序列(集合)，可以合并多个输入流并对其顺序读取
 public
 class SequenceInputStream extends InputStream {
+
+    // 输入流集合
     Enumeration<? extends InputStream> e;
+
+    // 下一个未处理的输入流
     InputStream in;
 
     /**
@@ -91,6 +96,7 @@ class SequenceInputStream extends InputStream {
         v.addElement(s2);
         e = v.elements();
         try {
+            // 查看是否存在下一个输入流
             nextStream();
         } catch (IOException ex) {
             // This should never happen
@@ -101,11 +107,14 @@ class SequenceInputStream extends InputStream {
     /**
      *  Continues reading in the next stream if an EOF is reached.
      */
+    // 获取下一个输入流
     final void nextStream() throws IOException {
+        // 先把当前输入流关闭
         if (in != null) {
             in.close();
         }
 
+        // 查看是否存在下一个输入流
         if (e.hasMoreElements()) {
             in = (InputStream) e.nextElement();
             if (in == null)
@@ -159,12 +168,14 @@ class SequenceInputStream extends InputStream {
      *             stream is reached.
      * @exception  IOException  if an I/O error occurs.
      */
+    // 从输入流集合中读取一个字节并返回
     public int read() throws IOException {
         while (in != null) {
             int c = in.read();
             if (c != -1) {
                 return c;
             }
+            // 获取下一个输入流
             nextStream();
         }
         return -1;
@@ -193,6 +204,7 @@ class SequenceInputStream extends InputStream {
      * <code>b.length - off</code>
      * @exception  IOException  if an I/O error occurs.
      */
+    // 从输入流集合中读取len个字节，并将其存入字节数组b的off处，最后返回读到的字节数量
     public int read(byte b[], int off, int len) throws IOException {
         if (in == null) {
             return -1;
@@ -208,6 +220,7 @@ class SequenceInputStream extends InputStream {
             if (n > 0) {
                 return n;
             }
+            // 获取下一个输入流
             nextStream();
         } while (in != null);
         return -1;
@@ -227,8 +240,10 @@ class SequenceInputStream extends InputStream {
      *
      * @exception  IOException  if an I/O error occurs.
      */
+    // 关闭所有输入流
     public void close() throws IOException {
         do {
+            // 获取下一个输入流
             nextStream();
         } while (in != null);
     }

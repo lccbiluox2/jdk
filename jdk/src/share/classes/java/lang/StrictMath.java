@@ -76,7 +76,7 @@ import sun.misc.DoubleConsts;
  * @author  Joseph D. Darcy
  * @since   1.3
  */
-
+// 数学运算类，相当于一个严格版本的Math类，要求同样的运算在不同平台上结果一致
 public final class StrictMath {
 
     /**

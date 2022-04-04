@@ -47,6 +47,12 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  * @author  Arthur van Hoff
  * @since   JDK1.0
  */
+/*
+ * 带有内部缓存区的字节输入流
+ *
+ * 读取数据时，会先从包装的输入流中读取数据，然后暂存在内部缓冲区中，
+ * 最后对外开放缓冲区，避免了频繁读取输入流造成的低效问题。
+ */
 public
 class BufferedInputStream extends FilterInputStream {
 
@@ -65,6 +71,7 @@ class BufferedInputStream extends FilterInputStream {
      * it may be replaced by another array of
      * a different size.
      */
+    // 内部缓冲区
     protected volatile byte buf[];
 
     /**
@@ -87,6 +94,7 @@ class BufferedInputStream extends FilterInputStream {
      * </code>contain buffered input data obtained
      * from the underlying  input stream.
      */
+    // 记录缓冲区buf中的字节数（包括存档数据）
     protected int count;
 
     /**
@@ -104,6 +112,7 @@ class BufferedInputStream extends FilterInputStream {
      *
      * @see     java.io.BufferedInputStream#buf
      */
+    // 缓冲区游标，记录已经从buf中取出的字节
     protected int pos;
 
     /**
@@ -133,6 +142,7 @@ class BufferedInputStream extends FilterInputStream {
      * @see     java.io.BufferedInputStream#mark(int)
      * @see     java.io.BufferedInputStream#pos
      */
+    // 存档游标的起始位置
     protected int markpos = -1;
 
     /**
@@ -147,12 +157,14 @@ class BufferedInputStream extends FilterInputStream {
      * @see     java.io.BufferedInputStream#mark(int)
      * @see     java.io.BufferedInputStream#reset()
      */
+    // 存档上限
     protected int marklimit;
 
     /**
      * Check to make sure that underlying input stream has not been
      * nulled out due to close; if not return it;
      */
+    // 如果输入流没有关闭，返回可用的输入流，否则抛出异常
     private InputStream getInIfOpen() throws IOException {
         InputStream input = in;
         if (input == null)
@@ -164,6 +176,7 @@ class BufferedInputStream extends FilterInputStream {
      * Check to make sure that buffer has not been nulled out due to
      * close; if not return it;
      */
+    // 如果输入流没有关闭，返回可用的缓冲区，否则抛出异常
     private byte[] getBufIfOpen() throws IOException {
         byte[] buffer = buf;
         if (buffer == null)
@@ -210,27 +223,47 @@ class BufferedInputStream extends FilterInputStream {
      * This method also assumes that all data has already been read in,
      * hence pos > count.
      */
+    // 向缓冲区填充数据
     private void fill() throws IOException {
+        // 如果输入流没有关闭，返回可用的缓冲区，否则抛出异常
         byte[] buffer = getBufIfOpen();
+        // 如果没有存档标记
         if (markpos < 0)
+            // 缓冲区游标重置为0
             pos = 0;            /* no mark: throw away the buffer */
-        else if (pos >= buffer.length)  /* no room left in buffer */
+
+
+            // 如果存在存档标记
+        else if (pos >= buffer.length)  /* no room left in buffer */  // 如果缓冲区中已经没有剩余空间
+            // 如果存档标记大于0
             if (markpos > 0) {  /* can throw away early part of the buffer */
+                // 计算需要存档的“长度”
                 int sz = pos - markpos;
+                // 将需要存档的内容拷贝到缓冲区靠前的部分
                 System.arraycopy(buffer, markpos, buffer, 0, sz);
+                // 缓冲区游标仍然紧跟在存档后面
                 pos = sz;
+                // 此时存档标记为位置在索引0处
                 markpos = 0;
-            } else if (buffer.length >= marklimit) {
+
+                // 存档标记等于0的情形：
+            } else if (buffer.length >= marklimit) {   // 如果缓冲区容量>=存档上限，则需要抛弃存档信息
                 markpos = -1;   /* buffer got too big, invalidate mark */
                 pos = 0;        /* drop buffer contents */
             } else if (buffer.length >= MAX_BUFFER_SIZE) {
                 throw new OutOfMemoryError("Required array size too large");
-            } else {            /* grow buffer */
+            } else {
+                // 如果缓冲区长度小于存档上限，且未超出阈值时
+
+                /* grow buffer */
+                // 尝试将缓冲区容量加倍
                 int nsz = (pos <= MAX_BUFFER_SIZE - pos) ?
                         pos * 2 : MAX_BUFFER_SIZE;
+                // 确保加倍后的容量不超过marklimit
                 if (nsz > marklimit)
                     nsz = marklimit;
                 byte nbuf[] = new byte[nsz];
+                // 复制原有的存档数据到新缓冲区的前面
                 System.arraycopy(buffer, 0, nbuf, 0, pos);
                 if (!bufUpdater.compareAndSet(this, buffer, nbuf)) {
                     // Can't replace buf if there was an async close.
@@ -243,6 +276,8 @@ class BufferedInputStream extends FilterInputStream {
                 buffer = nbuf;
             }
         count = pos;
+        // 如果输入流没有关闭，返回可用的输入流，否则抛出异常
+        // 向buffer中填充数据，返回成功读取到的字节数
         int n = getInIfOpen().read(buffer, pos, buffer.length - pos);
         if (n > 0)
             count = n + pos;
@@ -260,18 +295,30 @@ class BufferedInputStream extends FilterInputStream {
      *                          or an I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    /*
+     * 尝试从当前输入流读取一个字节，读取成功直接返回，读取失败返回-1
+     */
     public synchronized int read() throws IOException {
+        // 如果缓冲区没有可读数据，则需要读取输入流以填充缓冲区
         if (pos >= count) {
+            // 向缓冲区填充数据
             fill();
+            // 如果缓存区已经没有可读数据（但可能存在存档数据），直接返回-1
             if (pos >= count)
                 return -1;
         }
+        // getBufIfOpen() 如果输入流没有关闭，返回可用的缓冲区，否则抛出异常
+        // 返回一个字节
         return getBufIfOpen()[pos++] & 0xff;
     }
 
     /**
      * Read characters into a portion of an array, reading from the underlying
      * stream at most once if necessary.
+     */
+    /*
+     * 尝试从当前输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+     * 返回值表示成功读取的字节数量(可能小于预期值)，返回-1表示已经没有可读内容了
      */
     private int read1(byte[] b, int off, int len) throws IOException {
         int avail = count - pos;
@@ -280,16 +327,22 @@ class BufferedInputStream extends FilterInputStream {
                if there is no mark/reset activity, do not bother to copy the
                bytes into the local buffer.  In this way buffered streams will
                cascade harmlessly. */
+            // 如果待读取数据长度已经超出了缓冲区容量，且没有存档标记
             if (len >= getBufIfOpen().length && markpos < 0) {
+                // 调用包装的输入流的读取方法
                 return getInIfOpen().read(b, off, len);
             }
+            // 尝试填充缓冲区
             fill();
+            // 缓冲区中可用的字节数量（不包括存档数据）
             avail = count - pos;
             if (avail <= 0) return -1;
         }
         int cnt = (avail < len) ? avail : len;
+        // 将读到的数据复制到字节数组b中
         System.arraycopy(getBufIfOpen(), pos, b, off, cnt);
         pos += cnt;
+        // 返回实际读取到的字节数量
         return cnt;
     }
 
@@ -333,6 +386,7 @@ class BufferedInputStream extends FilterInputStream {
     public synchronized int read(byte b[], int off, int len)
         throws IOException
     {
+        // 如果输入流没有关闭，返回可用的缓冲区，否则抛出异常
         getBufIfOpen(); // Check for closed stream
         if ((off | len | (off + len) | (b.length - (off + len))) < 0) {
             throw new IndexOutOfBoundsException();
@@ -341,7 +395,9 @@ class BufferedInputStream extends FilterInputStream {
         }
 
         int n = 0;
+        // 如果所需字节数很多，则需要重复读取
         for (;;) {
+            // 从包装的输入流中读取数据
             int nread = read1(b, off + n, len - n);
             if (nread <= 0)
                 return (n == 0) ? nread : n;
@@ -364,13 +420,16 @@ class BufferedInputStream extends FilterInputStream {
      *                          invoking its {@link #close()} method, or an
      *                          I/O error occurs.
      */
+    // 读取中跳过n个字节，返回实际跳过的字节数
     public synchronized long skip(long n) throws IOException {
         getBufIfOpen(); // Check for closed stream
         if (n <= 0) {
             return 0;
         }
+        // 缓存区中剩余可读字节数
         long avail = count - pos;
 
+        // 如果缓冲区已经没有可读的数据，则需要先填充缓冲区
         if (avail <= 0) {
             // If no mark position set then don't keep in buffer
             if (markpos <0)
@@ -384,6 +443,7 @@ class BufferedInputStream extends FilterInputStream {
         }
 
         long skipped = (avail < n) ? avail : n;
+        // 跳过一部分可读字节
         pos += skipped;
         return skipped;
     }
@@ -405,8 +465,11 @@ class BufferedInputStream extends FilterInputStream {
      *                          invoking its {@link #close()} method,
      *                          or an I/O error occurs.
      */
+    // 返回剩余可不被阻塞地读取（或跳过）的字节数（估计值），其中包含了缓冲区中剩余可读的字节
     public synchronized int available() throws IOException {
         int n = count - pos;
+        // getInIfOpen() 如果输入流没有关闭，返回可用的输入流，否则抛出异常
+        // 返回剩余可不被阻塞地读取（或跳过）的字节数（估计值）
         int avail = getInIfOpen().available();
         return n > (Integer.MAX_VALUE - avail)
                     ? Integer.MAX_VALUE
@@ -421,8 +484,11 @@ class BufferedInputStream extends FilterInputStream {
      *                      the mark position becomes invalid.
      * @see     java.io.BufferedInputStream#reset()
      */
+    // 设置存档标记，readlimit是存档上限
     public synchronized void mark(int readlimit) {
+        // 将存档的起始标记设置为当前缓冲区buf待读取的位置
         marklimit = readlimit;
+        // 设置存档上限
         markpos = pos;
     }
 
@@ -442,7 +508,9 @@ class BufferedInputStream extends FilterInputStream {
      *                  method, or an I/O error occurs.
      * @see        java.io.BufferedInputStream#mark(int)
      */
+    // 重置缓冲区：将缓冲区buf的游标移动到存档游标的起始位置
     public synchronized void reset() throws IOException {
+        // 如果输入流没有关闭，返回可用的缓冲区，否则抛出异常
         getBufIfOpen(); // Cause exception if closed
         if (markpos < 0)
             throw new IOException("Resetting to invalid mark");
@@ -460,6 +528,7 @@ class BufferedInputStream extends FilterInputStream {
      * @see     java.io.InputStream#mark(int)
      * @see     java.io.InputStream#reset()
      */
+    // 判断当前输入流是否支持存档标记
     public boolean markSupported() {
         return true;
     }
@@ -473,6 +542,7 @@ class BufferedInputStream extends FilterInputStream {
      *
      * @exception  IOException  if an I/O error occurs.
      */
+    // 关闭输入流，置空缓存区
     public void close() throws IOException {
         byte[] buffer;
         while ( (buffer = buf) != null) {

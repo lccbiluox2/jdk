@@ -101,6 +101,22 @@ import sun.misc.DoubleConsts;
  * @author  Joseph D. Darcy
  * @since   JDK1.0
  */
+/*
+ * 数学运算类，包含了常用的数学计算方法
+ *
+ * - 基本运算
+ * - 乘方/开方
+ * - 指数/对数
+ * - 平面坐标
+ * - 三角函数
+ * - 双曲函数
+ * - 舍入操作
+ * - 绝对值
+ * - 最大值/最小值
+ * - 符号函数
+ * - 浮点数操作
+ * - 杂项
+ */
 
 public final class Math {
 

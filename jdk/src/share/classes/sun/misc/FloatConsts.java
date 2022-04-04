@@ -31,7 +31,7 @@ package sun.misc;
  *
  * @author Joseph D. Darcy
  */
-
+// 单精度浮点数结构常量
 public class FloatConsts {
     /**
      * Don't let anyone instantiate this class.
@@ -55,6 +55,7 @@ public class FloatConsts {
      * The number of logical bits in the significand of a
      * <code>float</code> number, including the implicit bit.
      */
+    // 符号位和小数位所占的位数之和
     public static final int SIGNIFICAND_WIDTH   = 24;
 
     /**
@@ -62,6 +63,7 @@ public class FloatConsts {
      * It is equal to the value returned by
      * <code>Math.ilogb(Float.MAX_VALUE)</code>.
      */
+    // 指数位偏移量
     public static final int     MAX_EXPONENT    = 127;
 
     /**
@@ -87,18 +89,21 @@ public class FloatConsts {
     /**
      * Bit mask to isolate the sign bit of a <code>float</code>.
      */
+    // 符号位掩码
     public static final int     SIGN_BIT_MASK   = 0x80000000;
 
     /**
      * Bit mask to isolate the exponent field of a
      * <code>float</code>.
      */
+    // 指数位掩码
     public static final int     EXP_BIT_MASK    = 0x7F800000;
 
     /**
      * Bit mask to isolate the significand field of a
      * <code>float</code>.
      */
+    // 小数位掩码
     public static final int     SIGNIF_BIT_MASK = 0x007FFFFF;
 
     static {

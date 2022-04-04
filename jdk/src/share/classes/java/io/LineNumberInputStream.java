@@ -46,12 +46,24 @@ package java.io;
  *             character streams is via the new character-stream classes, which
  *             include a class for counting line numbers.
  */
+/*
+ * 带行号的输入流
+ *
+ * 在读取数据时，会记录当前"读游标"所在的行。
+ *
+ * 过时原因：该类在设计之初用来读取字符流，并假设"字节"可以表示所有字符，
+ * 但现实是字符由多字节表示，所以使用LineNumberReader来替代了此类。
+ */
 @Deprecated
 public
 class LineNumberInputStream extends FilterInputStream {
+    // 缓存标记，临时存储\r后面的一个字节
     int pushBack = -1;
+    // 行号
     int lineNumber;
+    // 行号存档
     int markLineNumber;
+    // 缓存标记存档
     int markPushBack = -1;
 
     /**
@@ -87,23 +99,31 @@ class LineNumberInputStream extends FilterInputStream {
      * @see        java.io.FilterInputStream#in
      * @see        java.io.LineNumberInputStream#getLineNumber()
      */
+    /*
+     * 尝试从当前输入流读取一个字节，读取成功直接返回，读取失败返回-1
+     */
     @SuppressWarnings("fallthrough")
     public int read() throws IOException {
         int c = pushBack;
 
+        // 如果没有缓存的字节，则直接从流中读取新的字节
         if (c != -1) {
+            // 重置缓存标记为-1
             pushBack = -1;
         } else {
             c = in.read();
         }
 
         switch (c) {
+            // 如果遇到了\r，则需要进一步读取下一个字节
           case '\r':
             pushBack = in.read();
+              // 如果\r后面紧跟着\n，说明遇到了\r\n组成的行结束标记
             if (pushBack == '\n') {
                 pushBack = -1;
             }
           case '\n':
+              // 不论遇到\r还是\n还是\r\n，都需要将行号增一
             lineNumber++;
             return '\n';
         }
@@ -127,6 +147,10 @@ class LineNumberInputStream extends FilterInputStream {
      * @exception  IOException  if an I/O error occurs.
      * @see        java.io.LineNumberInputStream#read()
      */
+    /*
+     * 尝试从当前输入流读取len个字节，并将读到的内容插入到字节数组b的off索引处
+     * 返回值表示成功读取的字节数量(可能小于预期值)，返回-1表示已经没有可读内容了
+     */
     public int read(byte b[], int off, int len) throws IOException {
         if (b == null) {
             throw new NullPointerException();
@@ -137,6 +161,7 @@ class LineNumberInputStream extends FilterInputStream {
             return 0;
         }
 
+        // 先尝试读取一个字节
         int c = read();
         if (c == -1) {
             return -1;
@@ -145,6 +170,7 @@ class LineNumberInputStream extends FilterInputStream {
 
         int i = 1;
         try {
+            // 循环读取，直到读够len个字节，或者遇到结束标记
             for (; i < len ; i++) {
                 c = read();
                 if (c == -1) {
@@ -176,6 +202,7 @@ class LineNumberInputStream extends FilterInputStream {
      * @exception  IOException  if an I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    // 读取中跳过n个字节，返回实际跳过的字节数
     public long skip(long n) throws IOException {
         int chunk = 2048;
         long remaining = n;
@@ -204,6 +231,7 @@ class LineNumberInputStream extends FilterInputStream {
      * @param      lineNumber   the new line number.
      * @see #getLineNumber
      */
+    // 修改当前行号(不会修改读游标的位置)
     public void setLineNumber(int lineNumber) {
         this.lineNumber = lineNumber;
     }
@@ -214,6 +242,7 @@ class LineNumberInputStream extends FilterInputStream {
      * @return     the current line number.
      * @see #setLineNumber
      */
+    // 返回当前行号
     public int getLineNumber() {
         return lineNumber;
     }
@@ -237,6 +266,7 @@ class LineNumberInputStream extends FilterInputStream {
      * @exception  IOException  if an I/O error occurs.
      * @see        java.io.FilterInputStream#in
      */
+    // 返回剩余可不被阻塞地读取（或跳过）的字节数（估计值）
     public int available() throws IOException {
         return (pushBack == -1) ? super.available()/2 : super.available()/2 + 1;
     }
@@ -256,6 +286,7 @@ class LineNumberInputStream extends FilterInputStream {
      * @see     java.io.FilterInputStream#in
      * @see     java.io.LineNumberInputStream#reset()
      */
+    // 设置存档标记，readlimit是存档上限
     public void mark(int readlimit) {
         markLineNumber = lineNumber;
         markPushBack   = pushBack;
@@ -285,6 +316,7 @@ class LineNumberInputStream extends FilterInputStream {
      * @see        java.io.FilterInputStream#in
      * @see        java.io.LineNumberInputStream#mark(int)
      */
+    // 重置"读游标"到存档区的起始位置
     public void reset() throws IOException {
         lineNumber = markLineNumber;
         pushBack   = markPushBack;

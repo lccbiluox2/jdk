@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994, 2004, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,8 @@
 
 package java.io;
 
+import java.util.Objects;
+
 /**
  * This abstract class is the superclass of all classes representing
  * an output stream of bytes. An output stream accepts output bytes
@@ -41,9 +43,21 @@ package java.io;
  * @see     java.io.FilterOutputStream
  * @see     java.io.InputStream
  * @see     java.io.OutputStream#write(int)
- * @since   JDK1.0
+ * @since   1.0
+ */
+/*
+ * 字节输出流，可以向它写入数据
+ *
+ * 本地 ---------> 远端
+ *
+ * 字节输出流的解释：
+ * [输出流]的含义是将本地数据写入到远端，
+ * [字节]的含义是本地写入的是字节(远端通常是数组、字节流、通道)
  */
 public abstract class OutputStream implements Closeable, Flushable {
+
+    /*▼ 写 ████████████████████████████████████████████████████████████████████████████████┓ */
+
     /**
      * Writes the specified byte to this output stream. The general
      * contract for <code>write</code> is that one byte is written
@@ -59,6 +73,7 @@ public abstract class OutputStream implements Closeable, Flushable {
      *             an <code>IOException</code> may be thrown if the
      *             output stream has been closed.
      */
+    // 将指定的字节写入到输出流
     public abstract void write(int b) throws IOException;
 
     /**
@@ -71,7 +86,8 @@ public abstract class OutputStream implements Closeable, Flushable {
      * @exception  IOException  if an I/O error occurs.
      * @see        java.io.OutputStream#write(byte[], int, int)
      */
-    public void write(byte b[]) throws IOException {
+    // 将字节数组b的内容写入到输出流
+    public void write(byte[] b) throws IOException {
         write(b, 0, b.length);
     }
 
@@ -94,7 +110,7 @@ public abstract class OutputStream implements Closeable, Flushable {
      * <p>
      * If <code>off</code> is negative, or <code>len</code> is negative, or
      * <code>off+len</code> is greater than the length of the array
-     * <code>b</code>, then an <tt>IndexOutOfBoundsException</tt> is thrown.
+     * {@code b}, then an {@code IndexOutOfBoundsException} is thrown.
      *
      * @param      b     the data.
      * @param      off   the start offset in the data.
@@ -103,19 +119,20 @@ public abstract class OutputStream implements Closeable, Flushable {
      *             an <code>IOException</code> is thrown if the output
      *             stream is closed.
      */
-    public void write(byte b[], int off, int len) throws IOException {
-        if (b == null) {
-            throw new NullPointerException();
-        } else if ((off < 0) || (off > b.length) || (len < 0) ||
-                   ((off + len) > b.length) || ((off + len) < 0)) {
-            throw new IndexOutOfBoundsException();
-        } else if (len == 0) {
-            return;
-        }
+    // 将字节数组b中off处起的len个字节写入到输出流
+    public void write(byte[] b, int off, int len) throws IOException {
+        Objects.checkFromIndexSize(off, len, b.length);
+        // len == 0 condition implicitly handled by loop bounds
         for (int i = 0 ; i < len ; i++) {
             write(b[off + i]);
         }
     }
+
+    /*▲ 写 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 杂项 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * Flushes this output stream and forces any buffered output bytes
@@ -135,6 +152,7 @@ public abstract class OutputStream implements Closeable, Flushable {
      *
      * @exception  IOException  if an I/O error occurs.
      */
+    // 将内部缓冲区中的字节写入到输出流
     public void flush() throws IOException {
     }
 
@@ -148,7 +166,56 @@ public abstract class OutputStream implements Closeable, Flushable {
      *
      * @exception  IOException  if an I/O error occurs.
      */
+    // 关闭输出流
     public void close() throws IOException {
     }
+
+    /**
+     * Returns a new {@code OutputStream} which discards all bytes.  The
+     * returned stream is initially open.  The stream is closed by calling
+     * the {@code close()} method.  Subsequent calls to {@code close()} have
+     * no effect.
+     *
+     * <p> While the stream is open, the {@code write(int)}, {@code
+     * write(byte[])}, and {@code write(byte[], int, int)} methods do nothing.
+     * After the stream has been closed, these methods all throw {@code
+     * IOException}.
+     *
+     * <p> The {@code flush()} method does nothing.
+     *
+     * @return an {@code OutputStream} which discards all bytes
+     *
+     * @since 11
+     */
+    // 返回一个不包含有效字节的输出流
+    public static OutputStream nullOutputStream() {
+        return new OutputStream() {
+            private volatile boolean closed;
+
+            private void ensureOpen() throws IOException {
+                if (closed) {
+                    throw new IOException("Stream closed");
+                }
+            }
+
+            @Override
+            public void write(int b) throws IOException {
+                ensureOpen();
+            }
+
+            @Override
+            public void write(byte b[], int off, int len) throws IOException {
+                Objects.checkFromIndexSize(off, len, b.length);
+                ensureOpen();
+            }
+
+            @Override
+            public void close() {
+                closed = true;
+            }
+        };
+    }
+
+    /*▲ 杂项 ████████████████████████████████████████████████████████████████████████████████┛ */
 
 }

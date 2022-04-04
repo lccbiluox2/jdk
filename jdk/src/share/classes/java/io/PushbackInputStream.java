@@ -48,12 +48,15 @@ package java.io;
  * @author  Jonathan Payne
  * @since   JDK1.0
  */
+// 回推输入流，可以将一些字节暂时填充到回推缓冲区以便后续读取
+
 public
 class PushbackInputStream extends FilterInputStream {
     /**
      * The pushback buffer.
      * @since   JDK1.1
      */
+    // 回推缓冲区
     protected byte[] buf;
 
     /**
@@ -64,11 +67,13 @@ class PushbackInputStream extends FilterInputStream {
      *
      * @since   JDK1.1
      */
+    // 指向回退数据的起点
     protected int pos;
 
     /**
      * Check to make sure that this stream has not been closed
      */
+    // 确保包装的输入流未关闭
     private void ensureOpen() throws IOException {
         if (in == null)
             throw new IOException("Stream closed");
@@ -88,6 +93,7 @@ class PushbackInputStream extends FilterInputStream {
      * @exception IllegalArgumentException if {@code size <= 0}
      * @since  JDK1.1
      */
+    // 构造带有容量为1的回推缓冲区的回推输入流
     public PushbackInputStream(InputStream in, int size) {
         super(in);
         if (size <= 0) {
@@ -107,6 +113,7 @@ class PushbackInputStream extends FilterInputStream {
      *
      * @param   in   the input stream from which bytes will be read.
      */
+    // 构造带有容量为size的回推缓冲区的回推输入流
     public PushbackInputStream(InputStream in) {
         this(in, 1);
     }
@@ -131,11 +138,14 @@ class PushbackInputStream extends FilterInputStream {
      *             or an I/O error occurs.
      * @see        java.io.InputStream#read()
      */
+    // 从回推输入流读取一个字节并返回
     public int read() throws IOException {
         ensureOpen();
+        // 如果回推缓冲区不为空，则从回推缓冲区读取数据
         if (pos < buf.length) {
             return buf[pos++] & 0xff;
         }
+        // 从包装的输入流读取数据
         return super.read();
     }
 
@@ -162,6 +172,7 @@ class PushbackInputStream extends FilterInputStream {
      *             or an I/O error occurs.
      * @see        java.io.InputStream#read(byte[], int, int)
      */
+    // 从回推输入流读取len个字节存入字节数组b的off处，返回读取到的字节数
     public int read(byte[] b, int off, int len) throws IOException {
         ensureOpen();
         if (b == null) {
@@ -173,6 +184,7 @@ class PushbackInputStream extends FilterInputStream {
         }
 
         int avail = buf.length - pos;
+        // 如果回推缓冲区不为空，则从回推缓冲区读取数据
         if (avail > 0) {
             if (len < avail) {
                 avail = len;
@@ -182,7 +194,9 @@ class PushbackInputStream extends FilterInputStream {
             off += avail;
             len -= avail;
         }
+        // 没有读够指定数量的字节
         if (len > 0) {
+            // 继续从包装的输入流中读取
             len = super.read(b, off, len);
             if (len == -1) {
                 return avail == 0 ? -1 : avail;
@@ -203,6 +217,7 @@ class PushbackInputStream extends FilterInputStream {
      *            buffer for the byte, or this input stream has been closed by
      *            invoking its {@link #close()} method.
      */
+    // 将指定的字节存入回推缓冲区
     public void unread(int b) throws IOException {
         ensureOpen();
         if (pos == 0) {
@@ -226,6 +241,7 @@ class PushbackInputStream extends FilterInputStream {
      *            invoking its {@link #close()} method.
      * @since     JDK1.1
      */
+    // 将字节数组b中所有字节存入回推缓冲区
     public void unread(byte[] b, int off, int len) throws IOException {
         ensureOpen();
         if (len > pos) {
@@ -248,6 +264,7 @@ class PushbackInputStream extends FilterInputStream {
      *            invoking its {@link #close()} method.
      * @since     JDK1.1
      */
+    // 将字节数组b中off处起的len个字节存入回推缓冲区
     public void unread(byte[] b) throws IOException {
         unread(b, 0, b.length);
     }
@@ -271,9 +288,12 @@ class PushbackInputStream extends FilterInputStream {
      * @see        java.io.FilterInputStream#in
      * @see        java.io.InputStream#available()
      */
+    // 返回当前回推输入流中未读(可用)的字节数量
     public int available() throws IOException {
         ensureOpen();
+        // 先获取回推缓冲区中剩余的字节数量
         int n = buf.length - pos;
+        // 再获取包装的输入流中的字节数量
         int avail = super.available();
         return n > (Integer.MAX_VALUE - avail)
                     ? Integer.MAX_VALUE
@@ -302,6 +322,7 @@ class PushbackInputStream extends FilterInputStream {
      * @see        java.io.InputStream#skip(long n)
      * @since      1.2
      */
+    // 跳过n个字节
     public long skip(long n) throws IOException {
         ensureOpen();
         if (n <= 0) {
@@ -331,6 +352,7 @@ class PushbackInputStream extends FilterInputStream {
      * @see     java.io.InputStream#mark(int)
      * @see     java.io.InputStream#reset()
      */
+    // 设置存档标记，当前输入流不支持标记行为，所以也不会设置存档标记
     public boolean markSupported() {
         return false;
     }
@@ -360,6 +382,7 @@ class PushbackInputStream extends FilterInputStream {
      * @see     java.io.InputStream#mark(int)
      * @see     java.io.IOException
      */
+    // 对于支持设置存档的输入流，可以重置其"读游标"到存档区的起始位置，此处默认不支持重置操作
     public synchronized void reset() throws IOException {
         throw new IOException("mark/reset not supported");
     }
@@ -373,6 +396,7 @@ class PushbackInputStream extends FilterInputStream {
      *
      * @exception  IOException  if an I/O error occurs.
      */
+    // 关闭内部包装的输入流，且置空回推缓冲区
     public synchronized void close() throws IOException {
         if (in == null)
             return;

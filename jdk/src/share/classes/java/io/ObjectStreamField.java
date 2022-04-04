@@ -39,21 +39,31 @@ import sun.reflect.misc.ReflectUtil;
  * @see ObjectStreamClass
  * @since 1.2
  */
+/*
+ * 代表可被序列化的字段。即指定哪些字段将参与序列化，并封装这些参与序列化的字段信息。
+ * 所有可被序列化的字段需要封装为一个ObjectStreamField数组，且数组变量名必须为serialPersistentFields。
+ */
 public class ObjectStreamField
     implements Comparable<Object>
 {
 
     /** field name */
+    // 字段名称
     private final String name;
     /** canonical JVM signature of field type */
+    // JVM规范签名
     private final String signature;
     /** field type (Object.class if unknown non-primitive type) */
+    // 字段类型
     private final Class<?> type;
     /** whether or not to (de)serialize field values as unshared */
+    // 字段是否非共享(共享字段会共用一段序列化信息)
     private final boolean unshared;
     /** corresponding reflective field object, if any */
+    // 封装的字段(可能为null)
     private final Field field;
     /** offset of field value in enclosing field group */
+    // 字段是否非共享(共享字段会共用一段序列化信息)
     private int offset = 0;
 
     /**
@@ -146,6 +156,7 @@ public class ObjectStreamField
      * @return  a <code>String</code> representing the name of the serializable
      *          field
      */
+    // 返回字段的名称
     public String getName() {
         return name;
     }
@@ -160,6 +171,7 @@ public class ObjectStreamField
      * @return  a <code>Class</code> object representing the type of the
      *          serializable field
      */
+    // 返回字段的类型
     @CallerSensitive
     public Class<?> getType() {
         if (System.getSecurityManager() != null) {
@@ -189,6 +201,7 @@ public class ObjectStreamField
      * @return  the typecode of the serializable field
      */
     // REMIND: deprecate?
+    // 返回字段签名
     public char getTypeCode() {
         return signature.charAt(0);
     }
@@ -199,6 +212,7 @@ public class ObjectStreamField
      * @return  null if this field has a primitive type.
      */
     // REMIND: deprecate?
+    // 返回字段签名，对于基本类型，返回null
     public String getTypeString() {
         return isPrimitive() ? null : signature;
     }
@@ -210,6 +224,7 @@ public class ObjectStreamField
      * @see #setOffset
      */
     // REMIND: deprecate?
+    // 返回字段的偏移量
     public int getOffset() {
         return offset;
     }
@@ -221,6 +236,7 @@ public class ObjectStreamField
      * @see #getOffset
      */
     // REMIND: deprecate?
+    // 设置字段的偏移量
     protected void setOffset(int offset) {
         this.offset = offset;
     }
@@ -231,6 +247,7 @@ public class ObjectStreamField
      * @return  true if and only if this field corresponds to a primitive type
      */
     // REMIND: deprecate?
+    // 当前字段是否为基本类型
     public boolean isPrimitive() {
         char tcode = signature.charAt(0);
         return ((tcode != 'L') && (tcode != '['));
@@ -275,6 +292,7 @@ public class ObjectStreamField
      * Returns field represented by this ObjectStreamField, or null if
      * ObjectStreamField is not associated with an actual field.
      */
+    // 获取允许反序列化的字段
     Field getField() {
         return field;
     }
@@ -283,6 +301,7 @@ public class ObjectStreamField
      * Returns JVM type signature of field (similar to getTypeString, except
      * that signature strings are returned for primitive fields as well).
      */
+    // 返回字段签名
     String getSignature() {
         return signature;
     }
@@ -290,6 +309,7 @@ public class ObjectStreamField
     /**
      * Returns JVM type signature for given class.
      */
+    // 获取类型对应的签名
     private static String getClassSignature(Class<?> cl) {
         StringBuilder sbuf = new StringBuilder();
         while (cl.isArray()) {

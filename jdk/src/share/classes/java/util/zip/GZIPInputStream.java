@@ -40,18 +40,22 @@ import java.io.EOFException;
  * @author      David Connelly
  *
  */
+// gzip输入流：读取gzip文件，将其解压为原始数据后填充到指定的内存(适用于对单个文件的解压)
 public
 class GZIPInputStream extends InflaterInputStream {
     /**
      * CRC-32 for uncompressed data.
      */
+    // 数据校验
     protected CRC32 crc = new CRC32();
 
     /**
      * Indicates end of input stream.
      */
+    // 是否已达输入流末尾
     protected boolean eos;
 
+    // 输入流是否已关闭
     private boolean closed = false;
 
     /**
@@ -73,9 +77,12 @@ class GZIPInputStream extends InflaterInputStream {
      * @exception IOException if an I/O error has occurred
      * @exception IllegalArgumentException if {@code size <= 0}
      */
+    // 用指定的源头输入流和缓冲区容量构造gzip输入流
     public GZIPInputStream(InputStream in, int size) throws IOException {
         super(in, new Inflater(true), size);
+        // 使用了具有默认解压级别的压缩器
         usesDefaultInflater = true;
+        // 解压前：读取gzip文件头信息
         readHeader(in);
     }
 
@@ -87,6 +94,7 @@ class GZIPInputStream extends InflaterInputStream {
      *                         compression method used is unsupported
      * @exception IOException if an I/O error has occurred
      */
+    // 用指定的源头输入流构造gzip输入流
     public GZIPInputStream(InputStream in) throws IOException {
         this(in, 512);
     }
@@ -109,18 +117,31 @@ class GZIPInputStream extends InflaterInputStream {
      * @exception IOException if an I/O error has occurred.
      *
      */
+    /*
+     * 从gzip输入流中读取(解压)出len个解压后的字节，并将其存入b的off处
+     * 返回本次成功解压出的字节数(只统计实际的文件内容)
+     *
+     * 注：如果输入流中包含多个gzip文件，则会递归读取
+     */
     public int read(byte[] buf, int off, int len) throws IOException {
         ensureOpen();
+        // 如果已经读到文件尾了，则直接返回
         if (eos) {
             return -1;
         }
+        // 从(解压)输入流中读取(解压)出len个解压后的字节，并将其存入b的off处
         int n = super.read(buf, off, len);
+        // 如果解压完成
         if (n == -1) {
+            // 解压后：读取文件尾信息
             if (readTrailer())
+                // 标记输入流已经读到了尾部
                 eos = true;
-            else
+            else  // 如果解压未完成(后面仍然有链接的其他gzip文件块)
+                // 递归读取后续的gzip文件块
                 return this.read(buf, off, len);
         } else {
+            // 用字节数组b中off处起的len个字节更新当前校验和
             crc.update(buf, off, n);
         }
         return n;
@@ -142,6 +163,7 @@ class GZIPInputStream extends InflaterInputStream {
     /**
      * GZIP header magic number.
      */
+    // gzip文件的魔数
     public final static int GZIP_MAGIC = 0x8b1f;
 
     /*
@@ -157,20 +179,25 @@ class GZIPInputStream extends InflaterInputStream {
      * Reads GZIP member header and returns the total byte number
      * of this member header.
      */
+    // 解压前：读取文件头信息(以及其他附加信息)
     private int readHeader(InputStream this_in) throws IOException {
+        // 记录当前校验和
         CheckedInputStream in = new CheckedInputStream(this_in, crc);
+        // 重置当前校验和
         crc.reset();
         // Check header magic
+        // 读取魔数
         if (readUShort(in) != GZIP_MAGIC) {
             throw new ZipException("Not in GZIP format");
         }
-        // Check compression method
+        // Check compression method 读取解压方法
         if (readUByte(in) != 8) {
             throw new ZipException("Unsupported compression method");
         }
-        // Read flags
+        // Read flags  读取通用标识
         int flg = readUByte(in);
         // Skip MTIME, XFL, and OS fields
+        // 跳过file modification time、extra flags、OS type
         skipBytes(in, 6);
         int n = 2 + 2 + 6;
         // Skip optional extra field
@@ -208,10 +235,18 @@ class GZIPInputStream extends InflaterInputStream {
      * reached, false if there are more (concatenated gzip
      * data set)
      */
+    /*
+     * 解压后：读取文件尾信息，主要是读取数据校验和，以及累计读取了多少解压后的字节。
+     * 如果返回true，表示解压操作可以结束了。
+     * 如果返回false，表示后续还有gzip片段，解压操作后续还得继续。
+     */
     private boolean readTrailer() throws IOException {
         InputStream in = this.in;
+
+        // 返回解压器内部缓冲区中剩余未处理的字节数量
         int n = inf.getRemaining();
         if (n > 0) {
+            // 构建输入流序列(集合)，稍后需要先读解压器中的残余字节，再读源头输入流
             in = new SequenceInputStream(
                         new ByteArrayInputStream(buf, len - n, n),
                         new FilterInputStream(in) {
@@ -228,6 +263,7 @@ class GZIPInputStream extends InflaterInputStream {
         // the leftover in the "inf" is > 26 bytes:
         // this.trailer(8) + next.header.min(10) + next.trailer(8)
         // try concatenated case
+        // 如果输入流中还有更多数据，或者解压器的内部缓冲区中有足量(>26)剩余未处理的字节
         if (this.in.available() > 0 || n > 26) {
             int m = 8;                  // this.trailer
             try {
@@ -235,7 +271,9 @@ class GZIPInputStream extends InflaterInputStream {
             } catch (IOException ze) {
                 return true;  // ignore any malformed, do nothing
             }
+            // 重置解压器，以便解压器接收新数据进行解压
             inf.reset();
+            // 如果解压器中包含了下一段gzip文件的信息
             if (n > m)
                 inf.setInput(buf, len - n + m, n - m);
             return false;
@@ -275,6 +313,7 @@ class GZIPInputStream extends InflaterInputStream {
         return b;
     }
 
+    // 临时存储一些字节信息
     private byte[] tmpbuf = new byte[128];
 
     /*

@@ -86,6 +86,16 @@ import java.util.stream.DoubleStream;
  * @author  Doug Lea
  * @since   1.8
  */
+/*
+ * 伪随机数生成器
+ *
+ * 非线程安全
+ * 适用于少数单线程场景
+ *
+ * 支持使用内置种子计算的原始种子
+ * 支持自定义原始种子
+ * 支持使用安全种子（设置运行参数-Djava.util.secureRandomSeed=true）
+ */
 public final class SplittableRandom {
 
     /*
@@ -164,16 +174,19 @@ public final class SplittableRandom {
      * The least non-zero value returned by nextDouble(). This value
      * is scaled by a random value of 53 bits to produce a result.
      */
+    // double值的二进制精度
     private static final double DOUBLE_UNIT = 0x1.0p-53; // 1.0 / (1L << 53);
 
     /**
      * The seed. Updated only via method nextSeed.
      */
+    // 原始种子，用来生成随机数
     private long seed;
 
     /**
      * The step value.
      */
+    // 用于更新原始种子的步长
     private final long gamma;
 
     /**
@@ -215,6 +228,7 @@ public final class SplittableRandom {
     /**
      * Adds gamma to seed.
      */
+    // 获取下一个种子
     private long nextSeed() {
         return seed += gamma;
     }
@@ -222,6 +236,7 @@ public final class SplittableRandom {
     /**
      * The seed generator for default constructors.
      */
+    // 内置种子，用来生成原始种子
     private static final AtomicLong defaultGen = new AtomicLong(initialSeed());
 
     private static long initialSeed() {
@@ -392,6 +407,7 @@ public final class SplittableRandom {
      *
      * @return the new SplittableRandom instance
      */
+    // 获取SplittableRandom实例
     public SplittableRandom split() {
         return new SplittableRandom(nextLong(), mixGamma(nextSeed()));
     }

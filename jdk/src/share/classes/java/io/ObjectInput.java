@@ -36,6 +36,7 @@ package java.io;
  * @see java.io.ObjectInputStream
  * @since   JDK1.1
  */
+// 对象输入流，用于反序列化
 public interface ObjectInput extends DataInput, AutoCloseable {
     /**
      * Read and return an object. The class that implements this interface
@@ -47,6 +48,7 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      * @exception IOException If any of the usual Input/Output
      * related exceptions occur.
      */
+    // 从输入流反序列化对象，并将其返回
     public Object readObject()
         throws ClassNotFoundException, IOException;
 
@@ -57,6 +59,7 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      *          stream is reached.
      * @exception IOException If an I/O error has occurred.
      */
+    // 从输入流读取一个字节并返回；如果返回-1，表示读取失败
     public int read() throws IOException;
 
     /**
@@ -67,6 +70,7 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      *          returned when the end of the stream is reached.
      * @exception IOException If an I/O error has occurred.
      */
+    // 从输入流读取足量的字节填充字节数组b，返回实际填充的字节数
     public int read(byte b[]) throws IOException;
 
     /**
@@ -79,6 +83,7 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      *          returned when the end of the stream is reached.
      * @exception IOException If an I/O error has occurred.
      */
+    // 从输入流读取len字节填充到字节数组b的off处，返回实际填充的字节数
     public int read(byte b[], int off, int len) throws IOException;
 
     /**
@@ -87,6 +92,7 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      * @return  the actual number of bytes skipped.
      * @exception IOException If an I/O error has occurred.
      */
+    // 跳过n个字节
     public long skip(long n) throws IOException;
 
     /**
@@ -95,6 +101,7 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      * @return the number of available bytes.
      * @exception IOException If an I/O error has occurred.
      */
+    // 返回剩余可读字节数
     public int available() throws IOException;
 
     /**
@@ -103,5 +110,6 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      * the stream.
      * @exception IOException If an I/O error has occurred.
      */
+    // 关闭输入流
     public void close() throws IOException;
 }
