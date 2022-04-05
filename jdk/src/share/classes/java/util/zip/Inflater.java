@@ -70,15 +70,29 @@ package java.util.zip;
  * @author      David Connelly
  *
  */
+// 解压器
 public
 class Inflater {
 
+    // 资源清理器
     private final ZStreamRef zsRef;
+    // 存储待解压数据(可能会混杂不需要解压的数据)
     private byte[] buf = defaultBuf;
     private int off, len;
+    // 是否完成解压。完成解压之时，缓冲区中可能还有一些不必解压的附加信息
     private boolean finished;
+    /*
+     * 是否需要字典
+     *
+     * 如果待解压数据解压时需要用到字典，
+     * 但是未提前给解压器设置字典，那么needDict将被设置为true。
+     * 如果needDict为false，说明已经提前设置好了字典，
+     * 或者解压这些数据根本用不到字典。
+     */
     private boolean needDict;
+    // 累计读取了多少解压前的字节
     private long bytesRead;
+    // 累计写入了多少解压后的字节
     private long bytesWritten;
 
     private static final byte[] defaultBuf = new byte[0];
@@ -99,6 +113,7 @@ class Inflater {
      *
      * @param nowrap if true then support GZIP compatible compression
      */
+    // 构造解压器，nowrap指示是否兼容GZIP
     public Inflater(boolean nowrap) {
         zsRef = new ZStreamRef(init(nowrap));
     }
@@ -106,6 +121,7 @@ class Inflater {
     /**
      * Creates a new decompressor.
      */
+    // 构造解压器(不兼容GZIP)
     public Inflater() {
         this(false);
     }
@@ -244,6 +260,7 @@ class Inflater {
      * @see Inflater#needsInput
      * @see Inflater#needsDictionary
      */
+    // 向解压缓冲区output的指定范围填充解压后的数据，返回实际填充的字节数
     public int inflate(byte[] b, int off, int len)
         throws DataFormatException
     {
@@ -276,6 +293,7 @@ class Inflater {
      * @see Inflater#needsInput
      * @see Inflater#needsDictionary
      */
+    // 向解压缓冲区output中填充解压后的数据，返回实际填充的字节数
     public int inflate(byte[] b) throws DataFormatException {
         return inflate(b, 0, b.length);
     }

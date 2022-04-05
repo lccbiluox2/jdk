@@ -56,12 +56,20 @@ import static java.util.zip.ZipConstants64.*;
  *
  * @author      David Connelly
  */
+/*
+ * zip文件，适用于读取具有完整zip结构的压缩文件
+ *
+ * 使用该类在解压zip文件时，需要借助zip文件的核心目录信息(zip文件的第二部分)，
+ * 如果zip文件的结构是不完整的，如缺失了第二部分，那么该类无法正确识别zip实体信息。
+ */
 public
 class ZipFile implements ZipConstants, Closeable {
     private long jzfile;  // address of jzfile data
+    // zip文件原始名称(路径)
     private final String name;     // zip file name
     private final int total;       // total number of entries
     private final boolean locsig;  // if zip file starts with LOCSIG (usually true)
+    // 当前zip文件是否已关闭
     private volatile boolean closeRequested = false;
 
     private static final int STORED = ZipEntry.STORED;
@@ -70,7 +78,7 @@ class ZipFile implements ZipConstants, Closeable {
     /**
      * Mode flag to open a zip file for reading.
      */
-    public static final int OPEN_READ = 0x1;
+    public static final int OPEN_READ = 0x1; // 只读
 
     /**
      * Mode flag to open a zip file and mark it for deletion.  The file will be
@@ -79,6 +87,7 @@ class ZipFile implements ZipConstants, Closeable {
      * <tt>ZipFile</tt> object until either the close method is invoked or the
      * virtual machine exits.
      */
+    // 删除，即解压后删除压缩包
     public static final int OPEN_DELETE = 0x4;
 
     static {
@@ -169,7 +178,7 @@ class ZipFile implements ZipConstants, Closeable {
         this(file, OPEN_READ);
     }
 
-    private ZipCoder zc;
+    private ZipCoder zc; // zip编/解码器
 
     /**
      * Opens a new <code>ZipFile</code> to read from the specified
@@ -254,6 +263,7 @@ class ZipFile implements ZipConstants, Closeable {
      *
      * @since 1.7
      */
+    // 打开指定名称的ZipFile，使用charset作为解压字符集
     public ZipFile(String name, Charset charset) throws IOException
     {
         this(new File(name), OPEN_READ, charset);
@@ -356,6 +366,7 @@ class ZipFile implements ZipConstants, Closeable {
      * @throws IOException if an I/O error has occurred
      * @throws IllegalStateException if the zip file has been closed
      */
+    // 返回针对指定ZipEntry条目的(解压)输入流，可从中读取解压后的数据
     public InputStream getInputStream(ZipEntry entry) throws IOException {
         if (entry == null) {
             throw new NullPointerException("entry");
@@ -372,13 +383,16 @@ class ZipFile implements ZipConstants, Closeable {
             if (jzentry == 0) {
                 return null;
             }
+            // 返回针对指定ZipEntry的输入流
             in = new ZipFileInputStream(jzentry);
 
+            // 判断该实体的压缩/解压方式
             switch (getEntryMethod(jzentry)) {
             case STORED:
                 synchronized (streams) {
                     streams.put(in, null);
                 }
+                // 对于未压缩的zip文件(没有本地文件头与数据描述符信息)，直接返回输入流就可以读取
                 return in;
             case DEFLATED:
                 // MORE: Compute good size for inflater stream:
@@ -386,11 +400,13 @@ class ZipFile implements ZipConstants, Closeable {
                 if (size > 65536) size = 8192;
                 if (size <= 0) size = 4096;
                 Inflater inf = getInflater();
+                // 构造(解压)输入流
                 InputStream is =
                     new ZipFileInflaterInputStream(in, inf, (int)size);
                 synchronized (streams) {
                     streams.put(is, inf);
                 }
+                // 对于压缩过的zip文件，需要返回对应的(解压)输入流才能对其解压
                 return is;
             default:
                 throw new ZipException("invalid compression method");
@@ -548,6 +564,7 @@ class ZipFile implements ZipConstants, Closeable {
      * @return an enumeration of the ZIP file entries
      * @throws IllegalStateException if the zip file has been closed
      */
+    // 返回一个ZipEntry实体迭代器
     public Enumeration<? extends ZipEntry> entries() {
         return new ZipEntryIterator();
     }
@@ -568,6 +585,7 @@ class ZipFile implements ZipConstants, Closeable {
                         Spliterator.IMMUTABLE | Spliterator.NONNULL), false);
     }
 
+    // 返回指定偏移处名为name的实体条目
     private ZipEntry getZipEntry(String name, long jzentry) {
         ZipEntry e = new ZipEntry();
         e.flag = getEntryFlag(jzentry);  // get the flag first

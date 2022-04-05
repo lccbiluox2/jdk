@@ -29,7 +29,11 @@ package java.util.zip;
  * This class defines the constants that are used by the classes
  * which manipulate Zip64 files.
  */
-
+/*
+ * zip64文件格式常量
+ *
+ * 参见：https://pkware.cachefly.net/webdocs/APPNOTE/APPNOTE-6.3.5.TXT
+ */
 class ZipConstants64 {
 
     /*
@@ -42,7 +46,9 @@ class ZipConstants64 {
     static final int  ZIP64_EXTHDR = 24;           // EXT header size
     static final int  ZIP64_EXTID  = 0x0001;       // Extra field Zip64 header ID
 
+    // zip格式文件支持的最大条目数量，超过此值需要用zip64格式
     static final int  ZIP64_MAGICCOUNT = 0xFFFF;
+    // zip格式文件支持的最大尺寸，超过此值需要用zip64格式
     static final long ZIP64_MAGICVAL = 0xFFFFFFFFL;
 
     /*

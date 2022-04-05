@@ -37,8 +37,10 @@ import sun.nio.ch.DirectBuffer;
  * @see         Checksum
  * @author      David Connelly
  */
+// CRC32循环冗余校验的实现
 public
 class CRC32 implements Checksum {
+    // CRC-32校验和
     private int crc;
 
     /**
@@ -54,6 +56,7 @@ class CRC32 implements Checksum {
      *
      * @param b the byte to update the checksum with
      */
+    // 用指定的字节更新当前校验和
     public void update(int b) {
         crc = update(crc, b);
     }
@@ -66,6 +69,7 @@ class CRC32 implements Checksum {
      *          or {@code off+len} is greater than the length of the
      *          array {@code b}
      */
+    // 用字节数组b中off处起的len个字节更新当前校验和
     public void update(byte[] b, int off, int len) {
         if (b == null) {
             throw new NullPointerException();
@@ -98,6 +102,7 @@ class CRC32 implements Checksum {
      * @param buffer the ByteBuffer to update the checksum with
      * @since 1.8
      */
+    // 用缓冲区buffer中的字节更新当前校验和
     public void update(ByteBuffer buffer) {
         int pos = buffer.position();
         int limit = buffer.limit();
@@ -120,6 +125,7 @@ class CRC32 implements Checksum {
     /**
      * Resets CRC-32 to initial value.
      */
+    // 重置当前校验和
     public void reset() {
         crc = 0;
     }
@@ -131,9 +137,12 @@ class CRC32 implements Checksum {
         return (long)crc & 0xffffffffL;
     }
 
+    // 用指定的字节更新当前校验和
     private native static int update(int crc, int b);
+    // 用字节数组b中off处起的len个字节更新校验和crc
     private native static int updateBytes(int crc, byte[] b, int off, int len);
 
+    // 用地址addr处的缓冲区中off处起的len个字节更新校验和crc
     private native static int updateByteBuffer(int adler, long addr,
                                                int off, int len);
 }

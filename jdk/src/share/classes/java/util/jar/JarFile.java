@@ -67,6 +67,7 @@ import sun.security.util.SignatureFileVerifier;
  * @see     java.util.jar.JarEntry
  * @since   1.2
  */
+// jar文件，适用于读取具有规范jar结构的压缩文件
 public
 class JarFile extends ZipFile {
     private SoftReference<Manifest> manRef;

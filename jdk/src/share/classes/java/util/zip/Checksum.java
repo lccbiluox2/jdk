@@ -30,6 +30,7 @@ package java.util.zip;
  *
  * @author      David Connelly
  */
+// 数据校验接口
 public
 interface Checksum {
     /**
@@ -37,6 +38,7 @@ interface Checksum {
      *
      * @param b the byte to update the checksum with
      */
+    // 用指定的字节更新校验和
     public void update(int b);
 
     /**
@@ -45,16 +47,19 @@ interface Checksum {
      * @param off the start offset of the data
      * @param len the number of bytes to use for the update
      */
+    // 用字节数组b中off处起的len个字节更新当前校验和
     public void update(byte[] b, int off, int len);
 
     /**
      * Returns the current checksum value.
      * @return the current checksum value
      */
+    // 获取当前校验和
     public long getValue();
 
     /**
      * Resets the checksum to its initial value.
      */
+    // 重置当前校验和
     public void reset();
 }

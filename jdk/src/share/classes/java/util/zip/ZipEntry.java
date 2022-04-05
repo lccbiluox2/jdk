@@ -37,32 +37,47 @@ import static java.util.zip.ZipConstants64.*;
  *
  * @author      David Connelly
  */
+/*
+ * 压缩包中的实体条目(并不代表文件内容)，每一个未压缩的文件/文件夹都会对应一个压缩后的条目。
+ * ZipEntry内部的属性可能解析自zip文件第一部分的第1小节，也可能解析自zip文件的第二部分。
+ */
 public
 class ZipEntry implements ZipConstants, Cloneable {
 
-    String name;        // entry name
+    String name;        // entry name 待压缩实体的名称（文件相对路径）
     long xdostime = -1; // last modification time (in extended DOS time,
                         // where milliseconds lost in conversion might
                         // be encoded into the upper half)
+                        // 文件最后修改时间(扩展区)
     FileTime mtime;     // last modification time, from extra field data
+    // 文件最后访问时间(扩展区)
     FileTime atime;     // last access time, from extra field data
+    // 文件创建时间(扩展区)
     FileTime ctime;     // creation time, from extra field data
-    long crc = -1;      // crc-32 of entry data
-    long size = -1;     // uncompressed size of entry data
-    long csize = -1;    // compressed size of entry data
-    int method = -1;    // compression method
-    int flag = 0;       // general purpose flag
+
+    // 以下三个参数在STORED模式下必须主动设置
+    long crc = -1;      // crc-32 of entry data  crc-32校验码
+    long size = -1;     // uncompressed size of entry data   压缩前的大小
+    long csize = -1;    // compressed size of entry data  压缩后的大小
+
+
+    int method = -1;    // compression method  压缩方法
+    int flag = 0;       // general purpose flag   通用位标记
+
+    // 其他扩展区信息，使用小端法存储
     byte[] extra;       // optional extra field data for entry
-    String comment;     // optional comment string for entry
+    String comment;     // optional comment string for entry  可选的注释信息
 
     /**
      * Compression method for uncompressed entries.
      */
+    // 原始数据未压缩
     public static final int STORED = 0;
 
     /**
      * Compression method for compressed (deflated) entries.
      */
+    // 原始数据使用了默认压缩方式
     public static final int DEFLATED = 8;
 
     /**
@@ -404,6 +419,7 @@ class ZipEntry implements ZipConstants, Cloneable {
      *          method is invalid
      * @see #getMethod()
      */
+    // 设置对压缩实体的压缩方法
     public void setMethod(int method) {
         if (method != STORED && method != DEFLATED) {
             throw new IllegalArgumentException("invalid compression method");

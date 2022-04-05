@@ -33,8 +33,10 @@ import java.security.cert.Certificate;
 /**
  * This class is used to represent a JAR file entry.
  */
+// jar包中的实体条目
 public
 class JarEntry extends ZipEntry {
+    // jar实体中"META-INF/MANIFEST.MF"文件的键值对数据
     Attributes attr;
     Certificate[] certs;
     CodeSigner[] signers;

@@ -40,7 +40,7 @@ import sun.nio.cs.ArrayEncoder;
 /**
  * Utility class for zipfile name and comment decoding and encoding
  */
-
+// zip编/解码器
 final class ZipCoder {
 
     String toString(byte[] ba, int length) {
@@ -73,6 +73,7 @@ final class ZipCoder {
         return toString(ba, ba.length);
     }
 
+    // 编码：将字符串中的字符编码为字节后返回
     byte[] getBytes(String s) {
         CharsetEncoder ce = encoder().reset();
         char[] ca = s.toCharArray();
@@ -103,6 +104,7 @@ final class ZipCoder {
     }
 
     // assume invoked only if "this" is not utf8
+    // 编码：将字符串中的字符编码为UTF8格式的字节后返回
     byte[] getBytesUTF8(String s) {
         if (isUTF8)
             return getBytes(s);
@@ -112,6 +114,7 @@ final class ZipCoder {
     }
 
 
+    // 解码：将ba中前len个字节依据UTF8格式解码为字符串后返回
     String toStringUTF8(byte[] ba, int len) {
         if (isUTF8)
             return toString(ba, len);
@@ -124,21 +127,27 @@ final class ZipCoder {
         return isUTF8;
     }
 
+    // 当前编/解码器使用的字符集
     private Charset cs;
+    // 字节解码器。字节进来，字符出去，完成对字节序列的解码操作
     private CharsetDecoder dec;
+    // 字符编码器。字符进来，字节出去，完成对字符序列的编码操作
     private CharsetEncoder enc;
     private boolean isUTF8;
-    private ZipCoder utf8;
+    private ZipCoder utf8; // 默认使用UTF8字符集
 
+    // 构造指定字符集的Zip编/解码器
     private ZipCoder(Charset cs) {
         this.cs = cs;
         this.isUTF8 = cs.name().equals(StandardCharsets.UTF_8.name());
     }
 
+    // 返回指定字符集的Zip编/解码器
     static ZipCoder get(Charset charset) {
         return new ZipCoder(charset);
     }
 
+    // 返回zip解码器
     private CharsetDecoder decoder() {
         if (dec == null) {
             dec = cs.newDecoder()
@@ -148,6 +157,7 @@ final class ZipCoder {
         return dec;
     }
 
+    // 返回zip编码器
     private CharsetEncoder encoder() {
         if (enc == null) {
             enc = cs.newEncoder()
