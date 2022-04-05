@@ -44,26 +44,31 @@ import java.util.Arrays;
  * @author      Ulf Zibis
  * @since       1.5
  */
+// 字符序列的抽象实现，是StringBuilder和StringBuffer的父类
 abstract class AbstractStringBuilder implements Appendable, CharSequence {
     /**
      * The value is used for character storage.
      */
+    // 以字节形式存储字符序列
     char[] value;
 
     /**
      * The count is the number of characters used.
      */
+    // 当前ASB内包含的char的数量
     int count;
 
     /**
      * This no-arg constructor is necessary for serialization of subclasses.
      */
+    // 构造空的ASB
     AbstractStringBuilder() {
     }
 
     /**
      * Creates an AbstractStringBuilder of the specified capacity.
      */
+    // 构造指定容量的ASB，内容为空
     AbstractStringBuilder(int capacity) {
         value = new char[capacity];
     }
@@ -441,6 +446,7 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
      * @param   str   a string.
      * @return  a reference to this object.
      */
+    // 向ASB末尾添加一个字符串str
     public AbstractStringBuilder append(String str) {
         if (str == null)
             return appendNull();
@@ -476,6 +482,7 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
     }
 
     // Documentation in subclasses because of synchro difference
+    // 向ASB末尾添加一个字符序列
     @Override
     public AbstractStringBuilder append(CharSequence s) {
         if (s == null)
@@ -488,6 +495,7 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
         return this.append(s, 0, s.length());
     }
 
+    // 添加一个字符串："null"
     private AbstractStringBuilder appendNull() {
         int c = count;
         ensureCapacityInternal(c + 4);
@@ -529,6 +537,7 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
      *             {@code start} is greater than {@code end} or
      *             {@code end} is greater than {@code s.length()}
      */
+    // 向ASB末尾添加一个子序列，该子序列取自字符序列s的[start, end)范围
     @Override
     public AbstractStringBuilder append(CharSequence s, int start, int end) {
         if (s == null)
@@ -751,6 +760,7 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
      *             is negative, greater than {@code length()}, or
      *             greater than {@code end}.
      */
+    // 删除[start, end)范围内的char
     public AbstractStringBuilder delete(int start, int end) {
         if (start < 0)
             throw new StringIndexOutOfBoundsException(start);
@@ -758,8 +768,10 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
             end = count;
         if (start > end)
             throw new StringIndexOutOfBoundsException();
+        // 计算删除元素的数量
         int len = end - start;
         if (len > 0) {
+            // 从end处的char开始，将后续所有的char平移-len个单位
             System.arraycopy(value, start+len, value, start, count-end);
             count -= len;
         }
@@ -819,9 +831,11 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
      *              is negative or greater than or equal to
      *              {@code length()}.
      */
+    // 删除索引为index的char
     public AbstractStringBuilder deleteCharAt(int index) {
         if ((index < 0) || (index >= count))
             throw new StringIndexOutOfBoundsException(index);
+        // 从index+1处的char开始，将后续所有的char平移-1个单位，即删除一个cahr
         System.arraycopy(value, index+1, value, index, count-index-1);
         count--;
         return this;

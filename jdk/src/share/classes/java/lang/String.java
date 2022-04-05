@@ -107,7 +107,34 @@ import java.util.regex.PatternSyntaxException;
  * @see     java.nio.charset.Charset
  * @since   JDK1.0
  */
-
+/*
+ * 从JDK9开始，String对象不再以char[]形式存储，而是以名为value的byte[]形式存储。
+ *
+ * value有一个名为coder的编码标记，该标记有两种取值：LATIN1和UTF-16（UTF-16使用大端法还是小端法取决于系统）。
+ *
+ * Java中存储String的byte数组的默认编码是LATIN1（即ISO-8859-1）和UTF16。
+ *
+ * String由一系列Unicode符号组成，根据这些符号的Unicode编码范围[0x0, 0x10FFFF]，将其分为两类：
+ *   符号1. 在[0x0, 0xFF]范围内的符号（属于LATIN1/ISO_8859_1字符集范围）
+ *   符号2. 在其他范围内的Unicode符号
+ * 对于第一类符号，其二进制形式仅用一个byte即可容纳，对于第二类符号，其二进制形式需用两个或四个UTF-16形式的byte存储。
+ *
+ * 由此，JDK内部将String的存储方式也分为两类：
+ *   第一类：String只包含符号1。这种类型的String里，每个符号使用一个byte存储。coder==LATIN1
+ *   第二类：String包含第二类符号。这种类型的String里，每个符号使用两个或四个UTF-16形式的byte存储（即使遇到符号1也使用两个byte存储）。coder==UTF16
+ *
+ * 为了便于后续描述这两类字符串，此处将第一类字符串称为LATIN1-String，将第二类字符串称为UTF16-String。
+ *
+ * 另注：
+ * 鉴于windows中以小端法存储数据，所以存储String的字节数组value也以UTF16小端法显示。
+ * 在后续的动态操作中，会将String转换为其他的编码（例如UTF_8、ISO_8859_1、US_ASCII、GBK等）形式。
+ * 如果不另指定编码形式，则以JVM的当前默认的字符集为依据去转换String。
+ *
+ * ★ 关于大端小端：
+ * 1.char永远是UTF-16大端
+ * 2.String（内置的value）永远取决于系统，在windows上是UTF-16小端
+ * 3 String外面的byte[]，大小端取决于当时转换中所用的编码格式
+ */
 /**
  * final 不可变类 不会变化
  *
@@ -124,9 +151,20 @@ import java.util.regex.PatternSyntaxException;
 public final class String
     implements java.io.Serializable, Comparable<String>, CharSequence {
     /** The value is used for character storage. */
+    /*
+     * 以字节形式存储String中的char，即存储码元
+     *
+     * 如果是纯英文字符，则采用压缩存储，一个byte代表一个char。
+     * 出现汉字等符号后，汉字可占多个byte，且一个英文字符也将占有2个byte。
+     *
+     * windows上使用小端法存字符串。
+     * 如果输入是：String s = "\u56DB\u6761\uD869\uDEA5"; // "四条𪚥"，"𪚥"在UTF16中占4个字节
+     * 则value中存储（十六进制）：[DB, 56, 61, 67, 69, D8, A5, DE]
+     */
     private final char value[];
 
     /** Cache the hash code for the string */
+    // 当前字符串哈希码，初始值默认为0
     private int hash; // Default to 0
 
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
@@ -588,6 +626,7 @@ public final class String
      * @param  buffer
      *         A {@code StringBuffer}
      */
+    // ▶ 2-1 构造与buffer内容完全一致的字符串（哈希值都一样）
     public String(StringBuffer buffer) {
         synchronized(buffer) {
             this.value = Arrays.copyOf(buffer.getValue(), buffer.length());

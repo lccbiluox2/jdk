@@ -73,6 +73,7 @@ package java.lang;
  * @see         java.lang.String
  * @since       1.5
  */
+// 非线程安全的字符序列，适合单线程下操作大量字符，内部实现为字节数组
 public final class StringBuilder
     extends AbstractStringBuilder
     implements java.io.Serializable, CharSequence
@@ -139,6 +140,7 @@ public final class StringBuilder
         return append(String.valueOf(obj));
     }
 
+    // 向StringBuilder末尾添加一个字符串str
     @Override
     public StringBuilder append(String str) {
         super.append(str);
@@ -169,6 +171,7 @@ public final class StringBuilder
         return this;
     }
 
+    // 向StringBuilder末尾添加一个字符序列
     @Override
     public StringBuilder append(CharSequence s) {
         super.append(s);
@@ -178,6 +181,7 @@ public final class StringBuilder
     /**
      * @throws     IndexOutOfBoundsException {@inheritDoc}
      */
+    // 向StringBuilder末尾添加一个字符序列，该子序列取自字符序列s的[start, end)范围
     @Override
     public StringBuilder append(CharSequence s, int start, int end) {
         super.append(s, start, end);

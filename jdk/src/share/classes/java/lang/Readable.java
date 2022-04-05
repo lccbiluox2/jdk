@@ -34,6 +34,7 @@ import java.io.IOException;
  *
  * @since 1.5
  */
+// 从Readable容器读取数据，写入到目标缓冲区
 public interface Readable {
 
     /**
@@ -49,5 +50,6 @@ public interface Readable {
      * @throws NullPointerException if cb is null
      * @throws java.nio.ReadOnlyBufferException if cb is a read only buffer
      */
+    // 读取此容器的内容，并写入目标缓冲区cb（如果放不下，则只写入放得下的部分）
     public int read(java.nio.CharBuffer cb) throws IOException;
 }

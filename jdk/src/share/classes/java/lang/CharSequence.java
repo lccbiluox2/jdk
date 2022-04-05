@@ -55,6 +55,7 @@ import java.util.stream.StreamSupport;
  * @since 1.4
  * @spec JSR-51
  */
+// 字符序列接口，封装了对字符序列的一些操作（包括转换为流的操作）
 
 public interface CharSequence {
 
@@ -64,6 +65,7 @@ public interface CharSequence {
      *
      * @return  the number of <code>char</code>s in this sequence
      */
+    // 返回字符序列长度
     int length();
 
     /**
@@ -84,6 +86,7 @@ public interface CharSequence {
      *          if the <tt>index</tt> argument is negative or not less than
      *          <tt>length()</tt>
      */
+    // 返回索引index处的字符
     char charAt(int index);
 
     /**
@@ -104,6 +107,7 @@ public interface CharSequence {
      *          if <tt>end</tt> is greater than <tt>length()</tt>,
      *          or if <tt>start</tt> is greater than <tt>end</tt>
      */
+    // 返回该字符序列的子序列
     CharSequence subSequence(int start, int end);
 
     /**
@@ -113,6 +117,7 @@ public interface CharSequence {
      *
      * @return  a string consisting of exactly this sequence of characters
      */
+    // 返回由这个字符序列组成的字符串
     public String toString();
 
     /**
@@ -127,6 +132,7 @@ public interface CharSequence {
      * @return an IntStream of char values from this sequence
      * @since 1.8
      */
+    // 将当前char序列转为流序列，序列中每个元素是char
     public default IntStream chars() {
         class CharIterator implements PrimitiveIterator.OfInt {
             int cur = 0;
@@ -174,6 +180,7 @@ public interface CharSequence {
      * @return an IntStream of Unicode code points from this sequence
      * @since 1.8
      */
+    // 将当前Unicode符号序列转为流序列，序列中每个元素是Unicode符号
     public default IntStream codePoints() {
         class CodePointIterator implements PrimitiveIterator.OfInt {
             int cur = 0;
@@ -217,6 +224,7 @@ public interface CharSequence {
                     char c2 = charAt(cur);
                     if (Character.isLowSurrogate(c2)) {
                         cur++;
+                        // 返回值是Unicode符号编码值
                         return Character.toCodePoint(c1, c2);
                     }
                 }

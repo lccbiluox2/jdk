@@ -61,13 +61,16 @@ import java.util.Arrays;
  * @see     java.io.StreamTokenizer#TT_EOF
  * @since   JDK1.0
  */
-
+// 从输入流中的字符串里提取匹配的标记，用作分割标记的分隔符为ISO-8859-1符号
 public class StreamTokenizer {
 
     /* Only one of these will be non-null */
+    // 输入
     private Reader reader = null;
+    // 输入
     private InputStream input = null;
 
+    // 缓冲区，暂存识别到的非数字序列
     private char buf[] = new char[20];
 
     /**
@@ -77,26 +80,49 @@ public class StreamTokenizer {
      * character, it should be discarded and a second new character should be
      * read.
      */
+    // 上次结束时捕获的符号（可能无意义）
     private int peekc = NEED_CHAR;
 
+    // 为peekc初始化，表示需要读取新值
     private static final int NEED_CHAR = Integer.MAX_VALUE;
+    // 上次以\r结束
     private static final int SKIP_LF = Integer.MAX_VALUE - 1;
 
+    // 是否需要显示上次捕获的有效值
     private boolean pushedBack;
+    // 是否将捕获到的字符串转为小写形式
     private boolean forceLower;
     /** The line number of the last token read */
+    // 当前读到的标记处于第几行
     private int LINENO = 1;
 
+    // 遇到行尾标记\r或\n时是否结束读取
     private boolean eolIsSignificantP = false;
+    // 是否处理/*风格的注释
     private boolean slashSlashCommentsP = false;
+    // 是否处理//风格的注释
     private boolean slashStarCommentsP = false;
 
+    /*
+     * 类型图
+     *
+     * 哪些类型的标记需要保存，就在该标记所处的区域设置标记分类符号
+     * 类型图并不限制哪些符号必须放在哪些区域，全靠人为指定
+     * 不指定标记分类符号的区域，默认为普通符号区域
+     */
     private byte ctype[] = new byte[256];
-    private static final byte CT_WHITESPACE = 1;
-    private static final byte CT_DIGIT = 2;
-    private static final byte CT_ALPHA = 4;
-    private static final byte CT_QUOTE = 8;
-    private static final byte CT_COMMENT = 16;
+    /**
+     * 标记分类符号，下面的排列顺序亦是它们的解析顺序
+     *
+     * 除数字区外，其他区的符号均允许自定义
+     * 排在下面的区域可以覆盖排在上面的区域的设置结果
+     * 数字区是固定的'0'~'9'、'.'、'-'，不支持自定义，但支持被空白区覆盖
+     */
+    private static final byte CT_WHITESPACE = 1; // 空白区，默认是0~' '
+    private static final byte CT_DIGIT = 2;// 数字区，限制为'0'~'9'，'.'，'-'
+    private static final byte CT_ALPHA = 4;// 字母区，默认是'a'~'z'，'A'~'Z'，128+32~255
+    private static final byte CT_QUOTE = 8;// 引号区，默认是字符"和'
+    private static final byte CT_COMMENT = 16;// 注释区，默认是'/'
 
     /**
      * After a call to the {@code nextToken} method, this field
@@ -125,32 +151,38 @@ public class StreamTokenizer {
      * @see     java.io.StreamTokenizer#TT_NUMBER
      * @see     java.io.StreamTokenizer#TT_WORD
      */
+    // 存储返回值的类型，具体类型参见nextToken()方法
     public int ttype = TT_NOTHING;
 
     /**
      * A constant indicating that the end of the stream has been read.
      */
+    // 捕获了文件结束符
     public static final int TT_EOF = -1;
 
     /**
      * A constant indicating that the end of the line has been read.
      */
+    // 捕获了行尾结束符
     public static final int TT_EOL = '\n';
 
     /**
      * A constant indicating that a number token has been read.
      */
+    // 捕获了数字
     public static final int TT_NUMBER = -2;
 
     /**
      * A constant indicating that a word token has been read.
      */
+    // 捕获了字符串
     public static final int TT_WORD = -3;
 
     /* A constant indicating that no token has been read, used for
      * initializing ttype.  FIXME This could be made public and
      * made available as the part of the API in a future release.
      */
+    // 没有有效信息
     private static final int TT_NOTHING = -4;
 
     /**
@@ -170,6 +202,7 @@ public class StreamTokenizer {
      * @see     java.io.StreamTokenizer#TT_WORD
      * @see     java.io.StreamTokenizer#ttype
      */
+    // 保存识别到的非数字序列
     public String sval;
 
     /**
@@ -182,6 +215,7 @@ public class StreamTokenizer {
      * @see     java.io.StreamTokenizer#TT_NUMBER
      * @see     java.io.StreamTokenizer#ttype
      */
+    // 保存识别到的数字序列
     public double nval;
 
     /** Private constructor that initializes everything except the streams. */
@@ -312,6 +346,7 @@ public class StreamTokenizer {
      * @param   hi    the high end of the range.
      * @see     java.io.StreamTokenizer#ordinaryChar(int)
      */
+    // 指定low到high区域为普通符号区
     public void ordinaryChars(int low, int hi) {
         if (low < 0)
             low = 0;
@@ -338,6 +373,7 @@ public class StreamTokenizer {
      * @param   ch   the character.
      * @see     java.io.StreamTokenizer#ttype
      */
+    // 指定ch所处区域为普通符号区
     public void ordinaryChar(int ch) {
         if (ch >= 0 && ch < ctype.length)
             ctype[ch] = 0;
@@ -352,6 +388,7 @@ public class StreamTokenizer {
      *
      * @param   ch   the character.
      */
+    // 指定ch所处区域为注释符号区（一般认为是#或/开头的序列）
     public void commentChar(int ch) {
         if (ch >= 0 && ch < ctype.length)
             ctype[ch] = CT_COMMENT;
@@ -381,6 +418,7 @@ public class StreamTokenizer {
      * @see     java.io.StreamTokenizer#sval
      * @see     java.io.StreamTokenizer#ttype
      */
+    // 指定ch所处区域为引号符号区（例如"和'）
     public void quoteChar(int ch) {
         if (ch >= 0 && ch < ctype.length)
             ctype[ch] = CT_QUOTE;
@@ -436,6 +474,7 @@ public class StreamTokenizer {
      * @see     java.io.StreamTokenizer#ttype
      * @see     java.io.StreamTokenizer#TT_EOL
      */
+    // 遇到行尾标记\r或\n时是否结束读取
     public void eolIsSignificant(boolean flag) {
         eolIsSignificantP = flag;
     }
@@ -452,6 +491,7 @@ public class StreamTokenizer {
      * @param   flag   {@code true} indicates to recognize and ignore
      *                 C-style comments.
      */
+    // 是否处理/*风格的注释
     public void slashStarComments(boolean flag) {
         slashStarCommentsP = flag;
     }
@@ -469,6 +509,7 @@ public class StreamTokenizer {
      * @param   flag   {@code true} indicates to recognize and ignore
      *                 C++-style comments.
      */
+    // 是否处理//风格的注释
     public void slashSlashComments(boolean flag) {
         slashSlashCommentsP = flag;
     }
@@ -490,6 +531,7 @@ public class StreamTokenizer {
      * @see     java.io.StreamTokenizer#ttype
      * @see     java.io.StreamTokenizer#TT_WORD
      */
+    // 是否将捕获到的字符串转为小写形式
     public void lowerCaseMode(boolean fl) {
         forceLower = fl;
     }
@@ -522,26 +564,53 @@ public class StreamTokenizer {
      * @see        java.io.StreamTokenizer#sval
      * @see        java.io.StreamTokenizer#ttype
      */
+    /*
+     * 根据预设的类型图，从输入流中解析出下一个匹配的标记
+     *
+     * 处理顺序：空白区-->数字区-->字母区-->引号区-->注释区
+     *
+     * 返回值(ttype)含义：
+     * TT_EOF    --> 遇到了文件结尾，peekc无意义
+     * TT_EOL    --> 遇到了行结尾，如果peekc为SKIP_LF，代表上次捕获到了\r，否则无意义
+     * -         --> 捕获了'-'之后，又捕获了一个'0'~'9'或'.'之外的异常符号，peekc保存这个异常符号以待下次解析
+     * TT_NUMBER --> 成功捕获了一个数字，并存储在nval中，peekc保存继这个数字后捕获的下一个符号以待下次解析
+     * TT_WORD   --> 成功捕获了一个字符串，并存储在sval中，peekc保存继这个字符串后捕获的下一个符号（肯定不是数字符号）以待下次解析
+     * 引号      --> 成功捕获了引号内的字符串，并存储在sval中，如果发现了成对的引号，peekc存储NEED_CHAR标记，否则，peek存储未知标记以待下次解析
+     * /        --> 当/没有被预设为注释区符号，但是需要处理//或/*类的注释，且当前没有匹配成功时，使用peekc存储/，并返回/
+     * 其他符号  --> 超出255范围的，保存到sval中，否则忽略掉
+     */
     public int nextToken() throws IOException {
+        // 返回当前保存的有效值的类型
         if (pushedBack) {
             pushedBack = false;
             return ttype;
         }
         byte ct[] = ctype;
+        // 置空，以容纳读取到的非数字标记
         sval = null;
 
+        // 获取上次结束时捕获的符号（可能无意义）
         int c = peekc;
+        // 如果上次是在文件结尾结束的
         if (c < 0)
+            // 表示当前的c需要新值
             c = NEED_CHAR;
+
+        // 如果上次是在\r处结尾的
         if (c == SKIP_LF) {
             c = read();
+            // 如果到了文件结尾
             if (c < 0)
                 return ttype = TT_EOF;
+            // 标记稍后跳过\n
             if (c == '\n')
                 c = NEED_CHAR;
         }
+
+        // 如果当前的c需要新值
         if (c == NEED_CHAR) {
             c = read();
+            // 如果到了文件结尾，输入流该终止了
             if (c < 0)
                 return ttype = TT_EOF;
         }
@@ -552,44 +621,68 @@ public class StreamTokenizer {
          */
         peekc = NEED_CHAR;
 
+        // 捕获的字符的类型（对于超出256范围的符号一律视为字母）
         int ctype = c < 256 ? ct[c] : CT_ALPHA;
+        // 如果遇到了空白区的符号
         while ((ctype & CT_WHITESPACE) != 0) {
+            // 如果是换行符
             if (c == '\r') {
-                LINENO++;
+                LINENO++;// 行号增加
+
+                // 如果遇到行尾标记就结束
                 if (eolIsSignificantP) {
                     peekc = SKIP_LF;
                     return ttype = TT_EOL;
                 }
+
+                // 继续捕获下一个字符，以确认是不是\n
                 c = read();
                 if (c == '\n')
+                    // 如果是\n，跳过它
                     c = read();
             } else {
+                // 如果遇到行尾标记就结束
                 if (c == '\n') {
                     LINENO++;
                     if (eolIsSignificantP) {
                         return ttype = TT_EOL;
                     }
                 }
+
+                // 捕获下个字符
                 c = read();
             }
+
+            // 如果到了文件结尾
             if (c < 0)
                 return ttype = TT_EOF;
+            // 超出256范围的符号被视为字母
             ctype = c < 256 ? ct[c] : CT_ALPHA;
         }
 
+        // 如果遇到了数字区的符号
         if ((ctype & CT_DIGIT) != 0) {
             boolean neg = false;
             if (c == '-') {
                 c = read();
+                // 如果捕获了负号，但后面不是预期的数字符号，则需要退出
                 if (c != '.' && (c < '0' || c > '9')) {
+                    // 记录本次退出时捕获的符号
                     peekc = c;
+                    // 返回符号类型
                     return ttype = '-';
                 }
                 neg = true;
             }
+
+            // 保存读到的数字
             double v = 0;
+            // 记录读取的数字被放大的系数（如decexp==2代表放大了100倍）
             int decexp = 0;
+            // 记录是否存在小数点
             int seendot = 0;
+
+            // 处理数字
             while (true) {
                 if (c == '.' && seendot == 0)
                     seendot = 1;
@@ -609,55 +702,91 @@ public class StreamTokenizer {
                     decexp--;
                 }
                 /* Do one division of a likely-to-be-more-accurate number */
+                // 把放大的倍数缩小回去
                 v = v / denom;
             }
+
+            // 保存读到的数字
             nval = neg ? -v : v;
             return ttype = TT_NUMBER;
         }
 
+        // 如果遇到了字母区的符号
         if ((ctype & CT_ALPHA) != 0) {
             int i = 0;
             do {
                 if (i >= buf.length) {
+                    // 缓冲区扩容
                     buf = Arrays.copyOf(buf, buf.length * 2);
                 }
+                // 存储字母
                 buf[i++] = (char) c;
+                // 读取下一个符号
                 c = read();
-                ctype = c < 0 ? CT_WHITESPACE : c < 256 ? ct[c] : CT_ALPHA;
+                ctype = c < 0 ?
+                        CT_WHITESPACE  // 遇到流结束时，标记为空白符号（看似有些反常，但其实这个标记只用来退出循环，后续就丢弃了）
+                        : c < 256 ? ct[c]  // 解析符号类型
+                        : CT_ALPHA;// 超出256范围的符号被认为是字母
+
+                // 如果读到了字母或数字，则继续读取（说明紧跟在字母后面的数字也被当成普通字符串）
             } while ((ctype & (CT_ALPHA | CT_DIGIT)) != 0);
+
+            // 保存继这个字符串之后捕获到的下一个符号
             peekc = c;
+
+            // 存储字符串
             sval = String.copyValueOf(buf, 0, i);
+
+            // 将捕获到的字符串转为小写形式
             if (forceLower)
                 sval = sval.toLowerCase();
             return ttype = TT_WORD;
         }
 
+
+        // 如果遇到了引号
         if ((ctype & CT_QUOTE) != 0) {
+            // 暂存当前的符号（类型）【引号】
             ttype = c;
             int i = 0;
             /* Invariants (because \Octal needs a lookahead):
              *   (i)  c contains char value
              *   (ii) d contains the lookahead
              */
+            // 查看下一个符号是啥
             int d = read();
+
+            // 如果下一个符号不是引号（是引号就返回引号之间的字符串并退出），且不是行尾标记
             while (d >= 0 && d != ttype && d != '\n' && d != '\r') {
+                // 如果下个符号是\，则说明遇到了转义符，继续读下去
                 if (d == '\\') {
+                    // 获取\后面的符号
                     c = read();
+                    // 这里允许的字符编号范围：0~255，转换为八进制即\0~\377
                     int first = c;   /* To allow \377, but not \477 */
+
+                    // 遇到了第一个八进制符号
                     if (c >= '0' && c <= '7') {
                         c = c - '0';
                         int c2 = read();
+
+                        // 遇到了第二个八进制符号
                         if ('0' <= c2 && c2 <= '7') {
                             c = (c << 3) + (c2 - '0');
                             c2 = read();
+
+                            // 遇到了第三个八进制符号
                             if ('0' <= c2 && c2 <= '7' && first <= '3') {
                                 c = (c << 3) + (c2 - '0');
+                                // 至此，成功获取了一个\0~\377范围的八进制符号，继续读取下一个符号
                                 d = read();
                             } else
                                 d = c2;
                         } else
                           d = c2;
-                    } else {
+                    } else {   // 如果\后面不是数字，则尝试解析为转义符号
+
+
                         switch (c) {
                         case 'a':
                             c = 0x7;
@@ -681,6 +810,8 @@ public class StreamTokenizer {
                             c = 0xB;
                             break;
                         }
+
+                        // 如果该符号无法解析为转义符，则忽略\的存在，并继续读取\后面的符号
                         d = read();
                     }
                 } else {
@@ -690,6 +821,15 @@ public class StreamTokenizer {
                 if (i >= buf.length) {
                     buf = Arrays.copyOf(buf, buf.length * 2);
                 }
+
+                /*
+                 * 至此，d总是存储了下一个待解析的符号
+                 *
+                 * 而c存储的值可能是：
+                 * 如果\后面是数字型的转义符，则用c来保存该数字
+                 * 如果\后面是非数字符号，且不是正确的转义符号，依然用c来保存
+                 * 如果不存在\，则c保存这个未知符号
+                 */
                 buf[i++] = (char)c;
             }
 
@@ -697,54 +837,84 @@ public class StreamTokenizer {
              * character then arrange to read a new character next time
              * around; otherwise, save the character.
              */
+            // 如果d是引号，标记下次需要读取新字符，否则，按原样存储以待解析
             peekc = (d == ttype) ? NEED_CHAR : d;
 
+
+            // 保存引号区内的字符串
             sval = String.copyValueOf(buf, 0, i);
             return ttype;
         }
 
+        // 如果遇到了/，且需要处理/*或者//风格的注释
         if (c == '/' && (slashSlashCommentsP || slashStarCommentsP)) {
+            // 获取/后面的符号
             c = read();
+
+            // 匹配到了/*风格的注释
             if (c == '*' && slashStarCommentsP) {
                 int prevc = 0;
+
+                // 遇到*/则关闭注释
                 while ((c = read()) != '/' || prevc != '*') {
+
+                    // 遇到换行符
                     if (c == '\r') {
-                        LINENO++;
+                        LINENO++; // 行号增加
+                        // 处理了\r，继续读取
                         c = read();
                         if (c == '\n') {
+                            // 处理了\r\n，继续读取
                             c = read();
                         }
                     } else {
+                        // 遇到回车符
                         if (c == '\n') {
-                            LINENO++;
-                            c = read();
+                            LINENO++; // 行号增加
+                            c = read();// 继续读取
                         }
                     }
+
+                    // 遇到了文件结束符
                     if (c < 0)
                         return ttype = TT_EOF;
                     prevc = c;
                 }
+
+                // 如果注释被正常关闭，忽略注释中包含的内容，开始下一轮读取
                 return nextToken();
-            } else if (c == '/' && slashSlashCommentsP) {
+            } else if (c == '/' && slashSlashCommentsP) { // 匹配到了//风格的注释
+
+                // 一致读到行尾
                 while ((c = read()) != '\n' && c != '\r' && c >= 0);
-                peekc = c;
+                peekc = c;// 记录行尾标记
+
+                // 忽略该行内容，进入下一轮读取
                 return nextToken();
             } else {
                 /* Now see if it is still a single line comment */
+                // 如果/属于预设的注释符号，则读取并丢弃整行内容
                 if ((ct['/'] & CT_COMMENT) != 0) {
                     while ((c = read()) != '\n' && c != '\r' && c >= 0);
+                    // 记录行尾标记
                     peekc = c;
+                    // 忽略该行内容，进入下一轮读取
                     return nextToken();
                 } else {
+                    // 如果/不是预设的注释符号，那么记录并返回/符号
                     peekc = c;
                     return ttype = '/';
                 }
             }
         }
 
+        // 如果遇到了注释区的符号（默认是/，意味着/开头到行尾的内容会被忽略）
         if ((ctype & CT_COMMENT) != 0) {
+            // 一直读到行尾
             while ((c = read()) != '\n' && c != '\r' && c >= 0);
-            peekc = c;
+            peekc = c;// 存储行尾符号
+
+            // 忽略该行内容，进入下一轮读取
             return nextToken();
         }
 
@@ -762,6 +932,12 @@ public class StreamTokenizer {
      * @see     java.io.StreamTokenizer#sval
      * @see     java.io.StreamTokenizer#ttype
      */
+    /*
+     * 指示下次调用nextToken()时，返回当前识别到的有效值的类型，
+     * 然后根据返回的类型进一步获取有效值。
+     *
+     * 该效果只维持一次（如有需要，则应该多次设置）
+     */
     public void pushBack() {
         if (ttype != TT_NOTHING)   /* No-op if nextToken() not called */
             pushedBack = true;
@@ -772,6 +948,7 @@ public class StreamTokenizer {
      *
      * @return  the current line number of this stream tokenizer.
      */
+    // 返回当前读到的标记所在的行号
     public int lineno() {
         return LINENO;
     }

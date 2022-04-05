@@ -94,6 +94,10 @@ import java.util.Arrays;
  * @see     java.lang.String
  * @since   JDK1.0
  */
+/*
+ * 线程安全的字符序列，适合多线程下操作大量字符，内部实现为字节数组
+ * 线程安全的原理是涉及到修改StringBuffer的操作被synchronized修饰
+ */
  public final class StringBuffer
     extends AbstractStringBuilder
     implements java.io.Serializable, CharSequence
@@ -105,6 +109,7 @@ import java.util.Arrays;
      *
      * 这里体现了字符串可变
      */
+    // 调用toString()后生成的缓存，用于存储ASB中的字符序列。每次更改ASB都会清理缓存
     private transient char[] toStringCache;
 
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
@@ -274,6 +279,7 @@ import java.util.Arrays;
         return this;
     }
 
+    // 向StringBuffer末尾添加一个字符串str
     @Override
     public synchronized StringBuffer append(String str) {
         toStringCache = null;
@@ -353,6 +359,7 @@ import java.util.Arrays;
      * @throws IndexOutOfBoundsException {@inheritDoc}
      * @since      1.5
      */
+    // 向StringBuffer末尾添加一个子序列，该子序列取自字符序列s的[start, end)范围
     @Override
     public synchronized StringBuffer append(CharSequence s, int start, int end)
     {

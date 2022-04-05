@@ -62,10 +62,11 @@ package java.util;
  * @see java.util.stream.Collectors#joining(CharSequence, CharSequence, CharSequence)
  * @since  1.8
 */
+// 专用工具类，作为字符串拼接器，用来拼接字符串。内部使用String[]实现。
 public final class StringJoiner {
-    private final String prefix;
-    private final String delimiter;
-    private final String suffix;
+    private final String prefix;  // 前缀
+    private final String delimiter;// 分隔符
+    private final String suffix;  // 后缀
 
     /*
      * StringBuilder value -- at any time, the characters constructed from the
@@ -81,6 +82,7 @@ public final class StringJoiner {
      * i.e. when it is empty.  This may be overridden by the user to be some
      * other value including the empty String.
      */
+    // 设定一个“空值”，可以理解为StringJoiner的默认值
     private String emptyValue;
 
     /**
@@ -96,6 +98,7 @@ public final class StringJoiner {
      *         element added to the {@code StringJoiner} value
      * @throws NullPointerException if {@code delimiter} is {@code null}
      */
+    // 初始化一个只有分隔符的拼接器
     public StringJoiner(CharSequence delimiter) {
         this(delimiter, "", "");
     }
@@ -115,6 +118,7 @@ public final class StringJoiner {
      * @throws NullPointerException if {@code prefix}, {@code delimiter}, or
      *         {@code suffix} is {@code null}
      */
+    // 初始化一个带有分隔符、前缀、后缀的拼接器
     public StringJoiner(CharSequence delimiter,
                         CharSequence prefix,
                         CharSequence suffix) {
@@ -142,6 +146,7 @@ public final class StringJoiner {
      * @throws NullPointerException when the {@code emptyValue} parameter is
      *         {@code null}
      */
+    // 设定空值（可以理解为StringJoiner的默认值）
     public StringJoiner setEmptyValue(CharSequence emptyValue) {
         this.emptyValue = Objects.requireNonNull(emptyValue,
             "The empty value must not be null").toString();
@@ -205,6 +210,7 @@ public final class StringJoiner {
      * @throws NullPointerException if the other {@code StringJoiner} is null
      * @return This {@code StringJoiner}
      */
+    // 合并两个拼接器中的字符串，other中的所有子串连带分隔符将作为当前拼接器的一个子串
     public StringJoiner merge(StringJoiner other) {
         Objects.requireNonNull(other);
         if (other.value != null) {

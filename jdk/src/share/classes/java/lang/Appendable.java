@@ -48,6 +48,7 @@ import java.io.IOException;
  *
  * @since 1.5
  */
+// 添加字符的接口。代表该对象具有添加字符序列的能力
 public interface Appendable {
 
     /**
@@ -68,6 +69,7 @@ public interface Appendable {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 向该对象添加一个字符序列
     Appendable append(CharSequence csq) throws IOException;
 
     /**
@@ -104,6 +106,7 @@ public interface Appendable {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 向该对象添加一个字符序列，该字符序列是csq在[start, end)范围内的一个子序列
     Appendable append(CharSequence csq, int start, int end) throws IOException;
 
     /**
@@ -117,5 +120,6 @@ public interface Appendable {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 向该对象添加一个字符
     Appendable append(char c) throws IOException;
 }

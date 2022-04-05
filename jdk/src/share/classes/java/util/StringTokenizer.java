@@ -98,15 +98,27 @@ import java.lang.*;
  * @author  unascribed
  * @see     java.io.StreamTokenizer
  * @since   JDK1.0
+ *
+ *
+ * todo:【java】字符串处理 StringTokenizer 分词
+ *    https://blog.csdn.net/qq_21383435/article/details/123971247
  */
+// 字符串分割器，将字符串根据指定的分割符号切割成一段一段的标记，分隔符可以是四字节字符
 public
 class StringTokenizer implements Enumeration<Object> {
+    // 游标，语义在下一个待解析符号的索引和下下个待解析符号的索引之间切换
     private int currentPosition;
+    // 临时存储下一个待解析符号的索引
     private int newPosition;
+    // 待解析字符串长度（包含的char的个数）
     private int maxPosition;
+    // 待解析字符串
     private String str;
+    // 分割符
     private String delimiters;
+    // 分割字符串时是否返回分割符本身
     private boolean retDelims;
+    // 分隔符是否发生改变
     private boolean delimsChanged;
 
     /**
@@ -119,6 +131,7 @@ class StringTokenizer implements Enumeration<Object> {
      * smaller than the limit, but we keep it so that the two code
      * paths remain similar.
      */
+    // 分隔符中最大的Unicode编码值
     private int maxDelimCodePoint;
 
     /**
@@ -127,6 +140,7 @@ class StringTokenizer implements Enumeration<Object> {
      * different code path. This is because String.indexOf(int)
      * doesn't handle unpaired surrogates as a single character.
      */
+    // 是否存在位于Unicode代理区的符号
     private boolean hasSurrogates = false;
 
     /**
@@ -134,23 +148,28 @@ class StringTokenizer implements Enumeration<Object> {
      * points and isDelimiter(int) is used to determine if the given
      * codepoint is a delimiter.
      */
+    // 存储分隔符的Unicode编码
     private int[] delimiterCodePoints;
 
     /**
      * Set maxDelimCodePoint to the highest char in the delimiter set.
      */
+    // 预处理分割符（考虑分割符中存在四字节符号的情形）
     private void setMaxDelimCodePoint() {
+        // 如果未指定分隔符
         if (delimiters == null) {
             maxDelimCodePoint = 0;
             return;
         }
 
-        int m = 0;
-        int c;
-        int count = 0;
+        int m = 0;// 记录指定的分隔符中的字符的最大Unicode编码值
+        int c; // Unicode编码
+        int count = 0; // 统计Unicode符号数量
         for (int i = 0; i < delimiters.length(); i += Character.charCount(c)) {
             c = delimiters.charAt(i);
+            // 如果字符c位于代理区
             if (c >= Character.MIN_HIGH_SURROGATE && c <= Character.MAX_LOW_SURROGATE) {
+                // 获取c的Unicode编码
                 c = delimiters.codePointAt(i);
                 hasSurrogates = true;
             }
@@ -158,8 +177,11 @@ class StringTokenizer implements Enumeration<Object> {
                 m = c;
             count++;
         }
+
+        // 分隔符中最大的Unicode编码值
         maxDelimCodePoint = m;
 
+        // 将每个分隔符的Unicode编码存储到delimiterCodePoints数组
         if (hasSurrogates) {
             delimiterCodePoints = new int[count];
             for (int i = 0, j = 0; i < count; i++, j += Character.charCount(c)) {
@@ -191,6 +213,7 @@ class StringTokenizer implements Enumeration<Object> {
      *                         as tokens.
      * @exception NullPointerException if str is <CODE>null</CODE>
      */
+    // 初始化待解析字符串与分割符，参数returnDelims表示在分割字符串时是否输出分割符本身
     public StringTokenizer(String str, String delim, boolean returnDelims) {
         currentPosition = 0;
         newPosition = -1;
@@ -199,6 +222,7 @@ class StringTokenizer implements Enumeration<Object> {
         maxPosition = str.length();
         delimiters = delim;
         retDelims = returnDelims;
+        // 预处理分割符
         setMaxDelimCodePoint();
     }
 
@@ -217,6 +241,7 @@ class StringTokenizer implements Enumeration<Object> {
      * @param   delim   the delimiters.
      * @exception NullPointerException if str is <CODE>null</CODE>
      */
+    // 初始化待解析字符串与分割符，分割符本身不作为输出
     public StringTokenizer(String str, String delim) {
         this(str, delim, false);
     }
@@ -232,6 +257,7 @@ class StringTokenizer implements Enumeration<Object> {
      * @param   str   a string to be parsed.
      * @exception NullPointerException if str is <CODE>null</CODE>
      */
+    // 初始化待解析字符串，默认使用" \t\n\r\f"作为分割符
     public StringTokenizer(String str) {
         this(str, " \t\n\r\f", false);
     }
@@ -241,14 +267,19 @@ class StringTokenizer implements Enumeration<Object> {
      * is false, returns the index of the first non-delimiter character at or
      * after startPos. If retDelims is true, startPos is returned.
      */
+    // 返回下一个待解析符号的索引
     private int skipDelimiters(int startPos) {
         if (delimiters == null)
             throw new NullPointerException();
 
         int position = startPos;
+        // 当不需要输出分隔符时，查找待解析字符串中首个不属于分隔符的字符索引（从startPos索引开始查找）
         while (!retDelims && position < maxPosition) {
+            // 不存在代理区符号的情形
             if (!hasSurrogates) {
+                // 获取待解析字符串position处的字符
                 char c = str.charAt(position);
+                // 如果字符c不属于分隔符，则可以结束查找了
                 if ((c > maxDelimCodePoint) || (delimiters.indexOf(c) < 0))
                     break;
                 position++;
@@ -267,11 +298,15 @@ class StringTokenizer implements Enumeration<Object> {
      * Skips ahead from startPos and returns the index of the next delimiter
      * character encountered, or maxPosition if no such delimiter is found.
      */
+    // 返回下下个待解析符号的索引
     private int scanToken(int startPos) {
         int position = startPos;
+
+        // 在待解析字符串中查找下一个分隔符的索引，保存到position
         while (position < maxPosition) {
             if (!hasSurrogates) {
                 char c = str.charAt(position);
+                // 如果字符c属于分隔符，则可以结束查找了
                 if ((c <= maxDelimCodePoint) && (delimiters.indexOf(c) >= 0))
                     break;
                 position++;
@@ -282,9 +317,12 @@ class StringTokenizer implements Enumeration<Object> {
                 position += Character.charCount(c);
             }
         }
+
+        // 如果需要输出分隔符   // 如果startPos位置就是一个分隔符
         if (retDelims && (startPos == position)) {
             if (!hasSurrogates) {
                 char c = str.charAt(position);
+                // 如果字符c属于分隔符，游标前进一个位置
                 if ((c <= maxDelimCodePoint) && (delimiters.indexOf(c) >= 0))
                     position++;
             } else {
@@ -296,6 +334,7 @@ class StringTokenizer implements Enumeration<Object> {
         return position;
     }
 
+    // 判断codePoint代表的符号是否属于分割符
     private boolean isDelimiter(int codePoint) {
         for (int i = 0; i < delimiterCodePoints.length; i++) {
             if (delimiterCodePoints[i] == codePoint) {
@@ -314,12 +353,14 @@ class StringTokenizer implements Enumeration<Object> {
      *          in the string after the current position; <code>false</code>
      *          otherwise.
      */
+    // 待解析字符串中是否仍存在未解析的符号
     public boolean hasMoreTokens() {
         /*
          * Temporarily store this position and use it in the following
          * nextToken() method only if the delimiters haven't been changed in
          * that nextToken() invocation.
          */
+        // 返回下一个待解析符号的索引
         newPosition = skipDelimiters(currentPosition);
         return (newPosition < maxPosition);
     }
@@ -331,24 +372,39 @@ class StringTokenizer implements Enumeration<Object> {
      * @exception  NoSuchElementException  if there are no more tokens in this
      *               tokenizer's string.
      */
+    // 返回本次解析出的字符序列，并更新游标到搜索下一个待解析符号的起点
     public String nextToken() {
         /*
          * If next position already computed in hasMoreElements() and
          * delimiters have changed between the computation and this invocation,
          * then use the computed value.
          */
+        /* 更新游标为下一个待解析符号的索引 */
 
+
+        // 如果newPosition有效，且分割符没有发生变化
         currentPosition = (newPosition >= 0 && !delimsChanged) ?
+                // 此处的newPosition需由hasMoreTokens()计算
+                // 返回下一个待解析符号的索引
             newPosition : skipDelimiters(currentPosition);
 
         /* Reset these anyway */
+        // 此处假定分隔符不再变化
         delimsChanged = false;
+        // newPosition重置为无效位置
         newPosition = -1;
 
+        // 如果已经没有待解析的符号了，则抛出异常
         if (currentPosition >= maxPosition)
             throw new NoSuchElementException();
+
+        // 记录下一个待解析符号的索引
         int start = currentPosition;
+
+        // 返回下下个待解析符号的索引
         currentPosition = scanToken(currentPosition);
+
+        // 截取出当前解析到的字符串
         return str.substring(start, currentPosition);
     }
 
@@ -367,13 +423,17 @@ class StringTokenizer implements Enumeration<Object> {
      *               tokenizer's string.
      * @exception NullPointerException if delim is <CODE>null</CODE>
      */
+    // 更新分隔符delim，并返回在新的分隔符下解析出的字符序列
     public String nextToken(String delim) {
         delimiters = delim;
 
         /* delimiter string specified, so set the appropriate flag. */
         delimsChanged = true;
 
+        // 预处理分割符
         setMaxDelimCodePoint();
+
+        // 返回本次解析出的字符序列，并更新游标到搜索下一个待解析符号的起点
         return nextToken();
     }
 
@@ -387,6 +447,7 @@ class StringTokenizer implements Enumeration<Object> {
      * @see     java.util.Enumeration
      * @see     java.util.StringTokenizer#hasMoreTokens()
      */
+    // 是否存在未解析的元素（实现Enumeration接口）
     public boolean hasMoreElements() {
         return hasMoreTokens();
     }
@@ -403,6 +464,7 @@ class StringTokenizer implements Enumeration<Object> {
      * @see        java.util.Enumeration
      * @see        java.util.StringTokenizer#nextToken()
      */
+    // 返回本次解析到的元素（实现Enumeration接口）
     public Object nextElement() {
         return nextToken();
     }
@@ -416,13 +478,16 @@ class StringTokenizer implements Enumeration<Object> {
      *          delimiter set.
      * @see     java.util.StringTokenizer#nextToken()
      */
+    // 返回预计可解析出的元素数量（从下一个待解析符号的索引处开始统计）
     public int countTokens() {
         int count = 0;
         int currpos = currentPosition;
         while (currpos < maxPosition) {
+            // 查找下一个待解析符号的索引
             currpos = skipDelimiters(currpos);
             if (currpos >= maxPosition)
                 break;
+            // 返回下下个待解析符号的索引
             currpos = scanToken(currpos);
             count++;
         }
