@@ -40,6 +40,6 @@ package java.nio.file;
  *
  * @since 1.7
  */
-
+// 创建/打开文件时用到的可选参数
 public interface OpenOption {
 }

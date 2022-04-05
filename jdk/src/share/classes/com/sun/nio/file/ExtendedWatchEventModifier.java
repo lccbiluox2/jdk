@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,18 +26,23 @@
 package com.sun.nio.file;
 
 import java.nio.file.WatchEvent.Modifier;
+import sun.nio.fs.ExtendedOptions;
 
 /**
- * Defines <em>extended</em> watch event modifiers supported on some platforms
- * by Sun's provider implementation.
+ * Defines <em>extended</em> watch event modifiers supported on some platforms by Sun's provider implementation.
  *
  * @since 1.7
  */
-
+// 目录监视的扩展可选参数
 public enum ExtendedWatchEventModifier implements Modifier {
 
     /**
      * Register a file tree instead of a single directory.
      */
-    FILE_TREE,
+    // 向监视服务注册整个目录树，会监视子目录，而不是仅监视根目录
+    FILE_TREE(ExtendedOptions.FILE_TREE);
+
+    ExtendedWatchEventModifier(ExtendedOptions.InternalOption<Void> option) {
+        option.register(this);
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@
 package com.sun.nio.file;
 
 import java.nio.file.CopyOption;
+import sun.nio.fs.ExtendedOptions;
 
 /**
  * Defines <em>extended</em> copy options supported on some platforms
@@ -33,11 +34,19 @@ import java.nio.file.CopyOption;
  *
  * @since 1.7
  */
-
+// 文件复制/移动操作的扩展可选参数
 public enum ExtendedCopyOption implements CopyOption {
+
     /**
-     * The copy may be interrupted by the {@link Thread#interrupt interrupt}
-     * method.
+     * The copy may be interrupted by the {@link Thread#interrupt interrupt} method.
      */
-    INTERRUPTIBLE,
+    /*
+     * 复制过程会受线程中断的影响，即可以借助线程中断来中止复制过程
+     * 该参数仅在相同的文件系统中复制数据时使用
+     */
+    INTERRUPTIBLE(ExtendedOptions.INTERRUPTIBLE);
+
+    ExtendedCopyOption(ExtendedOptions.InternalOption<Void> option) {
+        option.register(this);
+    }
 }
