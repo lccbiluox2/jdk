@@ -48,6 +48,10 @@ import javax.management.ObjectName;
  *
  * @see ManagementFactory
  * @since 1.7
+ *
+ * 通过通过HotSpotDiagnosticMXBean的dumpHeap来导出栈参数。
+ *
+ * https://www.jianshu.com/p/cca66af5f175
  */
 public interface PlatformManagedObject {
     /**
