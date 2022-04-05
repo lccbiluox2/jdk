@@ -44,7 +44,12 @@ package java.lang.ref;
  * @author   Mark Reinhold
  * @since    1.2
  */
-
+/*
+ * 弱引用(Weak Reference)：
+ * 当一个对象只剩弱引用时，运行GC后会回收其引用指向的对象。
+ * 它可以用于解决非静态内部类的内存泄露问题（定义一个静态内部类，并让它持有外部类的弱引用）
+ * 还可以用于实现缓存，比如WeakHashMap。
+ */
 public class WeakReference<T> extends Reference<T> {
 
     /**

@@ -34,6 +34,8 @@ package java.lang.ref;
  *
  * TODO 【QUESTION69】软引用，弱引用和虚引用被GC后，GC后的对象将被进入ReferenceQueue队列，那么ReferenceQueue队列不是也对这些被GC的对象保持了强引用了么？
  *  *                   此时这些对象又是何时被GC？
+ *
+ *  // 存储GC之后报废的Reference
  */
 
 public class ReferenceQueue<T> {
@@ -49,7 +51,9 @@ public class ReferenceQueue<T> {
         }
     }
 
+    // 此处代表Reference没有关联的ReferenceQueue，无法入队
     static ReferenceQueue<Object> NULL = new Null<>();
+    // 此处代表Reference已经在队列中，无法再入队
     static ReferenceQueue<Object> ENQUEUED = new Null<>();
 
     static private class Lock { };
@@ -57,6 +61,7 @@ public class ReferenceQueue<T> {
     private volatile Reference<? extends T> head = null;
     private long queueLength = 0;
 
+    // 将“报废引用”入队
     boolean enqueue(Reference<? extends T> r) { /* Called only by Reference class */
         synchronized (lock) {
             // Check that since getting the lock this reference hasn't already been
@@ -71,6 +76,7 @@ public class ReferenceQueue<T> {
             head = r;
             queueLength++;
             if (r instanceof FinalReference) {
+                // 挂起(待处理)的FinalReference数量增一
                 sun.misc.VM.addFinalRefCount(1);
             }
             lock.notifyAll();
@@ -78,6 +84,7 @@ public class ReferenceQueue<T> {
         }
     }
 
+    // 从ReferenceQueue中删除一个Reference并将其返回
     @SuppressWarnings("unchecked")
     private Reference<? extends T> reallyPoll() {       /* Must hold lock */
         Reference<? extends T> r = head;
@@ -89,6 +96,7 @@ public class ReferenceQueue<T> {
             r.next = r;
             queueLength--;
             if (r instanceof FinalReference) {
+                // 挂起的FinalReference数量减一
                 sun.misc.VM.addFinalRefCount(-1);
             }
             return r;
@@ -104,6 +112,7 @@ public class ReferenceQueue<T> {
      * @return  A reference object, if one was immediately available,
      *          otherwise <code>null</code>
      */
+    // 从ReferenceQueue中删除一个Reference并将其返回
     public Reference<? extends T> poll() {
         if (head == null)
             return null;
@@ -132,6 +141,8 @@ public class ReferenceQueue<T> {
      * @throws  InterruptedException
      *          If the timeout wait is interrupted
      */
+    // 从ReferenceQueue中删除并返回一个Reference（如果没有就陷入阻塞，直到队列里有引用就取出）
+    // 轮询，在指定时间内，直到找到一个非空的Reference才返回
     public Reference<? extends T> remove(long timeout)
         throws IllegalArgumentException, InterruptedException
     {

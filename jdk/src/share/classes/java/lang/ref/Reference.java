@@ -38,7 +38,30 @@ import sun.misc.SharedSecrets;
  * @author   Mark Reinhold
  * @since    1.2
  */
-
+/*
+ * 常见的Referenc子类是SoftReference、WeakReference、PhantomReference、FinalReference。
+ * 这些子类相当于给了JVM一个信号，告诉JVM它们在内存中存留的时间。
+ *
+ * 引用简介：
+ * Strong Reference：强引用，普通的的引用类型，new一个对象默认得到的引用就是强引用，只要对象存在强引用，就不会被GC。
+ * SoftReference：软引用，当一个对象只剩软引用，且堆内存不足时，垃圾回收器才会回收对应引用
+ * WeakReference：弱引用，当一个对象只剩弱引用，垃圾回收器每次运行都会回收其引用
+ * PhantomReference：虚引用，对引用无影响，只用于获取对象被回收的通知
+ * FinalReference：Java用于实现finalization的一个内部类
+ *
+ * 引用类型	取得目标对象方式	 垃圾回收条件	是否可能内存泄漏
+ * 强引用	直接调用	         不回收	        可能
+ * 软引用	通过get()方法	 视内存情况回收	不可能
+ * 弱引用	通过get()方法	 永远回收	    不可能
+ * 虚引用	无法取得	         不回收/回收	    可能
+ * 注：虚引用在JDK9之前不回收，JDK9之后回收
+ *
+ * 值得注意的是，GC只对追踪的referent对象做特殊处理
+ * 对于软/弱/虚引用本身，以及子类中的其他引用，按普通的垃圾回收机制处理
+ *
+ * 所以，如果自定义的引用继承了弱引用或虚引用，且自主增加了额外的引用变量，
+ * 那么如果没有及时释放这些引用，还是可能发生内存泄露的
+ */
 public abstract class Reference<T> {
 
     /* A Reference instance is in one of four possible internal states:
@@ -91,6 +114,7 @@ public abstract class Reference<T> {
 
     private T referent;         /* Treated specially by GC */
 
+    // "报废引用"队列，当前引用被垃圾回收之后会存于此；多个引用可以共享一个引用队列
     volatile ReferenceQueue<? super T> queue;
 
     /* When active:   NULL
@@ -105,6 +129,7 @@ public abstract class Reference<T> {
      *     pending:   next element in the pending list (or null if last)
      *   otherwise:   NULL
      */
+    // 由虚拟机设置的"报废引用"列表，什么类型的引用都有
     transient private Reference<T> discovered;  /* used by VM */
 
 
@@ -126,8 +151,14 @@ public abstract class Reference<T> {
 
     /* High-priority thread to enqueue pending References
      */
+    /*
+     * “报废Reference”处理线程，用来监测被虚拟机清理的引用，并决定是否将其加入ReferenceQueue以便回收利用，在单独的后台线程中启动
+     *
+     * 注：站在报废引用队列的角度观察，该线程可以被视为是生产者，不断向报废引用队列填充已经报废的引用以待后续处理
+     */
     private static class ReferenceHandler extends Thread {
 
+        // 确保指定的类已经初始化
         private static void ensureClassInitialized(Class<?> clazz) {
             try {
                 Class.forName(clazz.getName(), true, clazz.getClassLoader());
@@ -141,6 +172,7 @@ public abstract class Reference<T> {
             // so that we don't get into trouble later in the run loop if there's
             // memory shortage while loading/initializing them lazily.
             ensureClassInitialized(InterruptedException.class);
+            // 确保jdk.internal.ref.Cleaner已经初始化
             ensureClassInitialized(Cleaner.class);
         }
 
@@ -148,8 +180,11 @@ public abstract class Reference<T> {
             super(g, name);
         }
 
+        // 常驻后台运行
         public void run() {
+            // 死循环
             while (true) {
+                // 处理报废的引用
                 tryHandlePending(true);
             }
         }
@@ -218,15 +253,22 @@ public abstract class Reference<T> {
         return true;
     }
 
+    // 在根线程组启动一个名为Reference Handler的守护线程来处理被回收掉的引用
     static {
+        // 获取当前线程所在的线程组
         ThreadGroup tg = Thread.currentThread().getThreadGroup();
+
+        // 顺着当前线程组往上遍历，找到根线程组system
         for (ThreadGroup tgn = tg;
              tgn != null;
              tg = tgn, tgn = tg.getParent());
+
+        // 构造名称为"Reference Handler"的线程
         Thread handler = new ReferenceHandler(tg, "Reference Handler");
         /* If there were a special system-only priority greater than
          * MAX_PRIORITY, it would be used here
          */
+        // 设置为最高优先级的守护线程
         handler.setPriority(Thread.MAX_PRIORITY);
         handler.setDaemon(true);
         handler.start();
@@ -250,6 +292,7 @@ public abstract class Reference<T> {
      * @return   The object to which this reference refers, or
      *           <code>null</code> if this reference object has been cleared
      */
+    // 返回此Reference包裹的自定义引用对象，如果该对象已被回收，则返回null
     public T get() {
         return this.referent;
     }
@@ -261,6 +304,7 @@ public abstract class Reference<T> {
      * <p> This method is invoked only by Java code; when the garbage collector
      * clears references it does so directly, without invoking this method.
      */
+    // 取消对目标对象的追踪
     public void clear() {
         this.referent = null;
     }
@@ -277,6 +321,7 @@ public abstract class Reference<T> {
      * @return   <code>true</code> if and only if this reference object has
      *           been enqueued
      */
+    // 判断当前Reference是否在ReferenceQueue中
     public boolean isEnqueued() {
         return (this.queue == ReferenceQueue.ENQUEUED);
     }
@@ -292,6 +337,7 @@ public abstract class Reference<T> {
      *           enqueued; <code>false</code> if it was already enqueued or if
      *           it was not registered with a queue when it was created
      */
+    // 取消对目标对象的追踪，并将当前报废的Reference入队，在这个过程中，会回收目标对象
     public boolean enqueue() {
         return this.queue.enqueue(this);
     }
@@ -299,10 +345,12 @@ public abstract class Reference<T> {
 
     /* -- Constructors -- */
 
+    // 没有关联ReferenceQueue，意味着用户只需要特殊的引用类型，不关心对象何时被GC
     Reference(T referent) {
         this(referent, null);
     }
 
+    // 传入自定义引用referent和ReferenceQueue，当reference被回收后，会添加到queue中
     Reference(T referent, ReferenceQueue<? super T> queue) {
         this.referent = referent;
         this.queue = (queue == null) ? ReferenceQueue.NULL : queue;
