@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -41,27 +41,32 @@ import java.io.IOException;
  * BasicFileAttributeView}, and in addition, the following attributes are
  * supported:
  * <blockquote>
- * <table border="1" cellpadding="8" summary="Supported attributes">
+ * <table class="striped">
+ * <caption style="display:none">Supported attributes</caption>
+ * <thead>
  *   <tr>
- *     <th> Name </th>
- *     <th> Type </th>
+ *     <th scope="col"> Name </th>
+ *     <th scope="col"> Type </th>
  *   </tr>
+ * </thead>
+ * <tbody>
  *   <tr>
- *     <td> readonly </td>
+ *     <th scope="row"> readonly </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
  *   <tr>
- *     <td> hidden </td>
+ *     <th scope="row"> hidden </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
  *   <tr>
- *     <td> system </td>
+ *     <th scope="row"> system </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
  *   <tr>
- *     <td> archive </td>
+ *     <th scope="row"> archive </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
+ * </tbody>
  * </table>
  * </blockquote>
  *
@@ -79,21 +84,25 @@ import java.io.IOException;
  *
  * @since 1.7
  */
+/*
+ * "dos"文件属性视图接口，该视图扩展自"basic"文件属性视图，支持一些通用的文件属性，参见内部类WindowsFileAttributeViews.Dos
+ *
+ * 注：三大操作系统平台对此类型视图的支持程序不一；windows和linux上支持"dos"文件属性视图，而mac上目前没有对此提供支持
+ */
+public interface DosFileAttributeView extends BasicFileAttributeView {
 
-public interface DosFileAttributeView
-    extends BasicFileAttributeView
-{
     /**
-     * Returns the name of the attribute view. Attribute views of this type
-     * have the name {@code "dos"}.
+     * Returns the name of the attribute view. Attribute views of this type have the name {@code "dos"}.
      */
+    // 返回当前属性视图的名称，通常返回"dos"
     @Override
     String name();
 
     /**
-     * @throws  IOException                             {@inheritDoc}
-     * @throws  SecurityException                       {@inheritDoc}
+     * @throws IOException       {@inheritDoc}
+     * @throws SecurityException {@inheritDoc}
      */
+    // 返回"dos"文件属性视图
     @Override
     DosFileAttributes readAttributes() throws IOException;
 
@@ -105,16 +114,14 @@ public interface DosFileAttributeView
      * implementation may, for example, require to read the existing value of
      * the DOS attribute in order to update this attribute.
      *
-     * @param   value
-     *          the new value of the attribute
+     * @param value the new value of the attribute
      *
-     * @throws  IOException
-     *          if an I/O error occurs
-     * @throws  SecurityException
-     *          In the case of the default, and a security manager is installed,
-     *          its  {@link SecurityManager#checkWrite(String) checkWrite} method
-     *          is invoked to check write access to the file
+     * @throws IOException       if an I/O error occurs
+     * @throws SecurityException In the case of the default, and a security manager is installed,
+     *                           its  {@link SecurityManager#checkWrite(String) checkWrite} method
+     *                           is invoked to check write access to the file
      */
+    // 设置"只读"文件属性
     void setReadOnly(boolean value) throws IOException;
 
     /**
@@ -125,16 +132,14 @@ public interface DosFileAttributeView
      * implementation may, for example, require to read the existing value of
      * the DOS attribute in order to update this attribute.
      *
-     * @param   value
-     *          the new value of the attribute
+     * @param value the new value of the attribute
      *
-     * @throws  IOException
-     *          if an I/O error occurs
-     * @throws  SecurityException
-     *          In the case of the default, and a security manager is installed,
-     *          its  {@link SecurityManager#checkWrite(String) checkWrite} method
-     *          is invoked to check write access to the file
+     * @throws IOException       if an I/O error occurs
+     * @throws SecurityException In the case of the default, and a security manager is installed,
+     *                           its  {@link SecurityManager#checkWrite(String) checkWrite} method
+     *                           is invoked to check write access to the file
      */
+    // 设置"隐藏"文件属性
     void setHidden(boolean value) throws IOException;
 
     /**
@@ -145,16 +150,14 @@ public interface DosFileAttributeView
      * implementation may, for example, require to read the existing value of
      * the DOS attribute in order to update this attribute.
      *
-     * @param   value
-     *          the new value of the attribute
+     * @param value the new value of the attribute
      *
-     * @throws  IOException
-     *          if an I/O error occurs
-     * @throws  SecurityException
-     *          In the case of the default, and a security manager is installed,
-     *          its  {@link SecurityManager#checkWrite(String) checkWrite} method
-     *          is invoked to check write access to the file
+     * @throws IOException       if an I/O error occurs
+     * @throws SecurityException In the case of the default, and a security manager is installed,
+     *                           its  {@link SecurityManager#checkWrite(String) checkWrite} method
+     *                           is invoked to check write access to the file
      */
+    // 设置"系统"文件属性
     void setSystem(boolean value) throws IOException;
 
     /**
@@ -165,15 +168,14 @@ public interface DosFileAttributeView
      * implementation may, for example, require to read the existing value of
      * the DOS attribute in order to update this attribute.
      *
-     * @param   value
-     *          the new value of the attribute
+     * @param value the new value of the attribute
      *
-     * @throws  IOException
-     *          if an I/O error occurs
-     * @throws  SecurityException
-     *          In the case of the default, and a security manager is installed,
-     *          its  {@link SecurityManager#checkWrite(String) checkWrite} method
-     *          is invoked to check write access to the file
+     * @throws IOException       if an I/O error occurs
+     * @throws SecurityException In the case of the default, and a security manager is installed,
+     *                           its  {@link SecurityManager#checkWrite(String) checkWrite} method
+     *                           is invoked to check write access to the file
      */
+    // 设置"以存档"文件属性，用在备份操作中
     void setArchive(boolean value) throws IOException;
+
 }

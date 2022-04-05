@@ -31,8 +31,10 @@ package java.nio.file.attribute;
  *
  * @since 1.7
  */
-
-public interface FileStoreAttributeView
-    extends AttributeView
-{
+/*
+ * 文件存储属性视图：特定文件系统下的FileStore对象关联的只读或可更新的属性视图
+ *
+ * 注：当前JDK中未对该接口进行实现
+ */
+public interface FileStoreAttributeView extends AttributeView {
 }

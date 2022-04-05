@@ -29,9 +29,11 @@ import java.nio.file.FileSystems;
 import java.nio.file.spi.FileTypeDetector;
 import java.nio.file.spi.FileSystemProvider;
 
+// 系统默认的文件类型检测器，不同的平台有不同的实现
 public class DefaultFileTypeDetector {
     private DefaultFileTypeDetector() { }
 
+    // 构造一个默认的文件类型检测器
     public static FileTypeDetector create() {
         FileSystemProvider provider = FileSystems.getDefault().provider();
         return ((UnixFileSystemProvider)provider).getFileTypeDetector();

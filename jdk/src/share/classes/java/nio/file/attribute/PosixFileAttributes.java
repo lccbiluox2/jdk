@@ -38,26 +38,31 @@ import java.util.Set;
  *
  * @since 1.7
  */
+/*
+ * 基于POSIX标准的操作系统平台中的文件属性
+ *
+ * windows平台上没有实现该接口，而linux/mac系统上实现了该接口。
+ */
+public interface PosixFileAttributes extends BasicFileAttributes {
 
-public interface PosixFileAttributes
-    extends BasicFileAttributes
-{
     /**
      * Returns the owner of the file.
      *
-     * @return  the file owner
+     * @return the file owner
      *
      * @see PosixFileAttributeView#setOwner
      */
+    // 返回文件的所有者信息
     UserPrincipal owner();
 
     /**
      * Returns the group owner of the file.
      *
-     * @return  the file group owner
+     * @return the file group owner
      *
      * @see PosixFileAttributeView#setGroup
      */
+    // 返回文件的用户组信息
     GroupPrincipal group();
 
     /**
@@ -67,9 +72,11 @@ public interface PosixFileAttributes
      * to be modified and passed to the {@link PosixFileAttributeView#setPermissions
      * setPermissions} method to update the file's permissions.
      *
-     * @return  the file permissions
+     * @return the file permissions
      *
      * @see PosixFileAttributeView#setPermissions
      */
+    // 返回文件的权限信息
     Set<PosixFilePermission> permissions();
+
 }

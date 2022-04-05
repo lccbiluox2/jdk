@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,11 +28,10 @@ package java.nio.file.attribute;
 import java.io.IOException;
 
 /**
- * A file attribute view that provides a view of a <em>basic set</em> of file
- * attributes common to many file systems. The basic set of file attributes
- * consist of <em>mandatory</em> and <em>optional</em> file attributes as
- * defined by the {@link BasicFileAttributes} interface.
-
+ * A file attribute view that provides a view of a <em>basic set</em> of file attributes common to many file systems.
+ * The basic set of file attributes consist of <em>mandatory</em> and <em>optional</em> file attributes
+ * as defined by the {@link BasicFileAttributes} interface.
+ *
  * <p> The file attributes are retrieved from the file system as a <em>bulk
  * operation</em> by invoking the {@link #readAttributes() readAttributes} method.
  * This class also defines the {@link #setTimes setTimes} method to update the
@@ -41,47 +40,52 @@ import java.io.IOException;
  * <p> Where dynamic access to file attributes is required, the attributes
  * supported by this attribute view have the following names and types:
  * <blockquote>
- *  <table border="1" cellpadding="8" summary="Supported attributes">
+ *  <table class="striped">
+ *  <caption style="display:none">Supported attributes</caption>
+ *  <thead>
  *   <tr>
- *     <th> Name </th>
- *     <th> Type </th>
+ *     <th scope="col"> Name </th>
+ *     <th scope="col"> Type </th>
  *   </tr>
+ *  </thead>
+ *  <tbody>
  *  <tr>
- *     <td> "lastModifiedTime" </td>
+ *     <th scope="row"> "lastModifiedTime" </th>
  *     <td> {@link FileTime} </td>
  *   </tr>
  *   <tr>
- *     <td> "lastAccessTime" </td>
+ *     <th scope="row"> "lastAccessTime" </th>
  *     <td> {@link FileTime} </td>
  *   </tr>
  *   <tr>
- *     <td> "creationTime" </td>
+ *     <th scope="row"> "creationTime" </th>
  *     <td> {@link FileTime} </td>
  *   </tr>
  *   <tr>
- *     <td> "size" </td>
+ *     <th scope="row"> "size" </th>
  *     <td> {@link Long} </td>
  *   </tr>
  *   <tr>
- *     <td> "isRegularFile" </td>
+ *     <th scope="row"> "isRegularFile" </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
  *   <tr>
- *     <td> "isDirectory" </td>
+ *     <th scope="row"> "isDirectory" </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
  *   <tr>
- *     <td> "isSymbolicLink" </td>
+ *     <th scope="row"> "isSymbolicLink" </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
  *   <tr>
- *     <td> "isOther" </td>
+ *     <th scope="row"> "isOther" </th>
  *     <td> {@link Boolean} </td>
  *   </tr>
  *   <tr>
- *     <td> "fileKey" </td>
+ *     <th scope="row"> "fileKey" </th>
  *     <td> {@link Object} </td>
  *   </tr>
+ * </tbody>
  * </table>
  * </blockquote>
  *
@@ -95,14 +99,17 @@ import java.io.IOException;
  *
  * @since 1.7
  */
+/*
+ * "basic"文件属性视图接口，该视图支持一些通用的文件属性，参见AbstractBasicFileAttributeView
+ *
+ * 注：三大操作系统平台均支持该视图
+ */
+public interface BasicFileAttributeView extends FileAttributeView {
 
-public interface BasicFileAttributeView
-    extends FileAttributeView
-{
     /**
-     * Returns the name of the attribute view. Attribute views of this type
-     * have the name {@code "basic"}.
+     * Returns the name of the attribute view. Attribute views of this type have the name {@code "basic"}.
      */
+    // 返回当前属性视图的名称，通常返回"basic"
     @Override
     String name();
 
@@ -112,15 +119,14 @@ public interface BasicFileAttributeView
      * <p> It is implementation specific if all file attributes are read as an
      * atomic operation with respect to other file system operations.
      *
-     * @return  the file attributes
+     * @return the file attributes
      *
-     * @throws  IOException
-     *          if an I/O error occurs
-     * @throws  SecurityException
-     *          In the case of the default provider, a security manager is
-     *          installed, its {@link SecurityManager#checkRead(String) checkRead}
-     *          method is invoked to check read access to the file
+     * @throws IOException       if an I/O error occurs
+     * @throws SecurityException In the case of the default provider, a security manager is
+     *                           installed, its {@link SecurityManager#checkRead(String) checkRead}
+     *                           method is invoked to check read access to the file
      */
+    // 返回"basic"文件属性视图
     BasicFileAttributes readAttributes() throws IOException;
 
     /**
@@ -154,24 +160,17 @@ public interface BasicFileAttributeView
      *    Files.getFileAttributeView(path, BasicFileAttributeView.class).setTimes(null, time, null);
      * </pre>
      *
-     * @param   lastModifiedTime
-     *          the new last modified time, or {@code null} to not change the
-     *          value
-     * @param   lastAccessTime
-     *          the last access time, or {@code null} to not change the value
-     * @param   createTime
-     *          the file's create time, or {@code null} to not change the value
+     * @param lastModifiedTime the new last modified time, or {@code null} to not change the
+     *                         value
+     * @param lastAccessTime   the last access time, or {@code null} to not change the value
+     * @param createTime       the file's create time, or {@code null} to not change the value
      *
-     * @throws  IOException
-     *          if an I/O error occurs
-     * @throws  SecurityException
-     *          In the case of the default provider, a security manager is
-     *          installed, its  {@link SecurityManager#checkWrite(String) checkWrite}
-     *          method is invoked to check write access to the file
-     *
+     * @throws IOException       if an I/O error occurs
+     * @throws SecurityException In the case of the default provider, a security manager is
+     *                           installed, its  {@link SecurityManager#checkWrite(String) checkWrite}
+     *                           method is invoked to check write access to the file
      * @see java.nio.file.Files#setLastModifiedTime
      */
-    void setTimes(FileTime lastModifiedTime,
-                  FileTime lastAccessTime,
-                  FileTime createTime) throws IOException;
+    // 更新文件的"最后修改时间"/"最后访问时间"/"创建时间"这几个属性中的部分或全部，依实现而定
+    void setTimes(FileTime lastModifiedTime, FileTime lastAccessTime, FileTime createTime) throws IOException;
 }
