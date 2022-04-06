@@ -28,23 +28,31 @@ package sun.net;
 import java.security.PrivilegedAction;
 import java.security.Security;
 
+// IP地址的缓存策略
 public final class InetAddressCachePolicy {
 
     // Controls the cache policy for successful lookups only
+    // 系统属性，设置命中缓存策略
     private static final String cachePolicyProp = "networkaddress.cache.ttl";
+    // 系统属性，设置命中缓存策略
     private static final String cachePolicyPropFallback =
         "sun.net.inetaddr.ttl";
 
     // Controls the cache policy for negative lookups only
+    // 系统属性，设置未命中缓存策略
     private static final String negativeCachePolicyProp =
         "networkaddress.cache.negative.ttl";
+    // 系统属性，设置未命中缓存策略
     private static final String negativeCachePolicyPropFallback =
         "sun.net.inetaddr.negative.ttl";
 
+    // 一直缓存
     public static final int FOREVER = -1;
+    // 不缓存
     public static final int NEVER = 0;
 
     /* default value for positive lookups */
+    // 默认的命中缓存策略：保存30秒
     public static final int DEFAULT_POSITIVE = 30;
 
     /* The Java-level namelookup cache policy for successful lookups:
@@ -56,6 +64,12 @@ public final class InetAddressCachePolicy {
      * caching. For security reasons, this caching is made forever when
      * a security manager is set.
      */
+    /*
+     * 命中缓存策略
+     *
+     * 初值为FOREVER，即一直保存
+     * 如果是非零整数，则表示需要缓存对应秒数的时长
+     */
     private static int cachePolicy = FOREVER;
 
     /* The Java-level namelookup cache policy for negative lookups:
@@ -66,23 +80,32 @@ public final class InetAddressCachePolicy {
      * default value is 0. It can be set to some other value for
      * performance reasons.
      */
+    /*
+     * 未命中缓存策略
+     *
+     * 初值为NEVER，即不直保存
+     * 如果是非零整数，则表示需要缓存对应秒数的时长
+     */
     private static int negativeCachePolicy = NEVER;
 
     /*
      * Whether or not the cache policy for successful lookups was set
      * using a property (cmd line).
      */
+    // 是否在系统属性中设置了命中缓存策略
     private static boolean propertySet;
 
     /*
      * Whether or not the cache policy for negative lookups was set
      * using a property (cmd line).
      */
+    // 是否在系统属性中设置了未命中缓存策略
     private static boolean propertyNegativeSet;
 
     /*
      * Initialize
      */
+    /* 初始化缓存策略参数 */
     static {
 
         Integer tmp = java.security.AccessController.doPrivileged(
@@ -156,10 +179,12 @@ public final class InetAddressCachePolicy {
         }
     }
 
+    // 返回命中缓存策略
     public static synchronized int get() {
         return cachePolicy;
     }
 
+    // 返回未命中缓存策略
     public static synchronized int getNegative() {
         return negativeCachePolicy;
     }
@@ -190,6 +215,7 @@ public final class InetAddressCachePolicy {
      * @param newPolicy the value in seconds for how long the lookup
      * should be cached
      */
+    // 设置未命中缓存策略
     public static synchronized void setNegativeIfNotSet(int newPolicy) {
         /*
          * When setting the new value we may want to signal that the
@@ -204,6 +230,7 @@ public final class InetAddressCachePolicy {
         }
     }
 
+    // 检查缓存策略参数：新的策略应相比旧的策略，缓存时间应当至少一样长
     private static void checkValue(int newPolicy, int oldPolicy) {
         /*
          * If malicious code gets a hold of this method, prevent

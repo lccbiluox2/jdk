@@ -27,7 +27,10 @@ package sun.net.spi.nameservice;
 
 import java.net.UnknownHostException;
 
+// IP-域名映射服务
 public interface NameService {
+    // 将主机名称或主机地址映射为InetAddress实例
     public java.net.InetAddress[] lookupAllHostAddr(String host) throws UnknownHostException;
+    // 根据主机地址查找映射的主机名称
     public String getHostByAddr(byte[] addr) throws UnknownHostException;
 }

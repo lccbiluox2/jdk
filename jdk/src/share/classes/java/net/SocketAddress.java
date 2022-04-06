@@ -38,6 +38,12 @@ package java.net;
  * @see java.net.ServerSocket
  * @since 1.4
  */
+/*
+ * 表示连接端点的地址(ip + port)
+ *
+ * 理论上，该类可以用于TCP和非TCP的socket，但实际上，当前只支持TCP/IP socket。
+ * 实际使用的Socket地址都是InetSocketAddress的实例。
+ */
 public abstract class SocketAddress implements java.io.Serializable {
 
     static final long serialVersionUID = 5215720748342549866L;

@@ -25,8 +25,13 @@
 
 package sun.net.util;
 
+
+// IP地址转换工具
 public class IPAddressUtil {
+
+    // IP4地址字节数
     private final static int INADDR4SZ = 4;
+    // IP6地址字节数
     private final static int INADDR16SZ = 16;
     private final static int INT16SZ = 2;
 
@@ -37,6 +42,7 @@ public class IPAddressUtil {
      * @param src a String representing an IPv4 address in standard format
      * @return a byte array representing the IPv4 numeric address
      */
+    // 将文本形式的IP4地址转换为二进制形式
     @SuppressWarnings("fallthrough")
     public static byte[] textToNumericFormatV4(String src)
     {
@@ -120,6 +126,7 @@ public class IPAddressUtil {
      * @param src a String representing an IPv6 address in textual format
      * @return a byte array representing the IPv6 numeric address
      */
+    // 将文本形式的IP6地址转换为二进制形式
     public static byte[] textToNumericFormatV6(String src)
     {
         // Shortest valid string is "::", hence at least 2 chars
@@ -225,6 +232,7 @@ public class IPAddressUtil {
         }
         if (j != INADDR16SZ)
             return null;
+        // 将IP6地址转换为IP4地址，转换失败则返回null
         byte[] newdst = convertFromIPv4MappedAddress(dst);
         if (newdst != null) {
             return newdst;
@@ -237,6 +245,7 @@ public class IPAddressUtil {
      * @param src a String representing an IPv4 address in textual format
      * @return a boolean indicating whether src is an IPv4 literal address
      */
+    // 判断指定的地址是否为IP4地址
     public static boolean isIPv4LiteralAddress(String src) {
         return textToNumericFormatV4(src) != null;
     }
@@ -245,6 +254,7 @@ public class IPAddressUtil {
      * @param src a String representing an IPv6 address in textual format
      * @return a boolean indicating whether src is an IPv6 literal address
      */
+    // 判断指定的地址是否为IP6地址
     public static boolean isIPv6LiteralAddress(String src) {
         return textToNumericFormatV6(src) != null;
     }
@@ -256,8 +266,11 @@ public class IPAddressUtil {
      * @param src a String representing an IPv4-Mapped address in textual format
      * @return a byte array representing the IPv4 numeric address
      */
+    // 将IP6地址转换为IP4地址，转换失败则返回null
     public static byte[] convertFromIPv4MappedAddress(byte[] addr) {
+        // 指定的IP地址是IP4地址映射成的IP6地址
         if (isIPv4MappedAddress(addr)) {
+            // 将IP6地址转换为IP4地址
             byte[] newAddr = new byte[INADDR4SZ];
             System.arraycopy(addr, 12, newAddr, 0, INADDR4SZ);
             return newAddr;
@@ -271,6 +284,12 @@ public class IPAddressUtil {
      *
      * @return a <code>boolean</code> indicating if the InetAddress is
      * an IPv4 mapped IPv6 address; or false if address is IPv4 address.
+     */
+    /*
+     * 判断指定的IP地址是否为IP4地址映射成的IP6地址
+     *
+     * 格式为0000:0000:0000:0000:0000:FFFF:XXXX:XXXX
+     * 其中，后4个字节XXXX:XXXX是映射前的IP4地址
      */
     private static boolean isIPv4MappedAddress(byte[] addr) {
         if (addr.length < INADDR16SZ) {

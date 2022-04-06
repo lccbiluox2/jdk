@@ -49,17 +49,18 @@ import java.io.ObjectStreamField;
  * @see java.net.ServerSocket
  * @since 1.4
  */
+// 表示一个基于IP的Socket地址(ip + port)，用于TCP/UDP连接
 public class InetSocketAddress
     extends SocketAddress
 {
     // Private implementation class pointed to by all public methods.
     private static class InetSocketAddressHolder {
         // The hostname of the Socket Address
-        private String hostname;
+        private String hostname; // 主机名称
         // The IP address of the Socket Address
-        private InetAddress addr;
+        private InetAddress addr;   // 主机地址
         // The port number of the Socket Address
-        private int port;
+        private int port;    // 主机端口
 
         private InetSocketAddressHolder(String hostname, InetAddress addr, int port) {
             this.hostname = hostname;
@@ -67,14 +68,17 @@ public class InetSocketAddress
             this.port = port;
         }
 
+        // 获取端口号
         private int getPort() {
             return port;
         }
 
+        // 获取IP地址
         private InetAddress getAddress() {
             return addr;
         }
 
+        // 获取主机名称
         private String getHostName() {
             if (hostname != null)
                 return hostname;
@@ -83,6 +87,7 @@ public class InetSocketAddress
             return null;
         }
 
+        // 获取主机名称或注解地址
         private String getHostString() {
             if (hostname != null)
                 return hostname;
@@ -95,6 +100,7 @@ public class InetSocketAddress
             return null;
         }
 
+        // 判断当前地址是否为一个未解析的socket地址
         private boolean isUnresolved() {
             return addr == null;
         }
@@ -138,12 +144,14 @@ public class InetSocketAddress
 
     private static final long serialVersionUID = 5076001401234631237L;
 
+    // 检查端口号，必须位于[0, 65535]之间
     private static int checkPort(int port) {
         if (port < 0 || port > 0xFFFF)
             throw new IllegalArgumentException("port out of range:" + port);
         return port;
     }
 
+    // 检查主机名称，确保不为null
     private static String checkHost(String hostname) {
         if (hostname == null)
             throw new IllegalArgumentException("hostname can't be null");
@@ -162,6 +170,7 @@ public class InetSocketAddress
      * @throws IllegalArgumentException if the port parameter is outside the specified
      * range of valid port values.
      */
+    // 使用通配IP和指定的端口号初始化Socket地址；端口为0时随机分配端口
     public InetSocketAddress(int port) {
         this(InetAddress.anyLocalAddress(), port);
     }
@@ -181,6 +190,7 @@ public class InetSocketAddress
      * @throws IllegalArgumentException if the port parameter is outside the specified
      * range of valid port values.
      */
+    // 使用指定的IP地址和port构造一个Socket地址；如果IP地址为null，使用通配地址；如果端口号为0，则使用随机端口
     public InetSocketAddress(InetAddress addr, int port) {
         holder = new InetSocketAddressHolder(
                         null,
@@ -212,11 +222,13 @@ public class InetSocketAddress
      *                           denied.
      * @see     #isUnresolved()
      */
+    // 使用指定的主机名称/地址和port初始化Socket地址；端口为0时随机分配端口
     public InetSocketAddress(String hostname, int port) {
         checkHost(hostname);
         InetAddress addr = null;
         String host = null;
         try {
+            // 根据主机名称或主机IP，创建/查找其对应的InetAddress实例（有多个实例时只选择第一个）
             addr = InetAddress.getByName(hostname);
         } catch(UnknownHostException e) {
             host = hostname;
@@ -225,6 +237,7 @@ public class InetSocketAddress
     }
 
     // private constructor for creating unresolved instances
+    // 构造一个"未解析"的Socket地址
     private InetSocketAddress(int port, String hostname) {
         holder = new InetSocketAddressHolder(hostname, null, port);
     }
@@ -250,6 +263,7 @@ public class InetSocketAddress
      *          socket address
      * @since 1.5
      */
+    // 创建一个未解析的Socket地址
     public static InetSocketAddress createUnresolved(String host, int port) {
         return new InetSocketAddress(checkPort(port), checkHost(host));
     }
@@ -363,6 +377,7 @@ public class InetSocketAddress
      * @return {@code true} if the hostname couldn't be resolved into
      *          an {@code InetAddress}.
      */
+    // 是否为"未解析"的socket地址
     public final boolean isUnresolved() {
         return holder.isUnresolved();
     }

@@ -34,9 +34,13 @@ package java.net;
  * @see java.net.NetworkInterface
  * @since 1.6
  */
+// 网络接口的IP，包括网络IP和广播IP
 public class InterfaceAddress {
+    // 网络IP
     private InetAddress address = null;
+    // 广播IP
     private Inet4Address broadcast = null;
+    // 掩码长度
     private short        maskLength = 0;
 
     /*
@@ -51,6 +55,7 @@ public class InterfaceAddress {
      *
      * @return the {@code InetAddress} for this address.
      */
+    // 获取网络IP
     public InetAddress getAddress() {
         return address;
     }
@@ -65,6 +70,7 @@ public class InterfaceAddress {
      * @return the {@code InetAddress} representing the broadcast
      *         address or {@code null} if there is no broadcast address.
      */
+    // 获取广播IP
     public InetAddress getBroadcast() {
         return broadcast;
     }
@@ -79,6 +85,7 @@ public class InterfaceAddress {
      * @return a {@code short} representing the prefix length for the
      *         subnet of that address.
      */
+    // 获取掩码长度
      public short getNetworkPrefixLength() {
         return maskLength;
     }

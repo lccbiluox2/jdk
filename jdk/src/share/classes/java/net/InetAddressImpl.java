@@ -34,15 +34,28 @@ import java.io.IOException;
  *
  * @since 1.4
  */
+// InetAddress类的一些补充，主要用来映射主机地址/名称，以及判断网络地址的可用性
+
 interface InetAddressImpl {
 
+    // 本地主机名称
     String getLocalHostName() throws UnknownHostException;
+
+    // 将主机名称或主机地址映射为InetAddress实例
     InetAddress[]
         lookupAllHostAddr(String hostname) throws UnknownHostException;
+
+    // 根据主机地址查找映射的主机名称
     String getHostByAddr(byte[] addr) throws UnknownHostException;
 
+    // 通配符地址（特殊地址，字节全为0）
     InetAddress anyLocalAddress();
+
+    // 本地环回地址
     InetAddress loopbackAddress();
+
+    // 通过指定的网络接口判断给定的网络地址是否可用，ttl代表网络跳数
+
     boolean isReachable(InetAddress addr, int timeout, NetworkInterface netif,
                         int ttl) throws IOException;
 }

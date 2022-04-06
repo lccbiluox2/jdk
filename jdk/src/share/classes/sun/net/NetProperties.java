@@ -37,13 +37,16 @@ import java.util.Properties;
  * @author Jean-Christophe Collet
  *
  */
-
+// 网络属性配置，默认从jre/lib/net.properties中加载
 public class NetProperties {
+
+    // 网络属性配置文件
     static private Properties props = new Properties();
     static {
         AccessController.doPrivileged(
             new PrivilegedAction<Void>() {
                 public Void run() {
+                    // 加载系统文件%JAVA_HOME%\conf\net.properties中设定的网络属性
                     loadDefaultProperties();
                     return null;
                 }});
@@ -56,18 +59,24 @@ public class NetProperties {
      * Loads the default networking system properties
      * the file is in jre/lib/net.properties
      */
+    // 加载系统文件%JAVA_HOME%\conf\net.properties中设定的网络属性
     static private void loadDefaultProperties() {
+        // 获取JDK根目录
         String fname = System.getProperty("java.home");
         if (fname == null) {
             throw new Error("Can't find java.home ??");
         }
         try {
+            // 获取文件%JAVA_HOME%\conf\net.properties
             File f = new File(fname, "lib");
             f = new File(f, "net.properties");
             fname = f.getCanonicalPath();
             InputStream in = new FileInputStream(fname);
+            // 创建指向net.properties文件的输入流
             BufferedInputStream bin = new BufferedInputStream(in);
+            // 从properties文件加载属性集
             props.load(bin);
+            // 关闭输入流
             bin.close();
         } catch (Exception e) {
             // Do nothing. We couldn't find or access the file
@@ -86,6 +95,7 @@ public class NetProperties {
      * @return the <code>String</code> value for the property,
      *         or <code>null</code>
      */
+    // 从运行参数中获取指定的网络属性；如果未找到，则从net.properties配置中查找
     static public String get(String key) {
         String def = props.getProperty(key);
         try {
@@ -108,6 +118,7 @@ public class NetProperties {
      * @return the <code>Integer</code> value for the property,
      *         or <code>null</code>
      */
+    // 从运行参数中获取整型类型的网络属性；如果未找到，则从net.properties配置中查找；如果还未找到，返回默认值
     static public Integer getInteger(String key, int defval) {
         String val = null;
 
@@ -137,6 +148,7 @@ public class NetProperties {
      * @return the <code>Boolean</code> value for the property,
      *         or <code>null</code>
      */
+    // 从运行参数中获取布尔类型的网络属性；如果未找到，则从net.properties配置中查找
     static public Boolean getBoolean(String key) {
         String val = null;
 

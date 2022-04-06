@@ -170,9 +170,10 @@ import java.util.Arrays;
  * used to find out the current scope ids configured on the system.
  * @since 1.4
  */
-
+// IP6地址的实现类
 public final
 class Inet6Address extends InetAddress {
+    // IP6地址包含的字节数
     final static int INADDRSZ = 16;
 
     /*
@@ -180,6 +181,7 @@ class Inet6Address extends InetAddress {
      */
     private transient int cached_scope_id;  // 0
 
+    // 序列化字段容器，存储IP6地址的可序列化字段
     private class Inet6AddressHolder {
 
         private Inet6AddressHolder() {
@@ -200,6 +202,7 @@ class Inet6Address extends InetAddress {
         /**
          * Holds a 128-bit (16 bytes) IPv6 address.
          */
+        // IP6地址的字节形式
         byte[] ipaddress;
 
         /**
@@ -207,24 +210,28 @@ class Inet6Address extends InetAddress {
          * is created with an interface name, then the scope_id is not determined
          * until the time it is needed.
          */
+        // 当前IP6地址所属网络接口的索引
         int scope_id;  // 0
 
         /**
          * This will be set to true when the scope_id field contains a valid
          * integer scope_id.
          */
+        // 指示scope id是否有效
         boolean scope_id_set;  // false
 
         /**
          * scoped interface. scope_id is derived from this as the scope_id of the first
          * address whose scope is the same as this address for the named interface.
          */
+        // 当前IP6所属的网络接口
         NetworkInterface scope_ifname;  // null
 
         /**
          * set if the object is constructed with a scoped
          * interface instead of a numeric scope id.
          */
+        // 指示scope ifname是否有效
         boolean scope_ifname_set; // false;
 
         void setAddr(byte addr[]) {
@@ -255,7 +262,9 @@ class Inet6Address extends InetAddress {
             }
         }
 
+        // 返回IP6地址的文本形式
         String getHostAddress() {
+            // 将二进制形式的IP6地址转换为文本形式的IP6地址
             String s = numericToTextFormat(ipaddress);
             if (scope_ifname != null) { /* must check this first */
                 s = s + "%" + scope_ifname.getName();
@@ -308,6 +317,7 @@ class Inet6Address extends InetAddress {
             return false;
         }
 
+        // 判断当前地址是否为组播地址
         boolean isMulticastAddress() {
             return ((ipaddress[0] & 0xff) == 0xff);
         }
@@ -320,6 +330,7 @@ class Inet6Address extends InetAddress {
             return (test == 0x00);
         }
 
+        // 判断当前地址是否为本地环回地址
         boolean isLoopbackAddress() {
             byte test = 0x00;
             for (int i = 0; i < 15; i++) {
@@ -328,12 +339,13 @@ class Inet6Address extends InetAddress {
             return (test == 0x00) && (ipaddress[15] == 0x01);
         }
 
+        // 判断当前地址是否为链路本地地址
         boolean isLinkLocalAddress() {
             return ((ipaddress[0] & 0xff) == 0xfe
                     && (ipaddress[1] & 0xc0) == 0x80);
         }
 
-
+        // 判断当前地址是否为站点本地地址
         boolean isSiteLocalAddress() {
             return ((ipaddress[0] & 0xff) == 0xfe
                     && (ipaddress[1] & 0xc0) == 0xc0);
@@ -365,6 +377,7 @@ class Inet6Address extends InetAddress {
         }
     }
 
+    // 存储IP6地址的可序列化字段
     private final transient Inet6AddressHolder holder6;
 
     private static final long serialVersionUID = 6880410070516793377L;
@@ -478,10 +491,12 @@ class Inet6Address extends InetAddress {
         throw new UnknownHostException("addr is of illegal length");
     }
 
+    // 初始化holder和holder6
     private void initstr(String hostName, byte addr[], String ifname)
         throws UnknownHostException
     {
         try {
+            // 搜索具有指定名称的网络接口
             NetworkInterface nif = NetworkInterface.getByName (ifname);
             if (nif == null) {
                 throw new UnknownHostException ("no such interface " + ifname);
@@ -492,6 +507,7 @@ class Inet6Address extends InetAddress {
         }
     }
 
+    // 初始化holder和holder6
     private void initif(String hostName, byte addr[], NetworkInterface nif)
         throws UnknownHostException
     {
@@ -509,7 +525,7 @@ class Inet6Address extends InetAddress {
      * (ie. one is sitelocal and the other linklocal)
      * return true otherwise.
      */
-
+    // 如果指定的两个IP6地址都是非全局地址类型，且它们的类型不相等，则返回false，例如一个是sitelocal，另一个是linklocal
     private static boolean isDifferentLocalAddressType(
         byte[] thisAddr, byte[] otherAddr) {
 
@@ -524,6 +540,7 @@ class Inet6Address extends InetAddress {
         return true;
     }
 
+    // 从网络接口派生scope id
     private static int deriveNumericScope (byte[] thisAddr, NetworkInterface ifc) throws UnknownHostException {
         Enumeration<InetAddress> addresses = ifc.getInetAddresses();
         while (addresses.hasMoreElements()) {
@@ -538,11 +555,13 @@ class Inet6Address extends InetAddress {
                 continue;
             }
             /* found a matching address - return its scope_id */
+            // 返回当前ia6_addr所属网络接口的索引
             return ia6_addr.getScopeId();
         }
         throw new UnknownHostException ("no scope_id found");
     }
 
+    // 从网络接口派生scope id
     private int deriveNumericScope (String ifname) throws UnknownHostException {
         Enumeration<NetworkInterface> en;
         try {
@@ -685,6 +704,7 @@ class Inet6Address extends InetAddress {
      *
      * @since JDK1.1
      */
+    // 判断当前地址是否为组播地址
     @Override
     public boolean isMulticastAddress() {
         return holder6.isMulticastAddress();
@@ -698,6 +718,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为通配地址
     @Override
     public boolean isAnyLocalAddress() {
         return holder6.isAnyLocalAddress();
@@ -711,6 +732,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为本地环回地址
     @Override
     public boolean isLoopbackAddress() {
         return holder6.isLoopbackAddress();
@@ -724,6 +746,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为链路本地地址
     @Override
     public boolean isLinkLocalAddress() {
         return holder6.isLinkLocalAddress();
@@ -743,6 +766,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为站点本地地址
     @Override
     public boolean isSiteLocalAddress() {
         return holder6.isSiteLocalAddress();
@@ -763,6 +787,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为全局范围的组播地址
     @Override
     public boolean isMCGlobal() {
         return holder6.isMCGlobal();
@@ -777,6 +802,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为节点（或接口）本地范围的组播地址
     @Override
     public boolean isMCNodeLocal() {
         return holder6.isMCNodeLocal();
@@ -791,6 +817,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为链路本地范围的组播地址
     @Override
     public boolean isMCLinkLocal() {
         return holder6.isMCLinkLocal();
@@ -805,6 +832,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为站点本地范围的组播地址
     @Override
     public boolean isMCSiteLocal() {
         return holder6.isMCSiteLocal();
@@ -819,6 +847,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为机构本地范围的组播地址
     @Override
     public boolean isMCOrgLocal() {
         return holder6.isMCOrgLocal();
@@ -830,6 +859,7 @@ class Inet6Address extends InetAddress {
      *
      * @return  the raw IP address of this object.
      */
+    // 返回IP6地址的字节形式
     @Override
     public byte[] getAddress() {
         return holder6.ipaddress.clone();
@@ -843,6 +873,7 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.5
      */
+    // 返回当前IP6地址所属网络接口的索引
      public int getScopeId() {
         return holder6.scope_id;
      }
@@ -854,6 +885,7 @@ class Inet6Address extends InetAddress {
      * @return the scoped interface, or null if not set.
      * @since 1.5
      */
+    // 返回当前IP6所属的网络接口
      public NetworkInterface getScopedInterface() {
         return holder6.scope_ifname;
      }
@@ -867,6 +899,7 @@ class Inet6Address extends InetAddress {
      *
      * @return  the raw IP address in a string format.
      */
+    // 返回IP6地址的文本形式
     @Override
     public String getHostAddress() {
         return holder6.getHostAddress();
@@ -917,11 +950,13 @@ class Inet6Address extends InetAddress {
      *
      * @since 1.4
      */
+    // 判断当前地址是否为IP4兼容的IP6地址
     public boolean isIPv4CompatibleAddress() {
         return holder6.isIPv4CompatibleAddress();
     }
 
     // Utilities
+    // IP6地址每个区间包含的字节数
     private final static int INT16SZ = 2;
 
     /*

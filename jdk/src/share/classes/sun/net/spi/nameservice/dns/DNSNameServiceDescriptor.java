@@ -31,6 +31,12 @@ public final class DNSNameServiceDescriptor implements NameServiceDescriptor {
     /**
      * Create a new instance of the corresponding name service.
      */
+    /*
+     * 构建一个IP-域名映射服务
+     *
+     * 默认使用PlatformNameService实现，
+     * 如果启用了系统属性jdk.net.hosts.file，则使用实现HostsFileNameService
+     */
     public NameService createNameService() throws Exception {
         return new DNSNameService();
     }

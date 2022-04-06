@@ -82,8 +82,10 @@ import java.io.ObjectStreamException;
  * @since 1.4
  */
 
+// IP4地址的实现类
 public final
 class Inet4Address extends InetAddress {
+    // IP4地址包含的字节数
     final static int INADDRSZ = 4;
 
     /** use serialVersionUID from InetAddress, but Inet4Address instance
@@ -159,6 +161,7 @@ class Inet4Address extends InetAddress {
      * an IP multicast address
      * @since   JDK1.1
      */
+    // 判断当前地址是否为组播地址（D类地址，以1110开头）
     public boolean isMulticastAddress() {
         return ((holder().getAddress() & 0xf0000000) == 0xe0000000);
     }
@@ -169,6 +172,7 @@ class Inet4Address extends InetAddress {
      *         a wildcard address.
      * @since 1.4
      */
+    // 判断当前地址是否为通配地址（特殊地址，字节全为0）
     public boolean isAnyLocalAddress() {
         return holder().getAddress() == 0;
     }
@@ -180,6 +184,7 @@ class Inet4Address extends InetAddress {
      * a loopback address; or false otherwise.
      * @since 1.4
      */
+    // 判断当前地址是否为本地环回地址（特殊地址，如127.0.0.1）
     public boolean isLoopbackAddress() {
         /* 127.x.x.x */
         byte[] byteAddr = getAddress();
@@ -192,6 +197,12 @@ class Inet4Address extends InetAddress {
      * @return a {@code boolean} indicating if the InetAddress is
      * a link local address; or false if address is not a link local unicast address.
      * @since 1.4
+     */
+    /*
+     * 判断当前地址是否为链路本地地址（特殊地址，169.254.0.0）
+     *
+     * 通常情况下，每台主机都通过DHCP服务器自动分配一个IP地址
+     * 当DHCP分配失败或者没有DHCP服务器时，主机可以为自身分配169.254.0.0这个IP
      */
     public boolean isLinkLocalAddress() {
         // link-local unicast in IPv4 (169.254.0.0/16)
@@ -209,6 +220,10 @@ class Inet4Address extends InetAddress {
      * @return a {@code boolean} indicating if the InetAddress is
      * a site local address; or false if address is not a site local unicast address.
      * @since 1.4
+     */
+    /*
+     * 判断当前地址是否为站点本地地址（特殊地址10/8、172.16/12、192.168/16）
+     * 该类地址被设计用于不会与互联网直接通信的设备，比如：打印机、内部网服务器、网络交换机等
      */
     public boolean isSiteLocalAddress() {
         // refer to RFC 1918
@@ -231,6 +246,7 @@ class Inet4Address extends InetAddress {
      *         of global scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为全局范围的组播地址（224.0.1.0到238.255.255.255）
     public boolean isMCGlobal() {
         // 224.0.1.0 to 238.255.255.255
         byte[] byteAddr = getAddress();
@@ -247,6 +263,7 @@ class Inet4Address extends InetAddress {
      *         of node-local scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为节点（或接口）本地范围的组播地址
     public boolean isMCNodeLocal() {
         // unless ttl == 0
         return false;
@@ -260,6 +277,7 @@ class Inet4Address extends InetAddress {
      *         of link-local scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为链路本地范围的组播地址（224.0.0/24）
     public boolean isMCLinkLocal() {
         // 224.0.0/24 prefix and ttl == 1
         int address = holder().getAddress();
@@ -276,6 +294,7 @@ class Inet4Address extends InetAddress {
      *         of site-local scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为站点本地范围的组播地址
     public boolean isMCSiteLocal() {
         // 239.255/16 prefix or ttl < 32
         int address = holder().getAddress();
@@ -292,6 +311,7 @@ class Inet4Address extends InetAddress {
      *         or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为机构本地范围的组播地址
     public boolean isMCOrgLocal() {
         // 239.192 - 239.195
         int address = holder().getAddress();
@@ -307,6 +327,7 @@ class Inet4Address extends InetAddress {
      *
      * @return  the raw IP address of this object.
      */
+    // 返回IP4地址的字节形式
     public byte[] getAddress() {
         int address = holder().getAddress();
         byte[] addr = new byte[INADDRSZ];
@@ -367,7 +388,7 @@ class Inet4Address extends InetAddress {
      *         textual representation format
      * @since 1.4
      */
-
+    // 将二进制形式的IP4地址转换为文本形式的IP4地址
     static String numericToTextFormat(byte[] src)
     {
         return (src[0] & 0xff) + "." + (src[1] & 0xff) + "." + (src[2] & 0xff) + "." + (src[3] & 0xff);

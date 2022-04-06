@@ -185,6 +185,12 @@ import sun.net.spi.nameservice.*;
  * @see     java.net.InetAddress#getLocalHost()
  * @since JDK1.0
  */
+/*
+ * InetAddress代表一个IP地址，包括IP4和IP6。
+ *
+ * IP地址由一串无符号字节组成，IP4是用点号分割的4个无符号字节（共计32位），
+ * IP6是用冒号分割的8个区块，每个区块是4个十六进制数字（共计128位）。
+ */
 public
 class InetAddress implements java.io.Serializable {
     /**
@@ -200,8 +206,10 @@ class InetAddress implements java.io.Serializable {
     static final int IPv6 = 2;
 
     /* Specify address family preference */
+    // 标记使用IP4地址还是IP6地址
     static transient boolean preferIPv6Address = false;
 
+    // 序列化字段容器，存储IP地址的可序列化字段
     static class InetAddressHolder {
         /**
          * Reserve the original application specified hostname.
@@ -217,6 +225,7 @@ class InetAddress implements java.io.Serializable {
          *
          * Note: May define a new public method in the future if necessary.
          */
+        // 主机名称
         String originalHostName;
 
         InetAddressHolder() {}
@@ -236,6 +245,7 @@ class InetAddress implements java.io.Serializable {
             }
         }
 
+        // 主机名称
         String hostName;
 
         String getHostName() {
@@ -249,6 +259,7 @@ class InetAddress implements java.io.Serializable {
         /**
          * Holds a 32-bit IPv4 address.
          */
+        // IP4-主机地址
         int address;
 
         int getAddress() {
@@ -259,6 +270,7 @@ class InetAddress implements java.io.Serializable {
          * Specifies the address family type, for instance, '1' for IPv4
          * addresses, and '2' for IPv6 addresses.
          */
+        // IP地址所属协议族：IP4或IP6
         int family;
 
         int getFamily() {
@@ -267,6 +279,7 @@ class InetAddress implements java.io.Serializable {
     }
 
     /* Used to store the serializable fields of InetAddress */
+    // 存储IP4地址的可序列化字段
     final transient InetAddressHolder holder;
 
     InetAddressHolder holder() {
@@ -274,9 +287,11 @@ class InetAddress implements java.io.Serializable {
     }
 
     /* Used to store the name service provider */
+    // IP-域名映射服务
     private static List<NameService> nameServices = null;
 
     /* Used to store the best available hostname */
+    // 当前网络地址的主机名
     private transient String canonicalHostName = null;
 
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
@@ -286,6 +301,7 @@ class InetAddress implements java.io.Serializable {
      * Load net library into runtime, and perform initializations.
      */
     static {
+        // 默认使用IPV6地址
         preferIPv6Address = java.security.AccessController.doPrivileged(
             new GetBooleanAction("java.net.preferIPv6Addresses")).booleanValue();
         AccessController.doPrivileged(
@@ -328,6 +344,7 @@ class InetAddress implements java.io.Serializable {
      * an IP multicast address
      * @since   JDK1.1
      */
+    // 判断当前地址是否为组播地址
     public boolean isMulticastAddress() {
         return false;
     }
@@ -338,6 +355,7 @@ class InetAddress implements java.io.Serializable {
      *         a wildcard address.
      * @since 1.4
      */
+    // 判断当前地址是否为通配地址
     public boolean isAnyLocalAddress() {
         return false;
     }
@@ -349,6 +367,7 @@ class InetAddress implements java.io.Serializable {
      * a loopback address; or false otherwise.
      * @since 1.4
      */
+    // 判断当前地址是否为本地环回地址
     public boolean isLoopbackAddress() {
         return false;
     }
@@ -360,6 +379,7 @@ class InetAddress implements java.io.Serializable {
      * a link local address; or false if address is not a link local unicast address.
      * @since 1.4
      */
+    // 判断当前地址是否为链路本地地址
     public boolean isLinkLocalAddress() {
         return false;
     }
@@ -371,6 +391,7 @@ class InetAddress implements java.io.Serializable {
      * a site local address; or false if address is not a site local unicast address.
      * @since 1.4
      */
+    // 判断当前地址是否为站点本地地址
     public boolean isSiteLocalAddress() {
         return false;
     }
@@ -383,6 +404,7 @@ class InetAddress implements java.io.Serializable {
      *         of global scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为全局范围的组播地址
     public boolean isMCGlobal() {
         return false;
     }
@@ -395,6 +417,7 @@ class InetAddress implements java.io.Serializable {
      *         of node-local scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为节点（或接口）本地范围的组播地址
     public boolean isMCNodeLocal() {
         return false;
     }
@@ -407,6 +430,7 @@ class InetAddress implements java.io.Serializable {
      *         of link-local scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为链路本地范围的组播地址
     public boolean isMCLinkLocal() {
         return false;
     }
@@ -419,6 +443,7 @@ class InetAddress implements java.io.Serializable {
      *         of site-local scope or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为站点本地范围的组播地址
     public boolean isMCSiteLocal() {
         return false;
     }
@@ -432,6 +457,7 @@ class InetAddress implements java.io.Serializable {
      *         or it is not a multicast address
      * @since 1.4
      */
+    // 判断当前地址是否为机构本地范围的组播地址
     public boolean isMCOrgLocal() {
         return false;
     }
@@ -457,6 +483,7 @@ class InetAddress implements java.io.Serializable {
      * @throws  IllegalArgumentException if {@code timeout} is negative.
      * @since 1.5
      */
+    // 判断给定的网络地址是否可用
     public boolean isReachable(int timeout) throws IOException {
         return isReachable(null, 0 , timeout);
     }
@@ -492,6 +519,7 @@ class InetAddress implements java.io.Serializable {
      * @throws IOException if a network error occurs
      * @since 1.5
      */
+    // 通过指定的网络接口判断给定的网络地址是否可用，ttl代表网络跳数
     public boolean isReachable(NetworkInterface netif, int ttl,
                                int timeout) throws IOException {
         if (ttl < 0)
@@ -527,6 +555,7 @@ class InetAddress implements java.io.Serializable {
      * @see InetAddress#getCanonicalHostName
      * @see SecurityManager#checkConnect
      */
+    // 获取当前网络地址的主机名
     public String getHostName() {
         return getHostName(true);
     }
@@ -554,6 +583,7 @@ class InetAddress implements java.io.Serializable {
      *
      * @see SecurityManager#checkConnect
      */
+    // 获取当前网络地址的主机名
     String getHostName(boolean check) {
         if (holder().getHostName() == null) {
             holder().hostName = InetAddress.getHostFromNameService(this, check);
@@ -582,6 +612,7 @@ class InetAddress implements java.io.Serializable {
      *
      * @since 1.4
      */
+    // 获取当前网络地址的主机名
     public String getCanonicalHostName() {
         if (canonicalHostName == null) {
             canonicalHostName =
@@ -609,6 +640,7 @@ class InetAddress implements java.io.Serializable {
      *
      * @see SecurityManager#checkConnect
      */
+    // 返回指定网络地址的主机名
     private static String getHostFromNameService(InetAddress addr, boolean check) {
         String host = null;
         for (NameService nameService : nameServices) {
@@ -667,6 +699,7 @@ class InetAddress implements java.io.Serializable {
      *
      * @return  the raw IP address of this object.
      */
+    // 返回IP地址的字节形式
     public byte[] getAddress() {
         return null;
     }
@@ -677,6 +710,7 @@ class InetAddress implements java.io.Serializable {
      * @return  the raw IP address in a string format.
      * @since   JDK1.0.2
      */
+    // 返回IP地址的文本形式
     public String getHostAddress() {
         return null;
      }
@@ -737,6 +771,7 @@ class InetAddress implements java.io.Serializable {
 
     static InetAddress[]    unknown_array; // put THIS in cache
 
+    // 用来映射主机地址/名称，以及判断网络地址的可用性
     static InetAddressImpl  impl;
 
     private static final HashMap<String, Void> lookupTable = new HashMap<>();
@@ -760,6 +795,7 @@ class InetAddress implements java.io.Serializable {
      * at creation time.
      */
     static final class Cache {
+        // 如果不使用缓存，则存储NameServiceAddresses，如果使用缓存，则替换为CachedAddresses
         private LinkedHashMap<String, CacheEntry> cache;
         private Type type;
 
@@ -1019,8 +1055,10 @@ class InetAddress implements java.io.Serializable {
      * @exception  UnknownHostException  if IP address is of illegal length
      * @since 1.4
      */
+    // 用给定主机名称与主机地址创建一个InetAddress实例
     public static InetAddress getByAddress(String host, byte[] addr)
         throws UnknownHostException {
+        // 去掉host外层的[]
         if (host != null && host.length() > 0 && host.charAt(0) == '[') {
             if (host.charAt(host.length()-1) == ']') {
                 host = host.substring(1, host.length() -1);
@@ -1030,11 +1068,14 @@ class InetAddress implements java.io.Serializable {
             if (addr.length == Inet4Address.INADDRSZ) {
                 return new Inet4Address(host, addr);
             } else if (addr.length == Inet6Address.INADDRSZ) {
+                // 将IP6地址转换为IP4地址，转换失败则返回null
                 byte[] newAddr
                     = IPAddressUtil.convertFromIPv4MappedAddress(addr);
                 if (newAddr != null) {
+                    // 本质是IP4地址
                     return new Inet4Address(host, newAddr);
                 } else {
+                    // 确实是IP6地址
                     return new Inet6Address(host, addr);
                 }
             }
@@ -1071,12 +1112,14 @@ class InetAddress implements java.io.Serializable {
      * @exception  SecurityException if a security manager exists
      *             and its checkConnect method doesn't allow the operation
      */
+    // ▶ 1-1-1-1 根据主机名称或主机IP，创建/查找其对应的InetAddress实例（有多个实例时只选择第一个）
     public static InetAddress getByName(String host)
         throws UnknownHostException {
         return InetAddress.getAllByName(host)[0];
     }
 
     // called from deployment cache manager
+    // ▶ 1-1-2 根据主机名称或主机IP，创建/查找其对应的InetAddress实例（有多个实例时只选择第一个）
     private static InetAddress getByName(String host, InetAddress reqAddr)
         throws UnknownHostException {
         return InetAddress.getAllByName(host, reqAddr)[0];
@@ -1121,20 +1164,24 @@ class InetAddress implements java.io.Serializable {
      *
      * @see SecurityManager#checkConnect
      */
+    // ▶ 1-1-1 根据主机名称或主机IP，创建/查找其对应的InetAddress实例
     public static InetAddress[] getAllByName(String host)
         throws UnknownHostException {
         return getAllByName(host, null);
     }
 
+    // ▶ 1-1 根据主机名称或主机IP，创建/查找其对应的InetAddress实例
     private static InetAddress[] getAllByName(String host, InetAddress reqAddr)
         throws UnknownHostException {
 
+        // host为空，则使用本地环回地址
         if (host == null || host.length() == 0) {
             InetAddress[] ret = new InetAddress[1];
             ret[0] = impl.loopbackAddress();
             return ret;
         }
 
+        // 去掉host外层的[]
         boolean ipv6Expected = false;
         if (host.charAt(0) == '[') {
             // This is supposed to be an IPv6 literal
@@ -1148,12 +1195,14 @@ class InetAddress implements java.io.Serializable {
         }
 
         // if host is an IP address, we won't do further lookup
+        // 如果host是IP地址，则不需要进行查找
         if (Character.digit(host.charAt(0), 16) != -1
             || (host.charAt(0) == ':')) {
             byte[] addr = null;
             int numericZone = -1;
             String ifname = null;
             // see if it is IPv4 address
+            // 将文本形式的IP4地址转换为二进制形式
             addr = IPAddressUtil.textToNumericFormatV4(host);
             if (addr == null) {
                 // This is supposed to be an IPv6 literal
@@ -1165,6 +1214,7 @@ class InetAddress implements java.io.Serializable {
                         ifname = host.substring (pos+1);
                     }
                 }
+                // 将文本形式的IP6地址转换为二进制形式
                 if ((addr = IPAddressUtil.textToNumericFormatV6(host)) == null && host.contains(":")) {
                     throw new UnknownHostException(host + ": invalid IPv6 address");
                 }
@@ -1203,6 +1253,7 @@ class InetAddress implements java.io.Serializable {
      * @return  the InetAddress loopback instance.
      * @since 1.7
      */
+    // 返回本地回环地址
     public static InetAddress getLoopbackAddress() {
         return impl.loopbackAddress();
     }
@@ -1248,11 +1299,22 @@ class InetAddress implements java.io.Serializable {
     /**
      * package private so SocketPermission can call it
      */
+    // ▶ 1-2 根据主机名称，创建/查找其对应的InetAddress实例
     static InetAddress[] getAllByName0 (String host, boolean check)
         throws UnknownHostException  {
         return getAllByName0 (host, null, check);
     }
 
+    /*
+     * ▶ 1
+     *
+     * 根据主机名称，创建/查找其对应的InetAddress实例
+     *
+     * 如果给定的是主机名称，则需要查询其对应的IP地址，一个主机名称可能对应多个主机地址，
+     * 此时，返回结果将是一个InetAddress列表，
+     *
+     * reqAddr代表预期的InetAddress，如果最终的InetAddress列表中包含reqAddr，则将其调整到列表的首位
+     */
     private static InetAddress[] getAllByName0 (String host, InetAddress reqAddr, boolean check)
         throws UnknownHostException  {
 
@@ -1282,6 +1344,7 @@ class InetAddress implements java.io.Serializable {
         return addresses.clone();
     }
 
+    // 通过IP-域名映射服务，查询出host对应的网络地址列表。如果reqAddr也在其中，将其设置到列表首位。
     private static InetAddress[] getAddressesFromNameService(String host, InetAddress reqAddr)
         throws UnknownHostException
     {
@@ -1319,7 +1382,7 @@ class InetAddress implements java.io.Serializable {
                          * constructor.  if you do you will still be
                          * allocating space when the lookup fails.
                          */
-
+                        // 将主机名称或主机地址映射为InetAddress实例
                         addresses = nameService.lookupAllHostAddr(host);
                         success = true;
                         break;
@@ -1339,6 +1402,7 @@ class InetAddress implements java.io.Serializable {
                 }
 
                 // More to do?
+                // 如果需要的话，将reqAddr调整到addresses首位
                 if (reqAddr != null && addresses.length > 1 && !addresses[0].equals(reqAddr)) {
                     // Find it?
                     int i = 1;
@@ -1348,6 +1412,7 @@ class InetAddress implements java.io.Serializable {
                         }
                     }
                     // Rotate
+                    // 将reqAddr插入到addresses首位
                     if (i < addresses.length) {
                         InetAddress tmp, tmp2 = reqAddr;
                         for (int j = 0; j < i; j++) {
@@ -1434,11 +1499,13 @@ class InetAddress implements java.io.Serializable {
      * @exception  UnknownHostException  if IP address is of illegal length
      * @since 1.4
      */
+    // 用给定主机地址创建一个InetAddress实例
     public static InetAddress getByAddress(byte[] addr)
         throws UnknownHostException {
         return getByAddress(null, addr);
     }
 
+    // 缓存本地主机名称和地址
     private static InetAddress cachedLocalHost = null;
     private static long cacheTime = 0;
     private static final long maxCacheTime = 5000L;
@@ -1467,10 +1534,12 @@ class InetAddress implements java.io.Serializable {
      * @see SecurityManager#checkConnect
      * @see java.net.InetAddress#getByName(java.lang.String)
      */
+    // 返回本地主机地址
     public static InetAddress getLocalHost() throws UnknownHostException {
 
         SecurityManager security = System.getSecurityManager();
         try {
+            // 获取本地主机名称
             String local = impl.getLocalHostName();
 
             if (security != null) {
@@ -1478,6 +1547,7 @@ class InetAddress implements java.io.Serializable {
             }
 
             if (local.equals("localhost")) {
+                // 获取本地环回地址
                 return impl.loopbackAddress();
             }
 
@@ -1506,6 +1576,7 @@ class InetAddress implements java.io.Serializable {
                         uhe2.initCause(uhe);
                         throw uhe2;
                     }
+                    // 将本地主机名称和地址加入到缓存中
                     cachedLocalHost = localAddrs[0];
                     cacheTime = now;
                     ret = localAddrs[0];
@@ -1527,6 +1598,7 @@ class InetAddress implements java.io.Serializable {
      * Returns the InetAddress representing anyLocalAddress
      * (typically 0.0.0.0 or ::0)
      */
+    // 获取通配地址
     static InetAddress anyLocalAddress() {
         return impl.anyLocalAddress();
     }
@@ -1534,6 +1606,7 @@ class InetAddress implements java.io.Serializable {
     /*
      * Load and instantiate an underlying impl class
      */
+    // 加载并实例化InetAddressImpl的实现类（分为IP4实现和IP6实现两种）
     static InetAddressImpl loadImpl(String implName) {
         Object impl = null;
 
@@ -1637,12 +1710,15 @@ class InetAddress implements java.io.Serializable {
 /*
  * Simple factory to create the impl
  */
+// InetAddressImpl对象工厂
 class InetAddressImplFactory {
 
+    // 创建InetAddressImpl的实现类（分为IP4和IP6两种）
     static InetAddressImpl create() {
         return InetAddress.loadImpl(isIPv6Supported() ?
                                     "Inet6AddressImpl" : "Inet4AddressImpl");
     }
 
+    // 系统是否支持IP6协议
     static native boolean isIPv6Supported();
 }

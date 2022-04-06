@@ -40,16 +40,26 @@ import java.security.AccessController;
  *
  * @since 1.4
  */
+// NetworkInterface表示一个网络接口，这可以是一个物理的网络接口，也可以是一个虚拟的网络接口
 public final class NetworkInterface {
+    // 当前网络接口名称（机器名称，如lo、et0、et1、wlan1）
     private String name;
+    // 当前网络接口名称（别名，如Software Loopback Interface、VMware Virtual Ethernet Adapter）
     private String displayName;
+    // 当前网络接口的索引
     private int index;
+    // 绑定到当前网络接口的网络IP（包含IP4和IP6地址）
     private InetAddress addrs[];
+    // 当前网络接口绑定的IP，包括网络IP和广播IP
     private InterfaceAddress bindings[];
+    // 当前网络接口的子网络接口（如虚拟接口）
     private NetworkInterface childs[];
     private NetworkInterface parent = null;
+    // 当前网络接口是否为虚拟化接口
     private boolean virtual = false;
+    // 当前系统的默认网络接口
     private static final NetworkInterface defaultInterface;
+    // 默认网络接口的索引
     private static final int defaultIndex; /* index of defaultInterface */
 
     static {
@@ -90,6 +100,7 @@ public final class NetworkInterface {
      *
      * @return the name of this network interface
      */
+    // 网络接口名称
     public String getName() {
             return name;
     }
@@ -107,8 +118,10 @@ public final class NetworkInterface {
      * @return an Enumeration object with all or a subset of the InetAddresses
      * bound to this network interface
      */
+    // 获取绑定到当前网络接口的IP地址（包括IP4和IP6地址）
     public Enumeration<InetAddress> getInetAddresses() {
 
+        // 枚举化
         class checkedAddresses implements Enumeration<InetAddress> {
 
             private int i=0, count=0;
@@ -166,6 +179,7 @@ public final class NetworkInterface {
      *         InterfaceAddresss of this network interface
      * @since 1.6
      */
+    // 获取网络接口绑定的IP（包括网络IP和广播IP）
     public java.util.List<InterfaceAddress> getInterfaceAddresses() {
         java.util.List<InterfaceAddress> lst = new java.util.ArrayList<InterfaceAddress>(1);
         SecurityManager sec = System.getSecurityManager();
@@ -190,6 +204,7 @@ public final class NetworkInterface {
      * of this network interface
      * @since 1.6
      */
+    // 获取当前网络接口的子网络接口（如虚拟接口）
     public Enumeration<NetworkInterface> getSubInterfaces() {
         class subIFs implements Enumeration<NetworkInterface> {
 
@@ -222,6 +237,7 @@ public final class NetworkInterface {
      * @return The {@code NetworkInterface} this interface is attached to.
      * @since 1.6
      */
+    // 获取当前子网络接口的父网络接口（如物理接口）
     public NetworkInterface getParent() {
         return parent;
     }
@@ -237,6 +253,7 @@ public final class NetworkInterface {
      * @see #getByIndex(int)
      * @since 1.7
      */
+    // 获取网络接口的索引
     public int getIndex() {
         return index;
     }
@@ -249,6 +266,7 @@ public final class NetworkInterface {
      * @return a non-empty string representing the display name of this network
      *         interface, or null if no display name is available.
      */
+    // 获取网络接口名称（别名，如Software Loopback Interface、VMware Virtual Ethernet Adapter）
     public String getDisplayName() {
         /* strict TCK conformance */
         return "".equals(displayName) ? null : displayName;
@@ -270,6 +288,7 @@ public final class NetworkInterface {
      * @throws  NullPointerException
      *          If the specified name is {@code null}.
      */
+    // 搜索具有指定名称的网络接口
     public static NetworkInterface getByName(String name) throws SocketException {
         if (name == null)
             throw new NullPointerException();
@@ -287,6 +306,7 @@ public final class NetworkInterface {
      * @see #getIndex()
      * @since 1.7
      */
+    // 搜索指定索引处的网络接口
     public static NetworkInterface getByIndex(int index) throws SocketException {
         if (index < 0)
             throw new IllegalArgumentException("Interface index can't be negative");
@@ -315,6 +335,7 @@ public final class NetworkInterface {
      * @throws  NullPointerException
      *          If the specified address is {@code null}.
      */
+    // 搜索绑定到指定IP的网络接口
     public static NetworkInterface getByInetAddress(InetAddress addr) throws SocketException {
         if (addr == null) {
             throw new NullPointerException();
@@ -337,7 +358,7 @@ public final class NetworkInterface {
      * @return an Enumeration of NetworkInterfaces found on this machine
      * @exception  SocketException  if an I/O error occurs.
      */
-
+    // 获得本机上所有网络接口，包括物理的和虚拟的
     public static Enumeration<NetworkInterface> getNetworkInterfaces()
         throws SocketException {
         final NetworkInterface[] netifs = getAll();
@@ -345,7 +366,7 @@ public final class NetworkInterface {
         // specified to return null if no network interfaces
         if (netifs == null)
             return null;
-
+        // 枚举化
         return new Enumeration<NetworkInterface>() {
             private int i = 0;
             public NetworkInterface nextElement() {
@@ -382,7 +403,7 @@ public final class NetworkInterface {
      * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
-
+    // 判断网络接口是否已启动并正在运行
     public boolean isUp() throws SocketException {
         return isUp0(name, index);
     }
@@ -394,7 +415,7 @@ public final class NetworkInterface {
      * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
-
+    // 判断当前网络接口是否为本地环回接口
     public boolean isLoopback() throws SocketException {
         return isLoopback0(name, index);
     }
@@ -409,7 +430,7 @@ public final class NetworkInterface {
      * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
-
+    // 判断当前接口是否为点对点接口
     public boolean isPointToPoint() throws SocketException {
         return isP2P0(name, index);
     }
@@ -440,6 +461,7 @@ public final class NetworkInterface {
      * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
+    // 获取当前网络接口的硬件地址，通常是MAC地址
     public byte[] getHardwareAddress() throws SocketException {
         SecurityManager sec = System.getSecurityManager();
         if (sec != null) {
@@ -452,8 +474,11 @@ public final class NetworkInterface {
                 }
             }
         }
+        // 遍历绑定到当前网络接口的网络地址（IP4和IP6地址）
         for (InetAddress addr : addrs) {
+            // 选择IP4地址
             if (addr instanceof Inet4Address) {
+                // 获取MAC地址
                 return getMacAddr0(((Inet4Address)addr).getAddress(), name, index);
             }
         }
@@ -484,15 +509,18 @@ public final class NetworkInterface {
      * @return {@code true} if this interface is a virtual interface.
      * @since 1.6
      */
+    // 判断当前网络接口是否为虚拟接口
     public boolean isVirtual() {
         return virtual;
     }
 
     private native static boolean isUp0(String name, int ind) throws SocketException;
     private native static boolean isLoopback0(String name, int ind) throws SocketException;
+    // 判断当前网络接口是否支持组播
     private native static boolean supportsMulticast0(String name, int ind) throws SocketException;
     private native static boolean isP2P0(String name, int ind) throws SocketException;
     private native static byte[] getMacAddr0(byte[] inAddr, String name, int ind) throws SocketException;
+    // 获取当前网络接口的最大传输单元（MTU）
     private native static int getMTU0(String name, int ind) throws SocketException;
 
     /**
@@ -574,6 +602,7 @@ public final class NetworkInterface {
      *
      * @return the default interface
      */
+    // 获取当前系统的默认网络接口
     static NetworkInterface getDefault() {
         return defaultInterface;
     }
