@@ -205,6 +205,9 @@ public final class ConfigFile extends Configuration {
             // For policy.expandProperties, check if either a security or system
             // property is set to false (old code erroneously checked the system
             // prop so we must check both to preserve compatibility).
+            //
+            // policy.expandProperties，检查安全性或系统属性是否设置为false(旧代码错误地检查了系统道具，
+            // 所以我们必须检查两者以保持兼容性)。 默认为 true
             String expand = Security.getProperty("policy.expandProperties");
             if (expand == null) {
                 expand = System.getProperty("policy.expandProperties");
@@ -232,10 +235,15 @@ public final class ConfigFile extends Configuration {
             /**
              * Caller did not specify URI via Configuration.getInstance.
              * Read from URLs listed in the java.security properties file.
+             *
+             * 调用者没有通过Configuration.getInstance指定URI。从java中列出的url读取。安全属性文件。
+             *
+             * 默认为true
              */
             String allowSys = Security.getProperty("policy.allowSystemProperty");
 
             if ("true".equalsIgnoreCase(allowSys)) {
+                // 获取你设置的文件路径  /usr/hdp/2.5.3.0-37/baas/jaas/jaas.conf
                 String extra_config = System.getProperty
                                       ("java.security.auth.login.config");
                 if (extra_config != null) {

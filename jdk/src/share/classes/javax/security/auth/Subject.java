@@ -48,6 +48,9 @@ import sun.security.util.ResourcesMgr;
  * its security-related attributes
  * (passwords and cryptographic keys, for example).
  *
+ * 一个Subject表示单个实体(比如一个人)的相关信息分组。这些信息包括Subject的身份
+ * 及其与安全相关的属性(例如，密码和加密密钥)。
+ *
  * <p> Subjects may potentially have multiple identities.
  * Each identity is represented as a {@code Principal}
  * within the {@code Subject}.  Principals simply bind names to a
@@ -59,6 +62,17 @@ import sun.security.util.ResourcesMgr;
  * to the {@code Subject}.  Both Principals refer to the same
  * {@code Subject} even though each has a different name.
  *
+ * Subjects可能有多重身份。每个标识都被表示为Subject中的Principal。
+ * Principals只是将名称绑定到Subject。例如，一个Subject碰巧是一个人，Alice，
+ * 可能有两个Principals:
+ *  1. 一个是将“Alice Bar”(她驾照上的名字)绑定到Subject，
+ *  2. 另一个是将“999-99-9999”(她学生身份证上的号码)绑定到Subject
+ * 两个Principals引用相同的Subject，尽管它们有不同的名称。
+ *
+ *            —— 名称A --> PrincipalA
+ * Subject ——
+ *            --> 名称B --> PrincipalB
+ *
  * <p> A {@code Subject} may also own security-related attributes,
  * which are referred to as credentials.
  * Sensitive credentials that require special protection, such as
@@ -68,6 +82,10 @@ import sun.security.util.ResourcesMgr;
  * within a public credential {@code Set}.  Different permissions
  * are required to access and modify the different credential Sets.
  *
+ * 一个Subject也可能拥有与安全相关的属性，这些属性被称为凭据credentials。
+ * 需要特殊保护的敏感凭据(如私有加密密钥)存储在私有凭据Set中。用于共享的凭据credentials，
+ * 如公钥证书或Kerberos服务器票据存储在公共凭据Set中。访问和修改不同的凭据集需要不同的权限。
+ *
  * <p> To retrieve all the Principals associated with a {@code Subject},
  * invoke the {@code getPrincipals} method.  To retrieve
  * all the public or private credentials belonging to a {@code Subject},
@@ -75,6 +93,13 @@ import sun.security.util.ResourcesMgr;
  * {@code getPrivateCredentials} method, respectively.
  * To modify the returned {@code Set} of Principals and credentials,
  * use the methods defined in the {@code Set} class.
+ *
+ * 要检索与Subject关联的所有Principals，调用getPrincipals方法。
+ * 要检索属于Subject的所有公共或私有凭证，分别调用 getPublicCredentials
+ * 方法或getPrivateCredentials方法。
+ *
+ * 要修改主体和凭证返回的Set，请使用{@code Set}类中定义的方法。
+ *
  * For example:
  * <pre>
  *      Subject subject;
@@ -93,6 +118,11 @@ import sun.security.util.ResourcesMgr;
  * does not implement {@code Serializable}.  Therefore all concrete
  * {@code Principal} implementations associated with Subjects
  * must implement {@code Serializable}.
+ *
+ * Subject类实现了Serializable。虽然与Subject相关联的Principals被序列化，
+ * 但与Subject相关联的credentials凭据没有被序列化。注意，{@code java.security.Principal}
+ * 类没有实现{@code Serializable}。因此，所有与subject相关的具体的{@code Principal}
+ * 实现必须实现{@code Serializable}。
  *
  * @see java.security.Principal
  * @see java.security.DomainCombiner
@@ -579,6 +609,12 @@ public final class Subject implements java.io.Serializable {
      *
      * <p>
      *
+     * 返回与这个{@code Subject}关联的主体的{@code Set}。每个{@code Principal}代表这个{@code Principal}
+     * 的一个标识。
+     *
+     * 返回的{@code Set}由Subject内部的{@code Principal} {@code Set}支持。任何对返回的
+     * {@code Set}的修改也会影响内部的{@code Principal} {@code Set}。
+     *
      * @return  The {@code Set} of Principals associated with this
      *          {@code Subject}.
      */
@@ -586,6 +622,8 @@ public final class Subject implements java.io.Serializable {
 
         // always return an empty Set instead of null
         // so LoginModules can add to the Set if necessary
+
+        // 总是返回一个空的Set而不是null，所以LoginModules可以在必要时添加到Set中
         return principals;
     }
 
@@ -667,6 +705,17 @@ public final class Subject implements java.io.Serializable {
      *
      * <p>
      *
+     * 返回{@code Subject}持有的私有凭证的{@code Set}。
+     *
+     * 返回的{@code Set}由Subject的内部私有凭据{@code Set}支持。任何对返回的{@code Set}
+     * 的修改也会影响内部私有的Credential {@code Set}。
+     *
+     * 调用者需要访问返回的{@code Set}中的Credentials，或者修改{@code Set}本身的权限。
+     * 如果调用者没有适当的权限，则抛出{@code SecurityException}。
+     *
+     * 在遍历{@code Set}时，如果调用者没有访问特定凭据的权限，则抛出{@code SecurityException}。
+     * {@code Iterator}仍然被提升到{@code Set}中的下一个元素。
+     *
      * @return  A {@code Set} of private credentials held by this
      *          {@code Subject}.
      */
@@ -682,6 +731,11 @@ public final class Subject implements java.io.Serializable {
 
         // always return an empty Set instead of null
         // so LoginModules can add to the Set if necessary
+
+        // 我们不需要AuthPermission(getPrivateCredentials)的安全检查，因为我们已经通过
+        // PrivateCredentialPermission限制了对私有凭证的访问。所有额外的AuthPermission
+        // 将做的是保护集合操作本身(如size())，这似乎不安全敏感。总是返回一个空的Set而不是null，
+        // 这样LoginModules可以在必要时添加到Set中
         return privCredentials;
     }
 

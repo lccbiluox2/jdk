@@ -49,12 +49,22 @@ import java.io.IOException;
  * For example, to specify the "host" service use of a forwardable TGT the
  * target permission is specified as follows:
  *
+ * 该类用于限制Kerberos委托模型的使用，例如:可转发票据和代理票据。
+ *
+ * {@code Permission}的目标名称指定一对kerberos服务主体。第一个是被委托使用TGT的从属服务
+ * 主体。第二个服务主体指定下级服务主体要代表初始化的kerberosprinprincipal与之交互的
+ * 目标服务。指定后一个服务主体是为了限制可代理票据的使用。
+ *
+ * 例如，要指定可转发TGT的“主机”服务使用，目标权限的指定如下:
+ *
  * <pre>
  *  DelegationPermission("\"host/foo.example.com@EXAMPLE.COM\" \"krbtgt/EXAMPLE.COM@EXAMPLE.COM\"");
  * </pre>
  * <p>
  * To give the "backup" service a proxiable nfs service ticket the target permission
  * might be specified:
+ *
+ * 要给“backup”服务一个可代理的nfs服务票据，可以指定目标权限:
  *
  * <pre>
  *  DelegationPermission("\"backup/bar.example.com@EXAMPLE.COM\" \"nfs/home.EXAMPLE.COM@EXAMPLE.COM\"");

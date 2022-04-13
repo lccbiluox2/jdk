@@ -42,6 +42,11 @@ import sun.security.util.Debug;
  * Permissions granted to code running as a
  * {@code Principal} in the following manner:
  *
+ * 这是一个抽象类，用于表示基于subject的授权的系统策略。这个类的子类实现提供了一种方法
+ * 来指定基于subject的访问控制策略{@code Policy}。
+ *
+ * 一个{@code Policy}对象可以通过以下方式查询作为{@code Principal}运行的代码的权限集:
+ *
  * <pre>
  *      policy = Policy.getPolicy();
  *      PermissionCollection perms = policy.getPermissions(subject,
@@ -54,6 +59,9 @@ import sun.security.util.Debug;
  * provided <i>subject</i>, and granted to the code specified
  * by the provided <i>codeSource</i>.
  *
+ * Policy对象咨询本地策略，并返回适当的Permissions对象，该对象将权限授予
+ * 与所提供的object相关的subject，并授予由所提供的codeSource指定的代码。
+ *
  * <p> A {@code Policy} contains the following information.
  * Note that this example only represents the syntax for the default
  * {@code Policy} implementation. Subclass implementations of this class
@@ -61,10 +69,16 @@ import sun.security.util.Debug;
  * {@code Policy} from any source such as files, databases,
  * or servers.
  *
+ * 一个Policy包含以下信息。注意，这个例子只代表了默认Policy实现的语法。
+ * 这个类的子类实现可以实现其他语法，可以从任何源(如文件、数据库或服务器)检索Policy。
+ *
  * <p> Each entry in the {@code Policy} is represented as
  * a <b><i>grant</i></b> entry.  Each <b><i>grant</i></b> entry
  * specifies a codebase, code signers, and Principals triplet,
  * as well as the Permissions granted to that triplet.
+ *
+ * Policy中的每个条目都表示为一个授权条目。每个授予条目指定一个代码库、代码签名者和主体三元组，
+ * 以及授予该三元组的权限。
  *
  * <pre>
  *      grant CodeBase ["URL"], Signedby ["signers"],
@@ -80,6 +94,9 @@ import sun.security.util.Debug;
  * and any signer (including unsigned code) will match.
  * For Example,
  *
+ * 三元组名称/值对的CodeBase和Signedby组件是可选的。如果它们不存在，那么任何任何代码库
+ * 都将匹配，任何签名者(包括unsigned代码)都将匹配。例如,
+ *
  * <pre>
  *      grant CodeBase "foo.com", Signedby "foo",
  *            Principal com.sun.security.auth.SolarisPrincipal "duke" {
@@ -93,6 +110,10 @@ import sun.security.util.Debug;
  * permits the executing code to read and write files in the directory,
  * "/home/duke".
  *
+ * 这个授权条目指定来自包名是"foo.com"的代码，由“foo”签名，并以一个名为duke的
+ * {@code SolarisPrincipal}运行，具有一个{@code Permission}。这个{@code Permission}
+ * 允许执行代码读写目录“/home/duke”中的文件。
+ *
  * <p> To "run" as a particular {@code Principal},
  * code invokes the {@code Subject.doAs(subject, ...)} method.
  * After invoking that method, the code runs as all the Principals
@@ -101,10 +122,17 @@ import sun.security.util.Debug;
  * granted in this {@code Policy}) only become effective
  * after the call to {@code Subject.doAs} has occurred.
  *
+ * 要作为一个特定的Principal 去 “run”，代码调用 Subject.doAs(subject, ...)方法。
+ * 调用该方法后，代码将作为与指定的{@code Subject}关联的所有主体运行。注意这个
+ * {@code Policy}(以及这个{@code Policy}中授予的权限)只有在调用Subject.doAs之后才会生效。
+ *
  * <p> Multiple Principals may be listed within one <b><i>grant</i></b> entry.
  * All the Principals in the grant entry must be associated with
  * the {@code Subject} provided to {@code Subject.doAs}
  * for that {@code Subject} to be granted the specified Permissions.
+ *
+ * 多个Principals可以在一个grant条目中列出。grant条目中的所有主体必须与提供给
+ * {@code Subject}的Subject.doAs相关联。为{@code Subject}被授予指定的权限。
  *
  * <pre>
  *      grant Principal com.sun.security.auth.SolarisPrincipal "duke",
@@ -120,6 +148,11 @@ import sun.security.util.Debug;
  *
  * <p> Note that non Principal-based grant entries are not permitted
  * in this {@code Policy}.  Therefore, grant entries such as:
+ *
+ * 该grants授予任何同时以“duke”和“0”运行的代码读写duke主目录中的文件的权限，
+ * 以及建立到“duke.com”的套接字连接的权限。
+ *
+ * 注意，{@code Policy}不允许非基于主体的授权条目。因此，授予条目如下:
  *
  * <pre>
  *      grant CodeBase "foo.com", Signedby "foo" {

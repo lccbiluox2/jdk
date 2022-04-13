@@ -29,6 +29,8 @@ package javax.security.auth;
  * Objects such as credentials may optionally implement this interface
  * to provide the capability to destroy its contents.
  *
+ * 凭据之类的对象可以选择性地实现这个接口，以提供销毁其内容的能力。
+ *
  * @see javax.security.auth.Subject
  */
 public interface Destroyable {

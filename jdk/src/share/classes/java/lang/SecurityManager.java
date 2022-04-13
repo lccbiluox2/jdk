@@ -538,6 +538,10 @@ class SecurityManager {
      * This method calls <code>AccessController.checkPermission</code>
      * with the given permission.
      *
+     * 如果根据当前有效的安全策略，由给定权限指定的请求访问不被允许，则抛出SecurityException。
+     *
+     * 这个方法调用AccessController。checkPermission具有给定的权限。
+     *
      * @param     perm   the requested permission.
      * @exception SecurityException if access is not permitted based on
      *            the current security policy.
@@ -1526,6 +1530,17 @@ class SecurityManager {
      *  loadClass
      * @see        java.security.Security#getProperty getProperty
      * @see        #checkPermission(java.security.Permission) checkPermission
+     *
+     * 如果不允许调用线程访问由参数指定的包，则抛出SecurityException。
+     *
+     * 这个方法由类装入器的loadClass方法使用。
+     *
+     * 这个方法首先通过从调用java.security.Security.getProperty("package.access")
+     * 获得一个逗号分隔的列表来获得一个受限制的包列表，然后检查pkg是否以或等于任何受限制的包开头。
+     * 如果是，则使用RuntimePermission("accessClassInPackage."+pkg)
+     * 权限调用checkPermission。
+     *
+     * 如果此方法被重写，则super。checkPackageAccess应该作为被重写方法的第一行被调用。
      */
     public void checkPackageAccess(String pkg) {
         if (pkg == null) {

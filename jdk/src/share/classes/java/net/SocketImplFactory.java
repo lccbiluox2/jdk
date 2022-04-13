@@ -36,13 +36,16 @@ package java.net;
  * @see     java.net.ServerSocket
  * @since   JDK1.0
  */
-public
-interface SocketImplFactory {
+// "Socket委托"工厂，用来生成"Socket委托"的实例
+public interface SocketImplFactory {
     /**
      * Creates a new {@code SocketImpl} instance.
      *
-     * @return  a new instance of {@code SocketImpl}.
-     * @see     java.net.SocketImpl
+     * @return a new instance of {@code SocketImpl}.
+     *
+     * @see java.net.SocketImpl
      */
+    // 创建一个"Socket委托"
     SocketImpl createSocketImpl();
 }
+

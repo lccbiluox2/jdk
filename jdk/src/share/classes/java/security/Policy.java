@@ -694,6 +694,8 @@ public abstract class Policy {
      * the ProtectionDomain and tests whether the permission is
      * granted.
      *
+     * 评估授予ProtectionDomain的权限的全局策略，并测试是否授予了该权限。
+     *
      * @param domain the ProtectionDomain to test
      * @param permission the Permission object to be tested for implication.
      *

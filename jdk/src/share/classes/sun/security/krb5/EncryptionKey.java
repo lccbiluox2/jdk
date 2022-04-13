@@ -46,6 +46,8 @@ import javax.crypto.spec.DESedeKeySpec;
  * This class encapsulates the concept of an EncryptionKey. An encryption
  * key is defined in RFC 4120 as:
  *
+ * 这个类封装了EncryptionKey的概念。加密密钥在RFC 4120中定义为:
+ *
  * EncryptionKey   ::= SEQUENCE {
  *         keytype         [0] Int32 -- actually encryption type --,
  *         keyvalue        [1] OCTET STRING
@@ -60,8 +62,14 @@ import javax.crypto.spec.DESedeKeySpec;
  *     permitted to share an assigned number to designate the type of
  *     key; this usage is now deprecated.
  *
+ *     此字段指定key value字段后面的加密密钥的加密类型。尽管它的名称是“keytype”，
+ *     但它实际上指定了一种加密类型。以前，多个执行不同加密但能够使用具有相同特征的
+ *     密钥的密码系统被允许共享一个指定的号码来指定密钥类型;这种用法现在已被弃用。
+ *
  * keyvalue
  *     This field contains the key itself, encoded as an octet string.
+ *
+ *     该字段包含密钥本身，编码为一个八位字符串。
  */
 
 public class EncryptionKey
@@ -86,10 +94,13 @@ public class EncryptionKey
 
     /**
      * Returns the raw key bytes, not in any ASN.1 encoding.
+     *
+     * 返回原始键字节，不是任何ASN.1编码。
      */
     public final byte[] getBytes() {
         // This method cannot be called outside sun.security, hence no
         // cloning. getEncoded() calls this method.
+        // 这种方法不能被sun.security包外的类调用。
         return keyValue;
     }
 

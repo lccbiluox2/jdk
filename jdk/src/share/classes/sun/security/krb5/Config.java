@@ -53,23 +53,29 @@ import sun.security.krb5.internal.Krb5;
 /**
  * This class maintains key-value pairs of Kerberos configurable constants
  * from configuration file or from user specified system properties.
+ *
+ * 该类从配置文件或用户指定的系统属性中维护Kerberos可配置常量的键值对。
  */
 
 public class Config {
 
     /*
      * Only allow a single instance of Config.
+     *
+     * 只允许一个Config实例。
      */
     private static Config singleton = null;
 
     /*
      * Hashtable used to store configuration information.
+     *
+     * 用于存储配置信息的哈希表。
      */
     private Hashtable<String,Object> stanzaTable = new Hashtable<>();
 
     private static boolean DEBUG = sun.security.krb5.internal.Krb5.DEBUG;
 
-    // these are used for hexdecimal calculation.
+    // these are used for hexdecimal calculation.这些是用于十六进制计算的。
     private static final int BASE16_0 = 1;
     private static final int BASE16_1 = 16;
     private static final int BASE16_2 = 16 * 16;
@@ -77,6 +83,8 @@ public class Config {
 
     /**
      * Specified by system properties. Must be both null or non-null.
+     *
+     * 由系统属性指定。必须为空或非空。
      */
     private final String defaultRealm;
     private final String defaultKDC;
@@ -89,9 +97,14 @@ public class Config {
      * Gets an instance of Config class. One and only one instance (the
      * singleton) is returned.
      *
+     * 获取Config类的实例。返回一个且只有一个实例(singleton)。
+     *
      * @exception KrbException if error occurs when constructing a Config
      * instance. Possible causes would be either of java.security.krb5.realm or
      * java.security.krb5.kdc not specified, error reading configuration file.
+     *
+     * 当构造Config实例时发生错误时KrbException。可能的原因是java.security.krb5.realm
+     * 或java.security.krb5.kdc未指定，读取配置文件出错。
      */
     public static synchronized Config getInstance() throws KrbException {
         if (singleton == null) {
@@ -107,6 +120,9 @@ public class Config {
      * also tries its best to update static fields in other classes
      * that depend on the configuration.
      *
+     * 刷新并重新加载配置。例如，这可能涉及再次读取Configuration文件或再次获取java.security.krb5.*
+     * 系统属性。这个方法也尽力更新依赖于配置的其他类中的静态字段。
+     *
      * @exception KrbException if error occurs when constructing a Config
      * instance. Possible causes would be either of java.security.krb5.realm or
      * java.security.krb5.kdc not specified, error reading configuration file.
@@ -114,8 +130,11 @@ public class Config {
 
     public static synchronized void refresh() throws KrbException {
         singleton = new Config();
+        // 这个里面的代码不太懂
         KdcComm.initStatic();
+        // 这个里面的代码不太懂
         EType.initStatic();
+        // 这个里面的代码不太懂
         Checksum.initStatic();
     }
 
@@ -147,10 +166,14 @@ public class Config {
 
     /**
      * Private constructor - can not be instantiated externally.
+     *
+     * 私有构造函数——不能在外部实例化。
      */
     private Config() throws KrbException {
         /*
          * If either one system property is specified, we throw exception.
+         *
+         * 如果指定了其中一个系统属性，就会抛出异常。
          */
         String tmp = getProperty("java.security.krb5.kdc");
         if (tmp != null) {
@@ -162,6 +185,10 @@ public class Config {
         defaultRealm = getProperty("java.security.krb5.realm");
         if ((defaultKDC == null && defaultRealm != null) ||
             (defaultRealm == null && defaultKDC != null)) {
+            /**
+             * 系统属性java.security.krb5.kdc和java.security.krb5.realm
+             * 都必须设置，或者两者都不能设置
+             */
             throw new KrbException
                 ("System property java.security.krb5.kdc and " +
                  "java.security.krb5.realm both must be set or " +
@@ -169,8 +196,10 @@ public class Config {
         }
 
         // Always read the Kerberos configuration file
+        // 始终读取Kerberos配置文件
         try {
             List<String> configFile;
+            // 读取 java.security.krb5.conf 配置的文件
             String fileName = getJavaFileName();
             if (fileName != null) {
                 configFile = loadConfigFile(fileName);
@@ -179,7 +208,11 @@ public class Config {
                     System.out.println("Loaded from Java config");
                 }
             } else {
+                // 如果文件不存在
+
                 boolean found = false;
+
+                // mac os 相关的加载
                 if (isMacosLionOrBetter()) {
                     try {
                         stanzaTable = SCDynamicStoreConfig.getConfig();
@@ -192,6 +225,7 @@ public class Config {
                     }
                 }
                 if (!found) {
+                    // 根据不同的系统加载不同的文件名称和格式以及位置
                     fileName = getNativeFileName();
                     configFile = loadConfigFile(fileName);
                     stanzaTable = parseStanzaTable(configFile);
@@ -482,6 +516,10 @@ public class Config {
      * known realms, etc. The file is divided into sections. Each section
      * contains one or more name/value pairs with one pair per line. A
      * typical file would be:
+     *
+     * 从配置文件读取行到内存。配置文件包含关于默认域、票据参数、KDC的位置和已知域的管理服务器等信息。
+     * 文件被分成几个部分。每个部分包含一个或多个名称/值对，每行有一对。一个典型的文件是:
+     *
      * <pre>
      * [libdefaults]
      *          default_realm = EXAMPLE.COM
@@ -507,6 +545,13 @@ public class Config {
      * <li> "{" not at the end of a line is appended to the previous line
      * <li> The content of a section is also placed between "{" and "}".
      * <li> Lines are trimmed</ol>
+     *
+     * @return 一个有序的字符串列表，表示经过一些初始处理后的配置文件，包括:
+     *   1. 删除注释行和空行
+     *   2. 不在行尾的"{"被追加到前一行
+     *   3. section的内容也放在“{”和“}”之间。
+     *   4. Lines are trimmed
+     *
      * @throws IOException if there is an I/O error
      * @throws KrbException if there is a file format error
      */
@@ -610,6 +655,20 @@ public class Config {
      * <li>For duplicated sub-sections, the former overwrites the latter
      * <li>Duplicate keys for values are always saved in a vector
      * </ol>
+     *
+     * 解析从配置文件到哈希表的节名和值。哈希表键将是节名(libdefaults, realms, domain_realms等)，
+     * 而哈希表值将是另一个包含在节名下的键值对的哈希表。这个子哈希表的值可以是另一个包含另一个子部分的哈希表，
+     * 也可以是最终值的字符串向量(即使只定义了一个值)。
+     *
+     * 对于重复的节名，后者覆盖前者。对于重复的值名，值按其出现顺序放在向量中。请注意，这种行为是Java传统的。
+     * 这与麻省理工学院的krb5行为不同，其中:
+     *
+     * 1. 重复的根部分将被合并
+     *
+     * 2. 对于重复的子节，前者覆盖后者
+     *
+     * 3. 值的重复键总是保存在vector中
+     *
      * @param v the strings in the file, never null, might be empty
      * @throws KrbException if there is a file format error
      */
@@ -682,10 +741,19 @@ public class Config {
      * and return it if the file exists.
      *
      * The method returns null if it cannot find a Java config file.
+     *
+     * 获取默认的Java配置文件名称。
+     *
+     * 如果定义了系统属性“java.security.krb5.conf”，我们将使用它的值，不管该文件是否存在。
+     * 否则，我们将查看带有“krb5.conf”名称的$JAVA_HOME/lib/security目录，如果文件存在，
+     * 则返回它。
+     *
+     * 如果找不到Java配置文件，该方法返回null。
      */
     private String getJavaFileName() {
         String name = getProperty("java.security.krb5.conf");
         if (name == null) {
+            // 获取 $JAVA_HOME/lib/security 的文件
             name = getProperty("java.home") + File.separator +
                                 "lib" + File.separator + "security" +
                                 File.separator + "krb5.conf";
@@ -715,6 +783,17 @@ public class Config {
      *
      * This method will always return a non-null non-empty file name,
      * even if that file does not exist.
+     *
+     * 获取默认的本机配置文件名称。
+     *
+     * 根据操作系统类型的不同，该方法返回默认的原生kerberos配置文件名，
+     * 1. 该文件名位于windows目录下， windows为“krb5.ini”，
+     * 2. Solaris为/etc/krb5.conf，否则为/etc/krb5.conf。Mac OSX有一个不同的文件名。
+     *
+     * 注意:当终端服务在Windows中启动时(从2003年开始)，有两种Windows目录:
+     * 系统目录(例如C:\Windows)和用户私有目录(例如 C:\Users\Me\Windows)。
+     * 我们将首先在用户-私有的文件中查找krb5.ini。如果没有找到，则尝试使用系统一。
+     * 这个方法将总是返回一个非空的非空文件名，即使该文件不存在。
      */
     private String getNativeFileName() {
         String name = null;
@@ -799,6 +878,8 @@ public class Config {
     /**
      * For testing purpose. This method lists all information being parsed from
      * the configuration file to the hashtable.
+     *
+     * 用于测试目的。此方法列出从配置文件到哈希表解析的所有信息。
      */
     public void listTable() {
         System.out.println(this);
@@ -808,6 +889,9 @@ public class Config {
      * Returns all etypes specified in krb5.conf for the given configName,
      * or all the builtin defaults. This result is always non-empty.
      * If no etypes are found, an exception is thrown.
+     *
+     * 返回在krb5.conf中为给定的configName指定的所有类型，或所有内置默认值。这个结果总是非空的。
+     * 如果没有找到类型，则抛出异常。
      */
     public int[] defaultEtype(String configName) throws KrbException {
         String default_enctypes;
@@ -950,6 +1034,8 @@ public class Config {
     /**
      * Check to use addresses in tickets
      * use addresses if "no_addresses" or "noaddresses" is set to false
+     *
+     * 如果“no_addresses”或“noaddresses”被设置为false，检查在票据中使用地址
      */
     public boolean useAddresses() {
         boolean useAddr = false;
@@ -966,6 +1052,8 @@ public class Config {
 
     /**
      * Check if need to use DNS to locate Kerberos services
+     *
+     * 检查是否需要使用DNS定位KDC
      */
     private boolean useDNS(String name, boolean defaultValue) {
         Boolean value = getBooleanObject("libdefaults", name);
@@ -981,6 +1069,8 @@ public class Config {
 
     /**
      * Check if need to use DNS to locate the KDC
+     *
+     * 检查是否需要使用DNS定位KDC
      */
     private boolean useDNS_KDC() {
         return useDNS("dns_lookup_kdc", true);
@@ -988,6 +1078,8 @@ public class Config {
 
     /*
      * Check if need to use DNS to locate the Realm
+     *
+     * 检查是否需要使用DNS来定位Realm
      */
     private boolean useDNS_Realm() {
         return useDNS("dns_lookup_realm", false);

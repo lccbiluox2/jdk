@@ -282,6 +282,7 @@ public class ProtectionDomain {
         }
 
         if (!staticPermissions &&
+                // 权限验证
             Policy.getPolicyNoCheck().implies(this, permission))
             return true;
         if (permissions != null)

@@ -56,6 +56,23 @@ import javax.security.auth.DestroyFailedException;
  *
  * @author Mayank Upadhyay
  * @since 1.4
+ *
+ * 该类封装Kerberos主体的长期密钥。
+ *
+ * 所有获取主体密码并从中生成密钥的Kerberos JAAS登录模块都应该使用这个类。有时
+ * ，比如在没有用户对用户身份验证的情况下对服务器进行身份验证时，登录模块会在身份
+ * 验证过程的提交阶段将这个类的实例存储在{@link javax.security.auth.Subject Subject}
+ * 的私有凭据集中。
+ *
+ * 使用keytab读取密钥的Kerberos服务应该使用{@link KeyTab}类，在需要时可以读取最新的密钥。
+ *
+ *
+ *
+ * 如果应用程序需要从Subject中访问KerberosKey实例，那么它可能需要被授予
+ * {@link javax.security.auth.PrivateCredentialPermission PrivateCredentialPermission}。
+ * 当应用程序依赖于默认的JGSS Kerberos机制来访问KerberosKey时，就不需要这个权限。
+ * 但是，在这种情况下，应用程序将需要一个适当的
+ * {@link javax.security.auth.kerberos.ServicePermission ServicePermission}。
  */
 public class KerberosKey implements SecretKey, Destroyable {
 

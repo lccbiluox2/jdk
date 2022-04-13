@@ -173,16 +173,34 @@ abstract class AbstractPlainSocketImpl extends SocketImpl
      *          SocketAddress subclass not supported by this socket
      * @since 1.4
      */
+    /*
+     * 本地Socket向远端Socket发起连接，允许指定超时时间
+     *
+     *                  本地Socket            远端Socket
+     * 1.不存在代理     [客户端Socket]       [服务端Socket(通信)]
+     * 2.存在正向代理   [客户端Socket]        代理端Socket
+     * 3.存在反向代理   [服务端Socket(通信)]  代理端Socket
+     *
+     * endpoint: 在情形1和情形2下，该参数为[服务端Socket(通信)]地址；在情形3下，该参数为代理端Socket地址
+     * timeout : 超时时间，即允许连接等待的时间
+     */
     protected void connect(SocketAddress address, int timeout)
             throws IOException {
         boolean connected = false;
         try {
             if (address == null || !(address instanceof InetSocketAddress))
                 throw new IllegalArgumentException("unsupported address type");
+
+            // 记录远端的Socket地址(ip + port)
             InetSocketAddress addr = (InetSocketAddress) address;
+
+            // 如果该地址还未解析(如域名)，抛异常
             if (addr.isUnresolved())
                 throw new UnknownHostException(addr.getHostName());
+
+            // 获取远端的IP地址
             this.port = addr.getPort();
+            // 获取远端的端口号
             this.address = addr.getAddress();
 
             connectToAddress(this.address, port, timeout);

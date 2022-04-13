@@ -51,6 +51,12 @@ import sun.security.jca.GetInstance;
  * {@code Configuration} from any source such as files, databases,
  * or servers.
  *
+ * Configuration对象负责指定应该为特定的应用程序使用哪些loginmodule，以及应该以什么
+ * 顺序调用loginmodule。
+ *
+ * 登录配置包含如下信息。注意，这个例子只代表了{@code Configuration}的默认语法。这个类
+ * 的子类实现可以实现其他语法，可以从任何源(如文件、数据库或服务器)检索{@code Configuration}。
+ *
  * <pre>
  *      Name {
  *            ModuleClass  Flag    ModuleOptions;
@@ -75,14 +81,23 @@ import sun.security.jca.GetInstance;
  * If an application does not have a specific entry,
  * it defaults to the specific entry for "<i>other</i>".
  *
+ * {@code Configuration}中的每个条目都是通过一个应用程序名称(name)建立索引的，并包含一个
+ * 为该应用程序配置的LoginModules列表。每个{@code LoginModule}都是通过它的全限定类名指定的。
+ * 身份验证按照指定的准确顺序在模块列表中进行。如果应用程序没有特定的条目，它默认为“other”的
+ * 特定条目。
+ *
  * <p> The <i>Flag</i> value controls the overall behavior as authentication
  * proceeds down the stack.  The following represents a description of the
  * valid values for <i>Flag</i> and their respective semantics:
+ *
+ * 当身份验证沿着堆栈向下进行时，Flag值控制整个行为。下面描述了Flag的有效值及其各自的语义:
  *
  * <pre>
  *      1) Required     - The {@code LoginModule} is required to succeed.
  *                      If it succeeds or fails, authentication still continues
  *                      to proceed down the {@code LoginModule} list.
+ *                      —{@code LoginModule} 需要成功。无论验证成功或失败，身份验证仍然
+ *                      会沿着{@code LoginModule}列表继续进行。
  *
  *      2) Requisite    - The {@code LoginModule} is required to succeed.
  *                      If it succeeds, authentication continues down the
@@ -91,6 +106,10 @@ import sun.security.jca.GetInstance;
  *                      (authentication does not proceed down the
  *                      {@code LoginModule} list).
  *
+ *                      —{@code LoginModule} 需要成功。如果成功，身份验证会沿着
+ *                      {@code LoginModule}列表继续。如果失败，控制立即返回到
+ *                      应用程序(身份验证不会沿着{@code LoginModule}列表进行)。
+ *
  *      3) Sufficient   - The {@code LoginModule} is not required to
  *                      succeed.  If it does succeed, control immediately
  *                      returns to the application (authentication does not
@@ -98,10 +117,17 @@ import sun.security.jca.GetInstance;
  *                      If it fails, authentication continues down the
  *                      {@code LoginModule} list.
  *
+ *                      LoginModule并不强制要求成功。如果它成功了，控制立即返回到
+ *                      应用程序(身份验证不会沿着{@code LoginModule}列表进行)。
+ *                      如果失败，身份验证将继续在{@code LoginModule}列表中进行。
+ *
  *      4) Optional     - The {@code LoginModule} is not required to
  *                      succeed.  If it succeeds or fails,
  *                      authentication still continues to proceed down the
  *                      {@code LoginModule} list.
+ *
+ *                      LoginModule并不强制要求成功。无论验证成功或失败，身份验证仍然
+ *                      会沿着{@code LoginModule}列表继续进行。
  * </pre>
  *
  * <p> The overall authentication succeeds only if all <i>Required</i> and
@@ -113,6 +139,11 @@ import sun.security.jca.GetInstance;
  * <i>Requisite</i> LoginModules are configured for an application,
  * then at least one <i>Sufficient</i> or <i>Optional</i>
  * {@code LoginModule} must succeed.
+ *
+ * 只有当所有必需的和必需的loginmodule都成功时，整个身份验证才会成功。如果配置了足够的
+ * {@code LoginModule}并成功了，那么只有在此之前的Required和Requisite LoginModule
+ * 才需要成功，整个身份验证才会成功。如果没有为应用程序配置必需或必需的LoginModule，
+ * 则必须至少有一个充分或可选{@code LoginModule}成功。
  *
  * <p> <i>ModuleOptions</i> is a space separated list of
  * {@code LoginModule}-specific values which are passed directly to
@@ -128,8 +159,18 @@ import sun.security.jca.GetInstance;
  * Note that there is no limit to the number of
  * options a {@code LoginModule} may define.
  *
+ * ModuleOptions是一个用空格分隔的列表，包含了特定于{@code LoginModule}的值，
+ * 这些值直接被传递给底层的LoginModule。选项是由{@code LoginModule}本身定义的，
+ * 并控制其中的行为。例如，{@code LoginModule}可以定义支持调试/测试功能的选项。
+ * 在{@code Configuration}中指定选项的正确方法是使用以下键值配对:debug="true"。
+ * 键和值应该用“等于”符号分隔，值应该用双引号包围。如果一个字符串的形式，${system.property}
+ * 中出现的值，则将其扩展为系统属性的值。注意，{@code LoginModule}可以定义的
+ * 选项的数量是没有限制的。
+ *
  * <p> The following represents an example {@code Configuration} entry
  * based on the syntax above:
+ *
+ * 根据上面的语法，下面是一个示例{@code Configuration}条目:
  *
  * <pre>
  * Login {
@@ -160,10 +201,26 @@ import sun.security.jca.GetInstance;
  * The system properties, <i>user.home</i> and <i>/</i>
  * (file.separator), are expanded to their respective values.
  *
+ * 这个{@code Configuration}指定了一个名为“Login”的应用程序，要求用户首先验证到
+ * com.sun.security.auth.module.UnixLoginModule，这是成功所必需的。
+ * 即使UnixLoginModule的身份验证失败，com.sun.security.auth.module.Krb5LoginModule
+ * 仍然会被调用。这有助于隐藏失败的来源。因为Krb5LoginModule是可选的，
+ * 所以只有当UnixLoginModule (Required)成功时，整个身份验证才会成功。
+ *
+ *
+ *
+ * 还要注意loginmodule特定的选项，useTicketCache="true"和ticketCache=${user.home}${/}tickets"，
+ * 被传递给Krb5LoginModule。这些选项指示Krb5LoginModule在指定位置使用票据缓存。
+ * 系统属性，user.home and / (file.separator), 展开为它们各自的值。
+ *
  * <p> There is only one Configuration object installed in the runtime at any
  * given time.  A Configuration object can be installed by calling the
  * {@code setConfiguration} method.  The installed Configuration object
  * can be obtained by calling the {@code getConfiguration} method.
+ *
+ * 在任何给定的时间，运行时中只安装一个Configuration对象。一个Configuration对象
+ * 可以通过调用{@code setConfiguration}方法来安装。安装的Configuration对象
+ * 可以通过调用{@code getConfiguration}方法获得。
  *
  * <p> If no Configuration object has been installed in the runtime, a call to
  * {@code getConfiguration} installs an instance of the default
@@ -173,6 +230,11 @@ import sun.security.jca.GetInstance;
  * of the {@code login.configuration.provider} security property to the fully
  * qualified name of the desired Configuration subclass implementation.
  *
+ * 如果运行时中没有安装Configuration对象，调用{@code getConfiguration}会安装一个默认
+ * Configuration实现的实例(这个抽象类的默认子类实现)。默认的Configuration实现可以通过
+ * 设置{@code login.configuration.provider}安全属性设置为所需Configuration子类
+ * 实现的完全限定名。
+ *
  * <p> Application code can directly subclass Configuration to provide a custom
  * implementation.  In addition, an instance of a Configuration object can be
  * constructed by invoking one of the {@code getInstance} factory methods
@@ -181,6 +243,11 @@ import sun.security.jca.GetInstance;
  * "{@docRoot}/../technotes/guides/security/StandardNames.html#Configuration">
  * Java Cryptography Architecture Standard Algorithm Name Documentation</a>
  * for a list of standard Configuration types.
+ *
+ * 应用程序代码可以直接子类化Configuration以提供自定义实现。另外，一个Configuration对象
+ * 的实例可以通过调用一个标准类型的{@code getInstance}工厂方法来构造。默认的策略类型是
+ * “JavaLoginConfig”。有关标准配置类型的列表，请参阅Java加密体系结构标准算法名称文档
+ * 中的配置部分。
  *
  * @see javax.security.auth.login.LoginContext
  * @see java.security.Security security properties
@@ -233,6 +300,7 @@ public abstract class Configuration {
                 config_class = AccessController.doPrivileged
                     (new PrivilegedAction<String>() {
                     public String run() {
+                        // 第一步：sun.security.provider.ConfigFile 获取参数
                         return java.security.Security.getProperty
                                     ("login.configuration.provider");
                     }
@@ -248,10 +316,17 @@ public abstract class Configuration {
                                 public Configuration run() throws ClassNotFoundException,
                                         InstantiationException,
                                         IllegalAccessException {
+                                    // 第二步 实例化类 sun.security.provider.ConfigFile
                                     Class<? extends Configuration> implClass = Class.forName(
                                             finalClass, false,
                                             Thread.currentThread().getContextClassLoader()
                                     ).asSubclass(Configuration.class);
+                                    /**
+                                     * 实例化类
+                                     * 1. 会调用 sun.security.provider.ConfigFile#ConfigFile() 空的构造方法
+                                     * 2. 然后调用 sun.security.provider.ConfigFile.Spi#Spi()
+                                     * 3. 然后调用 sun.security.provider.ConfigFile.Spi#init()
+                                     */
                                     return implClass.newInstance();
                                 }
                             });
@@ -306,14 +381,22 @@ public abstract class Configuration {
     /**
      * Returns a Configuration object of the specified type.
      *
+     * 返回指定类型的Configuration对象。
+     *
      * <p> This method traverses the list of registered security providers,
      * starting with the most preferred Provider.
      * A new Configuration object encapsulating the
      * ConfigurationSpi implementation from the first
      * Provider that supports the specified type is returned.
      *
+     * 此方法遍历已注册的安全提供程序列表，从最首选的提供程序开始。返回一个新的Configuration
+     * 对象，该对象封装了来自支持指定类型的第一个提供程序的ConfigurationSpi实现。
+     *
      * <p> Note that the list of registered providers may be retrieved via
      * the {@link Security#getProviders() Security.getProviders()} method.
+     *
+     * 注意，已经注册的提供商列表可以通过{@link Security#getProviders()
+     * Security.getProviders()}方法来检索。
      *
      * @param type the specified Configuration type.  See the Configuration
      *    section in the <a href=

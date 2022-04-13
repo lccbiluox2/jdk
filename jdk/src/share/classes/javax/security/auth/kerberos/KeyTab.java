@@ -68,6 +68,35 @@ import sun.security.krb5.RealmException;
  * <a href="http://www.ioplex.com/utilities/keytab.txt">
  * http://www.ioplex.com/utilities/keytab.txt</a>.
  * <p>
+ *
+ * 这个类封装了一个keytab文件。
+ *
+ * 从keytab文件获取长期密钥的Kerberos JAAS登录模块应该使用这个类。在身份验证过程的提交阶段，
+ * 登录模块将这个类的实例存储在{@link javax.security.auth.Subject Subject}的私有凭据
+ * 集中。
+
+ * 如果一个{@code KeyTab}对象是从{@link #getUnboundInstance()}或
+ * {@link #getUnboundInstance(java.io.File)}获得的，那么它是未绑定的，因此可以
+ * 被任何服务主体使用。否则，如果它是从{@link #getInstance(KerberosPrincipal)}
+ * 或{@link #getInstance(KerberosPrincipal, java.io.File)}获得的，它将被绑定
+ * 到特定的服务主体，并且只能由该服务主体使用。
+ *
+
+ * 请注意，构造函数{@link #getInstance()}和{@link #getInstance(java.io.File)}
+ * 是在不支持未绑定的键标签时创建的。这些方法不应该再使用了。使用这两种方法创建的对象
+ * 会被认为绑定到一个未知的主体，这意味着，它的{@link #isBound()}返回true，
+ * 而{@link #getPrincipal()}返回null。
+ *
+ *
+ *
+ * 如果需要从Subject访问KeyTab实例，应用程序可能需要被授予
+ * {@link javax.security.auth.PrivateCredentialPermission PrivateCredentialPermission}。
+ * 当应用程序依赖于默认的JGSS Kerberos机制来访问KeyTab时，不需要这个权限。但是，
+ * 在这种情况下，应用程序将需要一个适当的
+ * {@link javax.security.auth.kerberos.ServicePermission ServicePermission}。
+ *
+ * keytab文件格式请参见http://www.ioplex.com/utilities/keytab.txt。
+ *
  * @since 1.7
  */
 public final class KeyTab {
@@ -83,10 +112,19 @@ public final class KeyTab {
      * contains the content of the keytab file when the snapshot is taken.
      * Itself has no refresh function and mostly an immutable class (except
      * for the create/add/save methods only used by the ktab command).
+     *
+     * 重要注意:
+     *
+     * 这个类只是一个名称，一个到keytab源的永久链接(可能缺失)。本身没有内容。为了读取内容，
+     * 请获取快照并从中读取。快照的类型是sun.security.krb5.internal.ktab.KeyTab，
+     * 其中包含快照时keytab文件的内容。它本身没有刷新功能，大部分是一个不可变的类
+     * (除了仅由ktab命令使用的创建/添加/保存方法外)。
      */
 
     // Source, null if using the default one. Note that the default name
     // is maintained in snapshot, this field is never "resolved".
+    //
+    // 源，如果使用默认值，则为空。请注意，默认名称是在snapshot中维护的，这个字段永远不会被“解析”。
     private final File file;
 
     // Bound user: normally from the "principal" value in a JAAS krb5

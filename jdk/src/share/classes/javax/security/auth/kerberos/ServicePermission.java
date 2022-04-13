@@ -44,6 +44,13 @@ import java.io.IOException;
  * or acquired via an exchange with the KDC. The credential can
  * be either a ticket granting ticket, a service ticket or a secret
  * key from a key table.
+ *
+ * 该类用于保护Kerberos服务和访问这些服务所需的凭证。服务主体和访问服务所必需的凭据之间
+ * 存在一对一的映射。因此，授予对服务主体的访问权隐式地授予对与服务主体建立安全上下文
+ * 所必需的凭证的访问权。无论凭证是在缓存中，还是通过与KDC交换获得，这都适用。该凭证
+ * 可以是一个票据授予票据、一个服务票据或一个密钥表的秘密密钥。
+ *
+ *
  * <p>
  * A ServicePermission contains a service principal name and
  * a list of actions which specify the context the credential can be
@@ -60,6 +67,18 @@ import java.io.IOException;
  * designated by the action. In the case of the TGT, granting this
  * permission also implies that the TGT can be obtained by an
  * Authentication Service exchange.
+ *
+ *
+ * ServicePermission包含一个服务主体名称和一个操作列表，这些操作指定了可以
+ * 在其中使用凭据的上下文。
+ *
+ *
+ * 服务主体名称是提供服务的{@code KerberosPrincipal}的规范名称，即KerberosPrincipal
+ * 表示一个Kerberos服务主体。该名称以区分大小写的方式处理。星号可以单独出现，表示任何服务主体。
+
+ * 授予此权限意味着调用者可以在操作指定的上下文中使用缓存的凭据(TGT、服务票据或密钥)。在TGT
+ * 的情况下，授予此权限还意味着TGT可以通过身份验证服务交换获得。
+ *
  * <p>
  * The possible actions are:
  *
@@ -94,6 +113,24 @@ import java.io.IOException;
  *     ServicePermission("host/foo.example.com@EXAMPLE.COM", "accept");
  * </pre>
  *
+ * 可能的actions是:
+ *
+ *    initiate —允许调用者使用凭据初始化一个带有服务主体的安全上下文。
+ *    accept 允许调用者使用凭据接受安全上下文作为特定主体。
+ *
+ * 例如，要指定对TGT的访问权限以初始化一个安全上下文，该权限的构造如下
+ *
+ *     ServicePermission("krbtgt/EXAMPLE.COM@EXAMPLE.COM", "initiate"
+ *
+ * 为了获得一个服务票据来初始化一个带有“host”服务的上下文，权限构造如下:
+ *
+ *        ServicePermission("host/foo.example.com@EXAMPLE.COM", "initiat
+ *
+ * 对于Kerberized的服务器，操作是“accept”。例如，访问和使用kerberos的“hos”服务
+ * (telnet等)的密钥所必需的p将被构造如下:
+ *
+ *    ServicePermission("host/foo.example.com@EXAMPLE.COM", "accept"
+ *
  * @since 1.4
  */
 
@@ -104,25 +141,29 @@ public final class ServicePermission extends Permission
 
     /**
      * Initiate a security context to the specified service
+     *
+     * 向指定的服务初始化一个安全上下文
      */
     private final static int INITIATE   = 0x1;
 
     /**
      * Accept a security context
+     *
+     * 接受安全上下文
      */
     private final static int ACCEPT     = 0x2;
 
     /**
-     * All actions
+     * All actions  所有权限
      */
     private final static int ALL        = INITIATE|ACCEPT;
 
     /**
-     * No actions.
+     * No actions. 没有权限
      */
     private final static int NONE    = 0x0;
 
-    // the actions mask
+    // the actions mask  action的掩码
     private transient int mask;
 
     /**
@@ -139,6 +180,8 @@ public final class ServicePermission extends Permission
      * with the specified {@code servicePrincipal}
      * and {@code action}.
      *
+     * 根据 servicePrincipal 和 action 构建一个 ServicePermission
+     *
      * @param servicePrincipal the name of the service principal.
      * An asterisk may appear by itself, to signify any service principal.
      * <p>
@@ -148,6 +191,9 @@ public final class ServicePermission extends Permission
         // Note: servicePrincipal can be "@REALM" which means any principal in
         // this realm implies it. action can be "-" which means any
         // action implies it.
+        //
+        // 注意:servicePrincipal可以是“@REALM”，这意味着这个领域中的任何主体都会暗示它。
+        // 动作可以是“-”，这意味着任何动作都暗示着它。
         super(servicePrincipal);
         init(servicePrincipal, getMask(action));
     }

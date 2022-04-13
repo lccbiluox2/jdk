@@ -123,6 +123,60 @@ import java.util.Map;
  * no arguments.  This allows classes which load the {@code LoginModule}
  * to instantiate it.
  *
+ * LoginModule描述了认证技术提供商实现的接口。loginmodule被插入到应用程序中，以提供特定类型的身份验证。
+ *
+ * 当应用程序写入LoginContext API时，身份验证技术提供商实现了LoginModule接口。一个Configuration
+ * 指定用于特定登录应用程序的LoginModule。因此，可以在应用程序下插入不同的loginmodule，而不需要对
+ * 应用程序本身进行任何修改。
+ *
+ *
+ *
+ * LoginContext负责读取Configuration并实例化相应的loginmodule。每个LoginModule都用一个Subject、
+ * 一个CallbackHandler、共享的LoginModule状态和特定于LoginModule的选项来初始化。Subject表示当前
+ * 正在验证的Subject，如果验证成功，则使用相关凭据更新。loginmodule使用CallbackHandler来与用户通信。
+ * 例如，CallbackHandler可以用来提示输入用户名和密码。注意，CallbackHandler可能为空。绝对需要
+ * CallbackHandler来验证Subject的LoginModules可能会抛出LoginException。LoginModules可以选择
+ * 使用共享状态在它们之间共享信息或数据。
+ *
+ *
+ *
+ * 特定于LoginModule的选项表示管理员或用户在登录Configuration中为这个LoginModule配置的选项。
+ * 这些选项是由LoginModule本身定义的，并控制其中的行为。例如，LoginModule可以定义支持调试/测试功能
+ * 的选项。选项是使用键值语法定义的，比如debug=true。LoginModule将选项存储为{@code Map}，这样就
+ * 可以使用键来检索值。注意，LoginModule没有限制选项的数量。
+ *
+ *
+ *
+ * 调用应用程序将身份验证过程视为单个操作。然而，LoginModule中的身份验证过程分为两个不同的阶段。
+ * 在第一阶段，LoginModule的login方法被LoginContext的login方法调用。LoginModule的login方法
+ * 然后执行实际的身份验证(例如提示并验证密码)，并将其身份验证状态保存为私有状态信息。一旦完成，
+ * LoginModule的login方法要么返回{@code true}(如果它成功)，要么返回{@code false}(如果它应该被忽略)，
+ * 要么抛出一个LoginException来指定失败。在失败的情况下，LoginModule不能重试身份验证或引入延迟。
+ * 这些任务的责任属于应用程序。如果应用程序尝试重试身份验证，LoginModule的login方法将再次被调用。
+ *
+ *
+ *
+ * 在第二阶段，如果LoginContext的整体身份验证成功(相关的REQUIRED、REQUISITE、SUFFICIENT和
+ * OPTIONAL LoginModule成功)，则调用LoginModule的commit方法。LoginModule的commit方法会
+ * 检查它私有保存的状态，看看它自己的身份验证是否成功。如果整个LoginContext认证成功，并且LoginModule
+ * 自己的认证成功，那么commit方法将相关的主体(已认证的身份)和凭证(认证数据，比如加密密钥)与位于LoginModule
+ * 中的Subject关联。
+ *
+ *
+ *
+ * 如果LoginContext的整体身份验证失败(相关的REQUIRED、REQUISITE、SUFFICIENT和OPTIONAL LoginModule
+ * 没有成功)，则调用每个LoginModule的abort方法。在这种情况下，LoginModule删除/销毁最初保存的任何
+ * 身份验证状态。
+ *
+ *
+ *
+ * 注销Subject只涉及一个阶段。LoginContext调用LoginModule的logout方法。LoginModule的logout
+ * 方法然后执行注销过程，例如从Subject或日志会话信息中删除主体或凭据。
+ *
+ *
+ *
+ * 一个LoginModule实现必须有一个不带参数的构造函数。这允许加载LoginModule的类实例化它。
+ *
  * @see javax.security.auth.login.LoginContext
  * @see javax.security.auth.login.Configuration
  */

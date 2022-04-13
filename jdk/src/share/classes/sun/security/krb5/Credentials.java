@@ -43,6 +43,8 @@ import java.net.InetAddress;
  * This class encapsulates the concept of a Kerberos service
  * credential. That includes a Kerberos ticket and an associated
  * session key.
+ *
+ * 这个类封装了Kerberos服务凭据的概念。这包括一个Kerberos ticket 和一个关联的会话密钥。
  */
 public class Credentials {
 

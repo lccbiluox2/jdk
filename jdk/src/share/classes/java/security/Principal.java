@@ -32,6 +32,8 @@ import javax.security.auth.Subject;
  * can be used to represent any entity, such as an individual, a
  * corporation, and a login id.
  *
+ * 该接口表示主体的抽象概念，可用于表示任何实体，如个人、公司和登录id。
+ *
  * @see java.security.cert.X509Certificate
  *
  * @author Li Gong

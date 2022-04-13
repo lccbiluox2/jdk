@@ -32,6 +32,9 @@ package javax.security.auth;
  * may implement this interface to allow callers to refresh the time period
  * for which it is valid.
  *
+ * 凭据等对象可以选择性地实现这个接口，以提供刷新自身的功能。例如，具有特定时间限制寿命的凭据
+ * 可以实现此接口，以允许调用者刷新其有效的时间段。
+ *
  * @see javax.security.auth.Subject
  */
 public interface Refreshable {

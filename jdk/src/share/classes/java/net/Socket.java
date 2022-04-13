@@ -50,27 +50,86 @@ import java.security.PrivilegedAction;
  * @see     java.nio.channels.SocketChannel
  * @since   JDK1.0
  */
+/*
+ * 面向连接的Socket(使用TCP Socket)，用在客户端与服务端
+ *
+ * Socket用于在客户端和服务端之间进行通信，
+ * 该类的实例位于客户端时，我将其称为：[客户端Socket]，
+ * 该类的实例位于服务端时，我将其称为：[服务端Socket]，
+ *
+ * 对于[服务端Socket]，又分为两类：
+ * 其中一类用来监听客户端的连接请求，我将其称为[服务端Socket(监听)]，
+ * 还有一类用来与[客户端Socket]进行通信，我将其称为[服务端Socket(通信)]，
+ * 对于同一个监听地址，[服务端Socket(监听)]只有一个，而[服务端Socket(通信)]会有多个。
+ *
+ * 注：当存在反向代理时，[服务端Socket(通信)]会与代理端的Socket通信。
+ *
+ * 特别注意的是，当前语境下，[服务端Socket]与ServerSocket要做区分。
+ *
+ *
+ * Linux上的TCP通信方法（本类中实现的API与底层API略有区别）：
+ *
+ * 服务端                客户端
+ *
+ * sokcet()             sokcet()
+ *   ↓                     ↓
+ * bind()               bind()-可选
+ *   ↓                     ↓
+ * listen()                ↓
+ *   ↓                     ↓
+ * accept()                ↓
+ *   ↓                     ↓
+ * 阻塞，等待客户端连接      ↓
+ *   ↓                     ↓
+ *   █    ←←←←←←←←←←←←← connect()
+ *   ↓                     ↓
+ *   ↓     客户端发出请求   ↓
+ * read() ←←←←←←←←←←←←← write()
+ *   ↓                     ↓
+ * 服务端处理请求           ↓
+ * 服务端做出响应           ↓
+ *   ↓                     ↓
+ *   ↓     客户端接收响应   ↓
+ * write() →→→→→→→→→→→→ read()
+ *   ↓                     ↓
+ * close()              close()
+ *
+ *
+ * 注：客户端与服务端是一个相对的概念，没有绝对的客户端或绝对的服务端
+ */
 public
 class Socket implements java.io.Closeable {
     /**
      * Various states of this socket.
      */
+    // 指示[客户端Socket]/[服务端Socket(通信)]是否已创建
     private boolean created = false;
+    // 指示[客户端Socket]/[服务端Socket(通信)]是否已绑定
     private boolean bound = false;
+    // 指示[客户端Socket]/[服务端Socket(通信)]是否已连接
     private boolean connected = false;
+    // 指示socket连接是否已关闭
     private boolean closed = false;
     private Object closeLock = new Object();
+    // 是否关闭了读取功能
     private boolean shutIn = false;
+    // 是否关闭了写入功能
     private boolean shutOut = false;
 
     /**
      * The implementation of this Socket.
+     */
+    /*
+     * [客户端Socket]和[服务端Socket(通信)]的"Socket委托"，用来与远端通信
+     *
+     * 注：[客户端Socket]与[服务端Socket(通信)]互为远端
      */
     SocketImpl impl;
 
     /**
      * Are we using an older SocketImpl?
      */
+    // 是否在使用旧式的"Socket委托"(JDK1.5起始，该值均为false)
     private boolean oldImpl = false;
 
     /**
@@ -419,8 +478,20 @@ class Socket implements java.io.Closeable {
              new InetSocketAddress(0), stream);
     }
 
+    /*
+     * ▶ 1
+     *
+     * 构造一个[客户端Socket]，并对其执行【bind】和【connect】操作
+     *
+     * 【bind】过程是可选的，只有指定了非空的localAddr才显式执行【bind】过程
+     *
+     * address  : [服务端Socket]地址
+     * localAddr: 客户端待绑定的本地地址
+     * stream   : 创建TCP(true)/UDP(false)连接
+     */
     private Socket(SocketAddress address, SocketAddress localAddr,
                    boolean stream) throws IOException {
+        // 初始化Socket的委托，并为其关联客户端Socket
         setImpl();
 
         // backward compatibility
@@ -428,9 +499,14 @@ class Socket implements java.io.Closeable {
             throw new NullPointerException();
 
         try {
+            // 创建[客户端Socket]文件，并记下其文件描述符
             createImpl(stream);
+            // 如果设置了本地socket地址，则将其绑定到[客户端Socket]上
             if (localAddr != null)
+                // 对[客户端Socket]执行【bind】操作
                 bind(localAddr);
+
+            // 执行连接操作
             connect(address);
         } catch (IOException | IllegalArgumentException | SecurityException e) {
             try {
@@ -450,10 +526,22 @@ class Socket implements java.io.Closeable {
      * @throws IOException if creation fails
      * @since 1.4
      */
+    /*
+     * (2)创建[客户端Socket]/[服务端Socket(通信)]文件，并记下其文件描述符
+     *
+     * stream==true ：创建TCP Socket
+     * stream==false：创建UDP Socket
+     *
+     * 注：当存在反向代理时，需要调用此方法创建[服务端Socket(通信)]在本地的实现
+     * 　　否则，[服务端Socket(通信)]会在ServerSocket中被创建，此处仅创建[客户端Socket]
+     */
      void createImpl(boolean stream) throws SocketException {
+         // 当存在反向代理时，此处的impl非空
         if (impl == null)
+            // 初始化[客户端Socket]的委托，并为其关联客户端Socket
             setImpl();
         try {
+            // 创建[客户端Socket]/[服务端Socket(通信)]，并将其文件描述符记录到impl中
             impl.create(stream);
             created = true;
         } catch (IOException e) {
@@ -493,8 +581,11 @@ class Socket implements java.io.Closeable {
      * Sets impl to the system-default type of SocketImpl.
      * @since 1.4
      */
+    // (1)初始化"Socket委托"，并为其关联当前Socket
     void setImpl() {
+        // 如果存在"Socket委托"工厂
         if (factory != null) {
+            // 从"Socket委托"工厂生成"Socket委托"
             impl = factory.createSocketImpl();
             checkOldImpl();
         } else {
@@ -503,6 +594,7 @@ class Socket implements java.io.Closeable {
             impl = new SocksSocketImpl();
         }
         if (impl != null)
+            // 为"Socket委托"关联Socket
             impl.setSocket(this);
     }
 
@@ -515,8 +607,11 @@ class Socket implements java.io.Closeable {
      * @throws SocketException if creation fails
      * @since 1.4
      */
+    // (3)返回[客户端Socket]/[服务端Socket(通信)]的"Socket委托"
     SocketImpl getImpl() throws SocketException {
+        // 如果[客户端Socket]/[服务端Socket(通信)]还未创建
         if (!created)
+            // 创建[客户端Socket]/[服务端Socket(通信)]文件，并记下其文件描述符；true指示创建的是TCP Socket
             createImpl(true);
         return impl;
     }
@@ -533,6 +628,20 @@ class Socket implements java.io.Closeable {
      *          SocketAddress subclass not supported by this socket
      * @since 1.4
      * @spec JSR-51
+     */
+    /*
+     * 对本地Socket执行【connect】操作，以便连接到远端Socket；如果远端还未就绪，则立即返回。
+     *
+     *                  本地Socket            远端Socket
+     * 1.不存在代理     [客户端Socket]       [服务端Socket(通信)]
+     * 2.存在正向代理   [客户端Socket]        代理端Socket
+     * 3.存在反向代理   [服务端Socket(通信)]  代理端Socket
+     *
+     * endpoint: 在情形1和情形2下，该参数为[服务端Socket(通信)]地址；在情形3下，该参数为代理端Socket地址。
+     *
+     * 注：当不存在代理时，直接调用此方法完成[客户端Socket]到[服务端Socket(通信)]的连接；
+     * 　　当存在正向代理时，依然需要按照不存在代理时的情形调用此方法，但是在系统内部，实际完成的是[客户端Socket]到代理端Socket的连接；
+     * 　　当存在反向代理时，该方法会被【间接调用】，以完成[服务端Socket(通信)]到代理端Socket的连接
      */
     public void connect(SocketAddress endpoint) throws IOException {
         connect(endpoint, 0);
@@ -555,6 +664,21 @@ class Socket implements java.io.Closeable {
      * @since 1.4
      * @spec JSR-51
      */
+    /*
+     * 对本地Socket执行【connect】操作，以便连接到远端Socket；允许指定超时，以便等待远端就绪。
+     *
+     *                  本地Socket            远端Socket
+     * 1.不存在代理     [客户端Socket]       [服务端Socket(通信)]
+     * 2.存在正向代理   [客户端Socket]        代理端Socket
+     * 3.存在反向代理   [服务端Socket(通信)]  代理端Socket
+     *
+     * endpoint: 远端地址；在情形1和情形2下，该参数为[服务端Socket(通信)]地址；在情形3下，该参数为代理端Socket地址
+     * timeout : 超时时间，即允许连接等待的时间
+     *
+     * 注：当不存在代理时，直接调用此方法完成[客户端Socket]到[服务端Socket(通信)]的连接；
+     * 　　当存在正向代理时，依然需要按照不存在代理时的情形调用此方法，但是在系统内部，实际完成的是[客户端Socket]到代理端Socket的连接；
+     * 　　当存在反向代理时，该方法会被【间接调用】，以完成[服务端Socket(通信)]到代理端Socket的连接
+     */
     public void connect(SocketAddress endpoint, int timeout) throws IOException {
         if (endpoint == null)
             throw new IllegalArgumentException("connect: The address can't be null");
@@ -571,8 +695,13 @@ class Socket implements java.io.Closeable {
         if (!(endpoint instanceof InetSocketAddress))
             throw new IllegalArgumentException("Unsupported address type");
 
+        // 记录远端的Socket地址(ip + port)
         InetSocketAddress epoint = (InetSocketAddress) endpoint;
+
+        // 获取远端的IP
         InetAddress addr = epoint.getAddress ();
+
+        // 获取远端的端口号
         int port = epoint.getPort();
         checkAddress(addr, "connect");
 
@@ -583,11 +712,20 @@ class Socket implements java.io.Closeable {
             else
                 security.checkConnect(addr.getHostAddress(), port);
         }
+
+        /*
+         * 如果[客户端Socket]/[服务端Socket(通信)]还未创建
+         * 在"正常"使用中，created为false出现于存在反向代理的情形下
+         */
         if (!created)
+            // 创建[客户端Socket]/[服务端Socket(通信)]文件，并记下其文件描述符；true指示创建的是TCP Socket
             createImpl(true);
+
+        // 如果不是使用旧式的"Socket委托"(JDK1.5起始，oldImpl总是为false)
         if (!oldImpl)
             impl.connect(epoint, timeout);
         else if (timeout == 0) {
+            // 处理旧式"Socket委托"
             if (epoint.isUnresolved())
                 impl.connect(addr.getHostName(), port);
             else
@@ -620,6 +758,13 @@ class Socket implements java.io.Closeable {
      * @since   1.4
      * @see #isBound
      */
+    /*
+     * 对[客户端Socket]执行【bind】操作。
+     *
+     * bindpoint: 待绑定的地址(ip+port)
+     *
+     * 注：[服务端Socket(通信)]会在accept期间完成绑定，故不会也不应再调用此方法
+     */
     public void bind(SocketAddress bindpoint) throws IOException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -628,20 +773,31 @@ class Socket implements java.io.Closeable {
 
         if (bindpoint != null && (!(bindpoint instanceof InetSocketAddress)))
             throw new IllegalArgumentException("Unsupported address type");
+
+        // 对本地地址进行强转
         InetSocketAddress epoint = (InetSocketAddress) bindpoint;
         if (epoint != null && epoint.isUnresolved())
             throw new SocketException("Unresolved address");
         if (epoint == null) {
             epoint = new InetSocketAddress(0);
         }
+        // 获取待绑定的本地IP
         InetAddress addr = epoint.getAddress();
+        // 获取待绑定的本地端口号
         int port = epoint.getPort();
         checkAddress (addr, "bind");
         SecurityManager security = System.getSecurityManager();
         if (security != null) {
             security.checkListen(port);
         }
-        getImpl().bind (addr, port);
+        /*
+         * 获取[客户端Socket]的"Socket委托"
+         *
+         * 注：[服务端Socket(通信)]会在accept期间完成绑定
+         */
+        getImpl()
+                // 为指定的"Socket委托"绑定IP与端口号
+                .bind (addr, port);
         bound = true;
     }
 
@@ -898,6 +1054,7 @@ class Socket implements java.io.Closeable {
      * @revised 1.4
      * @spec JSR-51
      */
+    // 获取Socket输入流，从中读取数据
     public InputStream getInputStream() throws IOException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1644,6 +1801,7 @@ class Socket implements java.io.Closeable {
     /**
      * The factory for all client sockets.
      */
+    // "Socket委托"的工厂
     private static SocketImplFactory factory = null;
 
     /**

@@ -34,6 +34,8 @@ import sun.security.util.*;
 /**
  * This class encapsulates a Kerberos principal.
  *
+ * 该类封装了一个Kerberos主体。
+ *
  * @author Mayank Upadhyay
  * @since 1.4
  */
@@ -104,12 +106,23 @@ public final class KerberosPrincipal
      * <a href="../../../../../technotes/guides/security/jgss/tutorials/index.html">
      * Kerberos Requirements </a>
      *
+     * 从提供的字符串输入构造KerberosPrincipal。这个主体的名称类型默认为{@link #KRB_NT_PRINCIPAL KRB_NT_PRINCIPAL}。
+     * 这个字符串假设包含一个在2.1.1节中指定的格式的名称。(Kerberos主体名称形式)的RFC 1964
+     * (例如，duke@FOO.COM，其中duke表示主体，FOO.COM表示realm领域)。
+     *
+     * 如果输入名称不包含realm，则使用默认realm。默认域可以在Kerberos配置文件中指定，
+     * 也可以通过java.security.krb5.realm系统属性指定。有关更多信息，请参见Kerberos需求
+     *
      * @param name the principal name
      * @throws IllegalArgumentException if name is improperly
      * formatted, if name is null, or if name does not contain
      * the realm to use and the default realm is not specified
      * in either a Kerberos configuration file or via the
      * java.security.krb5.realm system property.
+     *
+     * 如果name的格式不正确，如果name为空，或者name不包含要使用的领域，并且在
+     * Kerberos配置文件或通过java.security.krb5.realm系统属性中没有指定默认领域。
+     * 那么将抛出 IllegalArgumentException 异常
      */
     public KerberosPrincipal(String name) {
         this(name, KRB_NT_PRINCIPAL);
@@ -149,6 +162,7 @@ public final class KerberosPrincipal
 
         try {
             // Appends the default realm if it is missing
+            // 如果默认域缺失，则追加该域
             krb5Principal  = new PrincipalName(name,nameType);
         } catch (KrbException e) {
             throw new IllegalArgumentException(e.getMessage());
@@ -156,6 +170,8 @@ public final class KerberosPrincipal
 
         // A ServicePermission with a principal in the deduced realm and
         // any action must be granted if no realm is provided by caller.
+        //
+        // 如果调用方没有提供域，则必须授予具有推导域中主体的ServicePermission和任何操作。
         if (krb5Principal.isRealmDeduced() && !Realm.AUTODEDUCEREALM) {
             SecurityManager sm = System.getSecurityManager();
             if (sm != null) {

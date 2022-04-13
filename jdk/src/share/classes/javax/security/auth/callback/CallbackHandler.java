@@ -79,6 +79,12 @@ public interface CallbackHandler {
      * This example code is for guidance only.  Many details,
      * including proper error handling, are left out for simplicity.
      *
+     * 检索或显示在提供的回调中请求的信息。
+     *
+     * {@code handle}方法的实现检查传入的{@code Callback}对象的实例，以检索或显示所请求的信息。
+     * 下面的例子演示了{@code handle}方法的实现可能是什么样的。此示例代码仅供参考。为了简单起见，
+     * 我们省略了许多细节，包括正确的错误处理。
+     *
      * <pre>{@code
      * public void handle(Callback[] callbacks)
      * throws IOException, UnsupportedCallbackException {

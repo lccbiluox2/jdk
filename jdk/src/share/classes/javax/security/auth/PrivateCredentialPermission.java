@@ -37,10 +37,15 @@ import sun.security.util.ResourcesMgr;
  * belonging to a particular {@code Subject}.  The {@code Subject}
  * is represented by a Set of Principals.
  *
+ * 这个类用于保护对属于特定Subject的私有凭证的访问。Subject由一组主体(principal)表示。
+ *
  * <p> The target name of this {@code Permission} specifies
  * a Credential class name, and a Set of Principals.
  * The only valid value for this Permission's actions is, "read".
  * The target name must abide by the following syntax:
+ *
+ * 这个Permission的目标名指定了一个凭据类名和一组主体。此Permission操作的唯一有效值
+ * 是“read”。目标名称必须遵守以下语法:
  *
  * <pre>
  *      CredentialClass {PrincipalClass "PrincipalName"}*
@@ -53,6 +58,11 @@ import sun.security.util.ResourcesMgr;
  * Codebase, SignedBy, or Principal information in the grant statement
  * (for simplicity reasons), actual policy configurations should
  * specify that information when appropriate.
+ *
+ * 例如，下面的权限授予访问由具有名为“duke”的com.sun.Principal的subject拥有的
+ * com.sun.PrivateCredential。请注意，尽管这个示例以及下面的所有示例在grant语句
+ * 中不包含Codebase、SignedBy或Principal信息(出于简单的原因)，但实际的策略配置
+ * 应该在适当的时候指定这些信息。
  *
  * <pre>
  *
@@ -72,6 +82,12 @@ import sun.security.util.ResourcesMgr;
  * For example, the following grants access to the
  * a.b.Credential owned by any {@code Subject} that has
  * an a.b.Principal.
+ *
+ * 如果CredentialClass是“*”，那么访问权限被授予属于指定的{@code Subject}的所有私有凭据。
+ * 如果“PrincipalName”是“*”,那么就允许访问指定的凭据属于任何Principal指定的Subject
+ *
+ * (实际PrincipalName无所谓例如,以下授予访问a.b.Credential属于任何有a.b.Principal
+ * {@code主题}。
  *
  * <pre>
  *    grant {

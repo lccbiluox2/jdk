@@ -273,6 +273,15 @@ public final class System {
      * security manager has been established, then no action is taken and
      * the method simply returns.
      *
+     * 设置系统安全性。
+     *
+     * 如果已经安装了安全管理器，该方法首先使用RuntimePermission("setSecurityManager")权限
+     * 调用安全管理器的checkPermission方法，以确保可以替换现有的安全管理器。
+     * 这可能导致抛出一个SecurityException。
+     *
+     * 否则，将该参数建立为当前的安全管理器。如果参数为空，并且没有建立安全管理器，
+     * 则不采取任何操作，方法只是返回。
+     *
      * @param      s   the security manager.
      * @exception  SecurityException  if the security manager has already
      *             been set and its <code>checkPermission</code> method
@@ -293,10 +302,14 @@ public final class System {
 
     private static synchronized
     void setSecurityManager0(final SecurityManager s) {
+        // 获取系统安全接口
         SecurityManager sm = getSecurityManager();
+        // 如果已经存在了，那么检测能不能替换，如果不能 那么报错，否则就进行替换
         if (sm != null) {
             // ask the currently installed security manager if we
             // can replace it.
+            //
+            // 询问当前安装的安全管理器是否可以替换它。
             sm.checkPermission(new RuntimePermission
                                      ("setSecurityManager"));
         }
@@ -310,6 +323,11 @@ public final class System {
             // calls the installed security manager's checkPermission method
             // which will loop infinitely if there is a non-system class
             // (in this case: the new security manager class) on the stack).
+            //
+            // 新的安全管理器类不在引导程序类路径上。在我们安装新的安全管理器之前，为了防止
+            // 初始化策略时出现无限循环(这通常涉及到访问一些安全和/或系统属性，它反过来调用
+            // 已安装的安全管理器的checkPermission方法，如果堆栈上有一个非系统类(在本例中是:
+            // 新的安全管理器类)，该方法将无限循环。
             AccessController.doPrivileged(new PrivilegedAction<Object>() {
                 public Object run() {
                     s.getClass().getProtectionDomain().implies

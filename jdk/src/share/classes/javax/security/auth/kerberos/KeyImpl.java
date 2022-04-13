@@ -43,6 +43,8 @@ import sun.security.util.DerValue;
  * This class encapsulates a Kerberos encryption key. It is not associated
  * with a principal and may represent an ephemeral session key.
  *
+ * 该类封装一个Kerberos加密密钥。它不与主体关联，可能表示临时会话密钥。
+ *
  * @author Mayank Upadhyay
  * @since 1.4
  *

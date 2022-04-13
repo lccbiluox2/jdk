@@ -45,6 +45,10 @@ import sun.security.krb5.internal.util.KerberosString;
  * Realm ::= GeneralString
  * </xmp>
  * This class is immutable.
+ *
+ * 实现ASN.1领域类型。
+ *
+ * 这个类是不可变的。
  */
 public class Realm implements Cloneable {
 

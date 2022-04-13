@@ -40,6 +40,15 @@ package sun.security.action;
  *                      (new GetPropertyAction("prop"));
  * </pre>
  *
+ * 一个方便的类，用于作为特权操作检索系统属性的字符串值。
+ *
+ * 这个类的一个实例可以用作AccessController.doPrivileged的参数。
+ *
+ * 下面的代码以特权操作的形式获取名为“prop”的系统属性的值:
+ *
+ * String s = java.security.AccessController.doPrivileged
+ *                      (new GetPropertyAction("prop"));
+ *
  * @author Roland Schemers
  * @see java.security.PrivilegedAction
  * @see java.security.AccessController
@@ -54,6 +63,8 @@ public class GetPropertyAction
     /**
      * Constructor that takes the name of the system property whose
      * string value needs to be determined.
+     *
+     * 接受需要确定其字符串值的系统属性名称的构造函数。
      *
      * @param theProp the name of the system property.
      */

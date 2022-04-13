@@ -60,6 +60,24 @@ package java.security;
  *
  * @author Marianne Mueller
  * @author Roland Schemers
+ *
+ *
+ * 表示对系统资源的访问的抽象类。所有权限都有一个名称(其解释取决于子类)，以及用于
+ * 定义特定Permission子类语义的抽象函数。
+ *
+ * 大多数Permission对象还包括一个“action”列表，它告诉对象允许哪些动作。例如，
+ * 对于{@code java.io.FilePermission}对象，权限名是文件(或目录)的路径名，
+ * 操作列表(如“读、写”)指定了对指定文件(或指定目录中的文件)授予哪些操作。操作列表
+ * 对于Permission对象是可选的，例如{@code java.lang.RuntimePermission}，
+ * 它不需要这样的列表;您要么拥有命名权限(如“system.exit”)，要么没有。
+ *
+ *
+ * 每个子类必须实现的一个重要方法是用来比较Permissions的{@code implies}方法。
+ * 基本上，“permission p1 implies permission p2”意味着如果一个人被授予了权限p1，
+ * 那么他自然就被授予了权限p2。因此，这不是一个等式检验，而更像是一个子集检验。
+ *
+ * 权限对象类似于String对象，因为它们一旦被创建就不可变。一旦创建了权限，子类不应该
+ * 提供可以更改权限状态的方法。
  */
 
 public abstract class Permission implements Guard, java.io.Serializable {
@@ -73,6 +91,8 @@ public abstract class Permission implements Guard, java.io.Serializable {
      *
      * @param name name of the Permission object being created.
      *
+     * 根据名称 构建一个指定的权限
+     *
      */
 
     public Permission(String name) {
@@ -85,6 +105,10 @@ public abstract class Permission implements Guard, java.io.Serializable {
      * passing this permission object as the permission to check.
      * Returns silently if access is granted. Otherwise, throws
      * a SecurityException.
+     *
+     * 实现权限的保护接口。{@code SecurityManager。checkPermission}方法被调用，
+     * 并将此权限对象作为检查的权限传递。如果允许访问，则以静默方式返回。否则，
+     * 抛出一个SecurityException。
      *
      * @param object the object being guarded (currently ignored).
      *
@@ -113,6 +137,15 @@ public abstract class Permission implements Guard, java.io.Serializable {
      * whether or not a requested permission is implied by another permission that
      * is known to be valid in the current execution context.
      *
+     * 检查指定权限的操作是否由该对象的操作“隐含”。
+     *
+     * 这必须由Permission的子类实现，因为它们是唯一可以将语义强加到Permission对象上的子类。
+     *
+     *
+     *
+     * AccessController使用{@code implies}方法来确定一个请求的权限是否由另一个已知
+     * 在当前执行上下文中有效的权限隐含。
+     *
      * @param permission the permission to check against.
      *
      * @return true if the specified permission is implied by this object,
@@ -126,6 +159,11 @@ public abstract class Permission implements Guard, java.io.Serializable {
      * <P>
      * Do not use the {@code equals} method for making access control
      * decisions; use the {@code implies} method.
+     *
+     *
+     * 检查两个Permission对象是否相等。
+     *
+     * 不要使用{@code equals}方法来做访问控制决策;使用{@code implies}方法。
      *
      * @param obj the object we are testing for equality with this object.
      *
@@ -153,6 +191,16 @@ public abstract class Permission implements Guard, java.io.Serializable {
      * </ul>
      *
      * @return a hash code value for this object.
+     *
+     * 返回此Permission对象的哈希码值。
+     *
+     * 权限对象需要的{@code hashCode}行为如下:
+     *
+     * 1. 在Java应用程序的执行过程中，每当它在同一个Permission对象上被多次调用时，
+     *   {@code hashCode}方法必须一致地返回相同的整数。该整数在应用程序的一次执行
+     *   和同一应用程序的另一次执行之间不必保持一致。
+     * 2. 如果两个Permission对象根据{@code equals}方法相等，那么在这两个Permission
+     *   对象上调用{@code hashCode}方法必须产生相同的整数结果。
      */
 
     public abstract int hashCode();
@@ -161,6 +209,8 @@ public abstract class Permission implements Guard, java.io.Serializable {
      * Returns the name of this Permission.
      * For example, in the case of a {@code java.io.FilePermission},
      * the name will be a pathname.
+     *
+     * 返回此权限的名称。例如，在{@code java.io。FilePermission}，该名称将是一个路径名。
      *
      * @return the name of this Permission.
      *
@@ -188,6 +238,16 @@ public abstract class Permission implements Guard, java.io.Serializable {
      *
      * @return the actions of this Permission.
      *
+     * 以字符串的形式返回动作。这是抽象的，所以子类可以延迟创建字符串表示，直到需要。
+     * 子类应该始终以它们认为是规范形式的方式返回操作。例如，通过以下方式创建的两个
+     * FilePermission对象:
+     *
+     * <pre>
+     *   perm1 = new FilePermission(p1,"read,write");
+     *   perm2 = new FilePermission(p2,"write,read");
+     * </pre>
+     *
+     * 当调用{@code getActions}方法时，两者都返回“read,write”。
      */
 
     public abstract String getActions();
@@ -202,6 +262,12 @@ public abstract class Permission implements Guard, java.io.Serializable {
      * then the caller of this method is free to store permissions of this
      * type in any PermissionCollection they choose (one that uses a Hashtable,
      * one that uses a Vector, etc).
+     *
+     * 为给定的Permission对象返回一个空的PermissionCollection，或者没有定义该对象。
+     * 类的子类许可应覆盖这个如果他们需要存储在一个特定的权限PermissionCollection对象
+     * 为了{@code PermissionCollection时提供正确的语义。调用Implies}方法。如果返回
+     * null，则该方法的调用者可以自由地将该类型的权限存储在他们选择的任何PermissionCollection
+     * 中(使用Hashtable的权限、使用Vector的权限等)。
      *
      * @return a new PermissionCollection object for this type of Permission, or
      * null if one is not defined.

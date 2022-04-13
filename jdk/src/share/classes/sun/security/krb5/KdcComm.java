@@ -94,11 +94,12 @@ public final class KdcComm {
     }
 
     /**
-     * Read global settings
+     * Read global settings  读取全局设置
      */
     public static void initStatic() {
         String value = AccessController.doPrivileged(
         new PrivilegedAction<String>() {
+            // todo: 这里为啥要读取这个坏的配置？
             public String run() {
                 return Security.getProperty(BAD_POLICY_KEY);
             }

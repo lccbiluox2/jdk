@@ -39,6 +39,12 @@ import java.util.Collections;
  * options.  Please refer to the {@code Configuration} class for
  * more information on the different control flags and their semantics.
  *
+ * 这个类代表了一个单独的 LoginModule 条目，用于在 getAppConfigurationEntry(String appName)
+ * 方法中指定的应用程序。每个相应的 AppConfigurationEntry 包含一个 LoginModule 的名称、
+ * 一个控制标志(指定这个  LoginModule 是必需的、必需的、充分的还是可选的)，
+ * 以及特定于LoginModule的选项。请参考 Configuration 类获取更多关于不同控制标志
+ * 及其语义的信息。
+ *
  * @see javax.security.auth.login.Configuration
  */
 public class AppConfigurationEntry {

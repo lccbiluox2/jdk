@@ -67,6 +67,25 @@ import sun.security.util.*;
  * other regular service tickets. A ticket granting ticket is just a
  * special case of a more generalized service ticket.
  *
+ * 从客户机的角度来看，这个类封装了一个Kerberos票据和相关信息。它捕获密钥分发中心(KDC)
+ * 在Kerberos协议规范(RFC 4120)中定义的应答消息KDC- rep中发送给客户机的所有信息。
+ *
+ * 所有将用户身份验证到KDC的Kerberos JAAS登录模块都应该使用这个类。如果可以，登录模块
+ * 甚至可以从操作系统中的票据缓存读取此信息，而不是直接与KDC通信。在JAAS身份验证过程
+ * 的提交阶段，JAAS登录模块应该实例化这个类，并将实例存储在{@link javax.security.auth.Subject Subject}
+ * 的私有凭据集中。
+ *
+ *
+ *
+ * 如果应用程序需要访问Subject中的KerberosTicket实例，那么可能需要为它授予
+ * {@link javax.security.auth.PrivateCredentialPermission PrivateCredentialPermission}。
+ * 当应用程序依赖于默认的JGSS Kerberos机制来访问KerberosTicket时，就不需要这个权限。
+ * 但是，在这种情况下，应用程序将需要一个适当的{@link javax.security.auth.kerberos.ServicePermission ServicePermission}。
+ *
+ * 请注意，这个类既适用于票据授予票据，也适用于其他常规服务票据。票据授予票据只是更一般化
+ * 的服务票据的一种特殊情况。
+ *
+ *
  * @see javax.security.auth.Subject
  * @see javax.security.auth.PrivateCredentialPermission
  * @see javax.security.auth.login.LoginContext
@@ -97,6 +116,8 @@ public class KerberosTicket implements Destroyable, Refreshable,
      * ASN.1 DER Encoding of the Ticket as defined in the
      * Kerberos Protocol Specification RFC4120.
      *
+     * ASN.1 DER Kerberos协议规范RFC4120中定义的票据编码。
+     *
      * @serial
      */
 
@@ -121,6 +142,8 @@ public class KerberosTicket implements Destroyable, Refreshable,
     /**
      *
      * Ticket Flags as defined in the Kerberos Protocol Specification RFC4120.
+     *
+     * 票据标志在Kerberos协议规范RFC4120中定义。
      *
      * @serial
      */
@@ -159,15 +182,21 @@ public class KerberosTicket implements Destroyable, Refreshable,
      * time for the ticket, including all renewals. This field may be null
      * for tickets that are not renewable.
      *
+     * 对于可续订Tickets，它表示可在续订中包括的最大结束时间。它可以被认为是Tickets的
+     * 绝对过期时间，包括所有的续订。对于不可续签的Tickets，此字段可能为空。
+     *
      * @serial
      */
 
     private Date renewTill;
 
     /**
-     *
      * Client that owns the service ticket
      *
+     * 客户端的 ticket
+     *
+     * todo: 这个在视频的12 分有出现
+     *   https://www.bilibili.com/video/BV1s34y1r7jr?spm_id_from=333.337.search-card.all.click
      * @serial
      */
 
@@ -177,6 +206,9 @@ public class KerberosTicket implements Destroyable, Refreshable,
      *
      * The service for which the ticket was issued.
      *
+     * 服务器的 ticket
+     * todo: 这个在视频的12 分有出现
+     *   https://www.bilibili.com/video/BV1s34y1r7jr?spm_id_from=333.337.search-card.all.click
      * @serial
      */
 
@@ -187,10 +219,10 @@ public class KerberosTicket implements Destroyable, Refreshable,
      * The addresses from where the ticket may be used by the client.
      * This field may be null when the ticket is usable from any address.
      *
+     * 客户端可以使用票据的地址。当票据可用于任何地址时，此字段可能为空。
+     *
      * @serial
      */
-
-
     private InetAddress[] clientAddresses;
 
     private transient boolean destroyed = false;
@@ -198,6 +230,8 @@ public class KerberosTicket implements Destroyable, Refreshable,
     /**
      * Constructs a KerberosTicket using credentials information that a
      * client either receives from a KDC or reads from a cache.
+     *
+     * 使用客户机从KDC接收或从缓存读取的凭证信息构造KerberosTicket。
      *
      * @param asn1Encoding the ASN.1 encoding of the ticket as defined by
      * the Kerberos protocol specification.
@@ -226,16 +260,26 @@ public class KerberosTicket implements Destroyable, Refreshable,
      * used by the client. This field may be null when the ticket is usable
      * from any address.
      */
-    public KerberosTicket(byte[] asn1Encoding,
-                         KerberosPrincipal client,
-                         KerberosPrincipal server,
-                         byte[] sessionKey,
-                         int keyType,
+    public KerberosTicket(byte[] asn1Encoding,  // 票据的ASN.1编码，由Kerberos协议规范定义。
+                         KerberosPrincipal client,// 拥有此服务的客户端
+                         KerberosPrincipal server,// 这张票的服务
+                         byte[] sessionKey,// 会话密钥的原始字节，必须用于加密将发送到服务器的验证器
+                         int keyType,// 由Kerberos协议规范定义的会话密钥的密钥类型。
+                          /**
+                           * ticket flags。该数组中的每个元素表示ASN.1 BitString中对应位的值，
+                           * 该位表示票证标志。如果这个数组中的元素数量小于Kerberos协议使用的标志数量，
+                           * 那么缺少的标志将用false填充。
+                           */
                          boolean[] flags,
+                         // 客户端初始认证的时间
                          Date authTime,
-                         Date startTime,
+                          // ticket过期的时间。这可能是null，在这种情况下，authTime的值被视为startTime。
+                          Date startTime,
+                         // 超过这个时间，ticket将不再有效
                          Date endTime,
+                         // ticket的绝对过期时间，包括所有可能的续订。对于不可续签的ticket，此字段可能为空。
                          Date renewTill,
+                         // 客户端可以使用票据的地址。当票据可用于任何地址时，此字段可能为空。
                          InetAddress[] clientAddresses) {
 
         init(asn1Encoding, client, server, sessionKey, keyType, flags,
@@ -530,6 +574,13 @@ public class KerberosTicket implements Destroyable, Refreshable,
      * threads that might access this and try to renew it at the same
      * time.
      *
+     * 延长ticket的有效期。如果刷新操作成功，ticket将包含一个新的会话密钥。如果ticket
+     * 不能更新或已经过了最新允许的更新时间，则刷新操作将失败。KDC返回的任何其他错误
+     * 也将导致该方法失败。
+     *
+     * 注意:此方法与此对象的访问器方法不同步。因此，调用者需要知道可能访问此对象的多个线程，
+     * 并尝试在同一时间更新它。
+     *
      * @throws RefreshFailedException if the ticket is not renewable, or
      * the latest allowable renew time has passed, or the KDC returns some
      * error.
@@ -590,6 +641,7 @@ public class KerberosTicket implements Destroyable, Refreshable,
             } catch (DestroyFailedException dfException) {
                 // Squelch it since we don't care about the old ticket.
             }
+            // todo: 重点方法 先销毁原来的，然后重新生成新的 并且初始化
             init(krb5Creds.getEncoded(),
                  new KerberosPrincipal(krb5Creds.getClient().getName()),
                  new KerberosPrincipal(krb5Creds.getServer().getName(),
@@ -609,6 +661,8 @@ public class KerberosTicket implements Destroyable, Refreshable,
     /**
      * Destroys the ticket and destroys any sensitive information stored in
      * it.
+     *
+     * 销毁票据并销毁其中存储的任何敏感信息。
      */
     public void destroy() throws DestroyFailedException {
         if (!destroyed) {

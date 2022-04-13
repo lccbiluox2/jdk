@@ -92,6 +92,9 @@ public class Checksum {
                      * specified in the configuration we
                      * set it to RSA_MD5. We follow the MIT and
                      * SEAM implementation.
+                     *
+                     * 如果在配置中没有指定默认的校验和，我们将其设置为RSA_MD5。
+                     * 我们遵循MIT和SEAM实现。
                      */
                     CKSUMTYPE_DEFAULT = CKSUMTYPE_RSA_MD5;
                 }

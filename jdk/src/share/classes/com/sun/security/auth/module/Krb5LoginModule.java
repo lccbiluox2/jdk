@@ -59,6 +59,13 @@ import sun.misc.HexDumpEncoder;
  * is true, the <code>KerberosTicket</code> is
  * added to the <code>Subject</code>'s private credentials.
  *
+ * LoginModule使用Kerberos协议对用户进行身份验证。
+ *
+ * Krb5LoginModule的配置条目有几个选项，用于控制身份验证过程和向Subject的私有凭据集添加内容。
+ * 不管这些选项如何，Subject的主体集和私有凭据集只在调用提交时更新。当调用commit时，
+ * KerberosPrincipal被添加到Subject的主体集(除非主体被指定为“*”)。如果isInitiator为true，
+ * 则KerberosTicket被添加到Subject的私有凭证中。
+ *
  * <p> If the configuration entry for <code>KerberosLoginModule</code>
  * has the option <code>storeKey</code> set to true, then
  * <code>KerberosKey</code> or <code>KeyTab</code> will also be added to the
@@ -78,6 +85,16 @@ import sun.misc.HexDumpEncoder;
  * the option <code>keyTab</code>
  * in the configuration entry.
  *
+ * 如果KerberosLoginModule的配置条目将选项storeKey设置为true，那么KerberosKey或KeyTab
+ * 也将被添加到主体的私有凭证中。KerberosKey，主体的密钥将从用户的密码派生而来，KeyTab是当
+ * useKeyTab设置为true时使用的KeyTab。KeyTab对象被限制由指定的主体使用，除非主体的值是“*”。
+ *
+ * 这个LoginModule识别doNotPrompt选项。如果设置为true，则不会提示用户输入密码。
+ *
+ * 用户可以使用配置条目中的选项ticketCache指定票据缓存的位置。
+ *
+ * 用户可以使用配置条目中的选项keytab指定keytab位置。
+ *
  * <p> The principal name can be specified in the configuration entry
  * by using the option <code>principal</code>. The principal name
  * can either be a simple user name, a service name such as
@@ -89,6 +106,12 @@ import sun.misc.HexDumpEncoder;
  * entry also does not exist, the user is prompted for the name.
  * When this property of entry is set, and <code>useTicketCache</code>
  * is set to true, only TGT belonging to this principal is used.
+ *
+ * 通过使用选项principal，可以在配置条目中指定主体名称。主体名称可以是简单的用户名、服务名
+ * ，如host/mission.eng.sun.com或“*”。还可以使用系统属性sun.security.krb5.principal
+ * 来设置主体。在登录期间检查此属性。如果没有设置此属性，则使用配置中的主体名称。在没有设置主体
+ * 属性且主体条目也不存在的情况下，会提示用户输入名称。当设置了条目的这个属性，并且useTicketCache
+ * 设置为true时，只使用属于这个主体的TGT。
  *
  * <p> The following is a list of configuration options supported
  * for <code>Krb5LoginModule</code>:
@@ -177,6 +200,65 @@ import sun.misc.HexDumpEncoder;
  * (Default is true).
  * Note: Do not set this value to false for initiators.</dd>
  * </dl></blockquote>
+ *
+ * 以下是Krb5LoginModule支持的配置选项列表:
+ *
+ * refreshKrb5Config:
+ *
+ *    如果您希望在调用登录方法之前刷新配置，则将此设置为true。
+ *
+ * useTicketCache:
+ *
+ *    如果希望从票证缓存获得TGT，则将此设置为true。如果您不希望此模块使用票据缓存，则将此选项
+ *    设置为false。(缺省是false)。这个模块将在以下位置搜索票据缓存:在Solaris和Linux上，
+ *    它将在/tmp/krb5cc_uid中查找票据缓存，其中uid是数字用户标识符。如果票据缓存在上面的
+ *    位置不可用，或者如果我们在Windows平台上，它将查找{user.home}{file.separator}krb5cc_{user.name}
+ *    的缓存。可以使用ticketCache覆盖票据缓存位置。对于Windows，如果票据不能从文件票据缓存中检索，
+ *    它将使用本地安全机构(LSA) API来获取TGT。
+ *
+ * ticketCache:
+ *
+ *    将其设置为包含用户TGT的票据缓存的名称。如果设置了，useTicketCache也必须设置为true;
+ *    否则将返回一个配置错误。
+ *
+ * renewTGT:
+ *
+ *   如果您想更新TGT，请将此设置为true。如果设置了，useTicketCache也必须设置为true;
+ *   否则将返回一个配置错误。
+ *
+ * doNotPrompt:
+ *
+ *   如果您不希望在无法从缓存、keytab或通过共享状态获得凭据时提示输入密码，则将此设置为true。
+ *   (默认为false)如果设置为true，则凭据必须通过缓存、keytab或共享状态获取。否则，认证将失败。
+ *
+ * useKeyTab:
+ *
+ *   如果你想让模块从keytab中获取主体的密钥，将此设置为true。(默认值为False)如果没有设置keytab，
+ *   则模块将从Kerberos配置文件中找到keytab。如果在Kerberos配置文件中没有指定，那么它将查找文件
+ *   {user.home}{file.separator}krb5.keytab。
+ *
+ * keyTab:
+ *
+ *   将此设置为keytab的文件名，以获得主体的密钥。
+ *
+ * storeKey:
+ *
+ *   如果您希望keytab或主体的密钥存储在Subject的私有凭据中，则将此设置为true。如果isInitiator为false，
+ *   如果主体为“*”，则存储的{@link KeyTab}可以被任何人使用，否则，它被限制仅被指定的主体使用。
+ *
+ * principal:
+ *
+ *    应该使用的主体的名称。主体可以是简单的用户名，如“testuser”或服务名，如"host/testhost.eng.sun.com"。
+ *    当keyTab中存在多个主体的凭据时，或者仅需要特定的票据缓存时，可以使用主体选项设置主体。还可以使用系统
+ *    属性sun.security.krb5.principal来设置主体。此外，如果定义了这个系统属性，那么就会使用它。如果没有
+ *    设置此属性，则将使用配置中的主体名称。当isInitiator为false时，主体名称可以设置为“*”。在这种情况下，
+ *    acceptor不绑定到单个主体。如果可以找到该主体的键，则它可以充当发起者请求的任何主体。当isInitiator为
+ *    true时，主体名称不能设置为“*”。
+ *
+ * isInitiator:
+ *
+ *   如果isInitiator设置为true。如果仅为acceptor，则设置为false。(默认是正确的)。注意:对于isInitiator，
+ *   此值不能设置为false。
  *
  * <p> This <code>LoginModule</code> also recognizes the following additional
  * <code>Configuration</code>
@@ -376,6 +458,114 @@ import sun.misc.HexDumpEncoder;
  * via AS exchange. For initiators, set this value to true, or leave this
  * option unset, in which case default value (true) will be used.
  *
+ *
+ * 这个LoginModule还识别以下额外的配置选项，使您能够跨不同的认证模块共享用户名和密码:
+ *
+ * useFirstPass:
+ *
+ *    如果useFirstPass=true，这个LoginModule从模块的共享状态中检索用户名和密码，使用
+ *    “javax.security.auth.login.name”和"javax.security.auth.login.password"。
+ *    作为相应的密钥。检索到的值用于身份验证。如果身份验证失败，则不会尝试重试，并将失败报告
+ *    给调用应用程序。
+ *
+ * tryFirstPass:
+ *
+ *    如果tryFirstPass=true，这个LoginModule使用“javax.security.auth.login.name”和
+ *    "javax.security.auth.login.password" 从模块的共享状态中检索用户名和密码。作为相应的密钥。
+ *    检索到的值用于身份验证。如果身份验证失败，则模块使用CallbackHandler检索新的用户名和密码，
+ *    并再次尝试身份验证。如果身份验证失败，则向调用 application storePass的应用程序报告失败:
+ *
+ *    如果tryFirstPass=true，这个LoginModule存储在模块共享状态中从CallbackHandler获得的用户名
+ *    和密码，使用“javax.security.auth.login.name”和"javax.security.auth.login.password"
+ *    作为相应的密钥。如果共享状态下的用户名和密码已有值，或者身份验证失败，则不会执行此操作。
+ *
+ * clearPass:
+ *
+ *   如果 clearPass=true，这个LoginModule在两个身份验证阶段(登录和提交)完成后清空存储在模块
+ *   共享状态中的用户名和密码。
+ *
+ *
+ * 如果已经提供了主体系统属性或密钥，则共享状态下的“javax.security.auth.login.name”的值将被忽略。
+ *
+ * 当提供了多个获取票据或密钥的机制时，优先顺序是:
+ *
+ *  1. ticket cache  票缓存
+ *  2. keytab        keytab
+ *  3. shared state  共享状态
+ *  4. user prompt   用户提示
+ *
+ * 请注意，如果任何步骤失败，它将退回到下一个步骤。只有一个例外，如果共享状态步骤失败并且useFirstPass=true，
+ * 则不会发出用户提示。
+ *
+ *
+ * JAAS配置文件中关于Krb5LoginModule的一些配置值的例子和结果如下:
+ *
+ * doNotPrompt = true;
+ *
+ *
+ * 这是一个非法的组合，因为没有useTicketCache useKeyTab, useFirstPass和tryFirstPass
+ *
+ * ticketCache = <文件名>;
+ *
+ * 这是一个非法的组合，因为useTicketCache没有设置为true, ticketCache也被设置了。会出现配置错误。
+ *
+ * renewTGT = true;
+ *
+ * 这是一个非法的组合，因为useTicketCache没有设置为true, renewTGT被设置。会出现配置错误。
+ *
+ * storeKey=true useTicketCache =true doNotPrompt=true;;
+ *
+ * 这是一个非法的组合，因为storeKey被设置为true，但是密钥不能通过提示用户或从keytab或从共享状态获得。
+ * 会出现配置错误。
+ *
+ * keyTab = doNotPrompt=true;
+ *
+ * 这是一个非法的组合，因为useKeyTab没有设置为true，而keyTab被设置。会出现配置错误。
+ *
+ * debug = true
+ *
+ * 提示用户输入主体名和密码。使用身份验证交换从KDC获得TGT，并使用主体和TGT填充Subject。输出调试信息。
+ *
+ * useTicketCache =true doNotPrompt=true;
+ *
+ * 检查TGT的默认缓存，并用主体和TGT填充Subject。如果TGT不可用，则不要提示用户，而是让身份验证失败。
+ *
+ * principal=<name> useTicketCache = true doNotPrompt=true;
+ *
+
+ * 从主体的默认缓存获取TGT，并填充Subject的主体和私有信用集。如果票据缓存不可用或不包含主体的
+ * TGT身份验证将失败。
+ *
+ * useTicketCache = true ticketCache=<file name> useKeyTab = true
+ * keyTab=<keytab filename> principal = <principal name> doNotPrompt=true;
+ *
+ *
+ * 在缓存中搜索主体的TGT。如果它不可用，请使用keytab中的密钥与KDC执行身份验证交换并获取TGT。
+ * Subject将被主体和TGT填充。如果密钥不可用或无效，则身份验证将失败。
+ *
+ * useTicketCache = true ticketCache=<文件名>
+
+ *
+ * TGT将从指定的缓存中获得。所使用的Kerberos主体名称将是Ticket缓存中的主体名称。如果TGT在票据缓存
+ * 中不可用，则会提示用户输入主体名和密码。TGT将通过与KDC的身份验证交换获得。Subject将被TGT填充。
+ *
+ *
+ *
+ * useKeyTab =true keyTab=< keyTab filename> principal= <主体名称> storeKey=true;
+ *
+ *
+ *
+ * 主体的键将从keytab中检索。如果密钥在keytab中不可用，则会提示用户输入主体的密码。Subject将使用
+ * 来自keytab或从输入的密码派生的主体的密钥来填充。
+ *
+ *
+ *
+ * useKeyTab =true keyTab= storeKey=true doNotPrompt=false;
+ *
+ *
+ *
+ * 系统会提示用户输入服务原则
+ *
  * @author Ram Marti
  */
 
@@ -461,6 +651,9 @@ public class Krb5LoginModule implements LoginModule {
     // since javax.security.auth.login.LoginContext passes a raw HashMap.
     // Unchecked warnings from options.get(String) are safe since we are
     // passing known keys.
+    //
+    // (Map)sharedState的未检查警告是安全的，因为javax.security.auth.login.LoginContext传递了
+    // 一个原始HashMap。来自options.get(String)的未检查的警告是安全的，因为我们传递的是已知的键。
     @SuppressWarnings("unchecked")
     public void initialize(Subject subject,
                            CallbackHandler callbackHandler,
@@ -474,6 +667,7 @@ public class Krb5LoginModule implements LoginModule {
 
         // initialize any configured options
 
+        // 初始化一堆的参数
         debug = "true".equalsIgnoreCase((String)options.get("debug"));
         storeKey = "true".equalsIgnoreCase((String)options.get("storeKey"));
         doNotPrompt = "true".equalsIgnoreCase((String)options.get
@@ -511,6 +705,8 @@ public class Krb5LoginModule implements LoginModule {
             "true".equalsIgnoreCase((String)options.get("storePass"));
         clearPass =
             "true".equalsIgnoreCase((String)options.get("clearPass"));
+
+        // todo: 如果是debug模式下回打印这些参数
         if (debug) {
             System.out.print("Debug is  " + debug
                              + " storeKey " + storeKey
@@ -533,6 +729,8 @@ public class Krb5LoginModule implements LoginModule {
     /**
      * Authenticate the user
      *
+     * 用户认证
+     *
      * <p>
      *
      * @return true in all cases since this <code>LoginModule</code>
@@ -545,11 +743,13 @@ public class Krb5LoginModule implements LoginModule {
      */
     public boolean login() throws LoginException {
 
+        // 是否刷新 Krb5配置
         if (refreshKrb5Config) {
             try {
                 if (debug) {
                     System.out.println("Refreshing Kerberos configuration");
                 }
+                // 刷新配置
                 sun.security.krb5.Config.refresh();
             } catch (KrbException ke) {
                 LoginException le = new LoginException(ke.getMessage());
@@ -557,6 +757,7 @@ public class Krb5LoginModule implements LoginModule {
                 throw le;
             }
         }
+        // 获取 principal
         String principalProperty = System.getProperty
             ("sun.security.krb5.principal");
         if (principalProperty != null) {
@@ -567,8 +768,10 @@ public class Krb5LoginModule implements LoginModule {
             }
         }
 
+        // todo: 验证
         validateConfiguration();
 
+        // 如果配置*号 代表接收所有
         if (krb5PrincName != null && krb5PrincName.toString().equals("*")) {
             unboundServer = true;
         }
@@ -613,6 +816,8 @@ public class Krb5LoginModule implements LoginModule {
         // attempt the authentication by getting the username and pwd
         // by prompting or configuration i.e. not from shared state
 
+        // 通过提示或配置获取用户名和PWD来尝试身份验证，即不从共享状态
+
         try {
             attemptAuthentication(false);
             succeeded = true;
@@ -635,6 +840,8 @@ public class Krb5LoginModule implements LoginModule {
      * Get the TGT either out of
      * cache or from the KDC using the password entered
      * Check the  permission before getting the TGT
+     *
+     * 处理配置选项使用输入的密码将TGT从缓存中取出或从KDC中取出
      */
 
     private void attemptAuthentication(boolean getPasswdFromSharedState)
@@ -643,6 +850,8 @@ public class Krb5LoginModule implements LoginModule {
         /*
          * Check the creds cache to see whether
          * we have TGT for this client principal
+         *
+         * 检查creds缓存，看看我们是否有这个客户端主体的TGT
          */
         if (krb5PrincName != null) {
             try {
@@ -657,6 +866,7 @@ public class Krb5LoginModule implements LoginModule {
         }
 
         try {
+            // 一般我们都设置false
             if (useTicketCache) {
                 // ticketCacheName == null implies the default cache
                 if (debug)
@@ -696,10 +906,11 @@ public class Krb5LoginModule implements LoginModule {
 
             // cred = null indicates that we didn't get the creds
             // from the cache or useTicketCache was false
+            // cred = null表示我们没有从缓存中获取cred，或者useTicketCache为false
 
             if (cred == null) {
                 // We need the principal name whether we use keytab
-                // or AS Exchange
+                // or AS Exchange  无论使用keytab还是AS Exchange，我们都需要主体名称
                 if (principal == null) {
                     promptForName(getPasswdFromSharedState);
                     principal = new PrincipalName
@@ -725,8 +936,22 @@ public class Krb5LoginModule implements LoginModule {
                  * we use (ktab != null) to check whether keytab is used.
                  * After this method (and when storeKey == true), we use
                  * (encKeys == null) to check.
+                 *
+                 * 在动态KeyTab支持(6894072)之前，这里我们检查KeyTab是否包含主体的密钥。
+                 * 如果不使用，则不使用keytab，并提示输入密码。
+                 *
+                 * 在6894072之后，我们通常不检查它，并期望能够填充键，直到建立真正的连接。
+                 * 当isInitiator == true时，检查仍然进行，此时键将被立即使用。可能有一些
+                 *
+                 * 微妙的关系:
+                 *
+                 * useKeyTab是config标志，但是当它为真，但ktab不包含主体的键时，
+                 * 我们将使用密码并保持标志不变(为了重用?)在这个方法中，我们使用(ktab != null)
+                 * 来检查是否使用了keytab。在这个方法之后(当storeKey == true时)，我们使用
+                 * (encKeys == null)进行检查。
                  */
                 if (useKeyTab) {
+                    // 如果不是支持所有 * 号
                     if (!unboundServer) {
                         KerberosPrincipal kp =
                                 new KerberosPrincipal(principal.getName());
@@ -893,6 +1118,25 @@ public class Krb5LoginModule implements LoginModule {
             }
             return;
         }
+        /**
+         * todo: 这里可能报错
+         *
+         *
+         * javax.security.auth.login.LoginException: Unable to obtain password from user
+         *
+         * 当代码无法在keytab中找到匹配条目以获取密码时，通常会发生此错误。由于CDH中的服务不是交互式的，因此在此示例中，密码请求失败并导致显示消息。
+         * 这可以表明无法读取keytab。
+         * 如果keytab中的所有条目均不可用，例如，如果keytab仅具有aes256但未将无限强度的加密jar添加到群集中，则也会发生这种情况。
+         *
+         * 如果是flink 可能是配置错误
+         *
+         * # todo 重点配置
+         * security.kerberos.login.use-ticket-cache: true
+         * security.kerberos.login.keytab: /home/hdfs/hdfs.keytab
+         * # todo: 这里需要hdfs的配置
+         * security.kerberos.login.principal: hdfs/zdh2@ZDH.COM
+         * security.kerberos.login.contexts: HdfsClient,Client,KafkaClient
+         */
         if (doNotPrompt) {
             throw new LoginException
                 ("Unable to obtain password from user\n");
@@ -1033,6 +1277,13 @@ public class Krb5LoginModule implements LoginModule {
      *
      * <p>
      *
+     * 如果LoginContext的整体身份验证成功(相关的REQUIRED、REQUISITE、SUFFICIENT和OPTIONAL
+     * LoginModules成功)，则调用此方法。
+     *
+     * 如果此LoginModule自己的身份验证尝试成功(通过检索登录方法保存的私有状态进行检查)，则此方法将位于
+     * LoginModule中的Krb5Principal与Subject关联。它将Kerberos凭证添加到Subject的私有凭证集。
+     * 如果这个LoginModule自己的身份验证尝试失败，那么这个方法将删除最初保存的任何状态。
+     *
      * @exception LoginException if the commit fails.
      *
      * @return true if this LoginModule's own login and commit
@@ -1045,10 +1296,13 @@ public class Krb5LoginModule implements LoginModule {
          * Let us add the Krb5 Creds to the Subject's
          * private credentials. The credentials are of type
          * KerberosKey or KerberosTicket
+         *
+         * 让我们将Krb5 Creds添加到Subject的私有凭据中。凭证的类型为KerberosKey或KerberosTicket
          */
         if (succeeded == false) {
             return false;
         } else {
+            // 如果 login成功了 那么走下面
 
             if (isInitiator && (cred == null)) {
                 succeeded = false;
@@ -1065,14 +1319,18 @@ public class Krb5LoginModule implements LoginModule {
              * to the Subject's principal set and
              * add the credentials (TGT or Service key) to the
              * Subject's private credentials
+             *
+             * 将主体(经过身份验证的身份)添加到Subject的主体集，并将凭据(TGT或Service密钥)
+             * 添加到Subject的私有凭据
              */
 
             Set<Object> privCredSet =  subject.getPrivateCredentials();
             Set<java.security.Principal> princSet  = subject.getPrincipals();
             kerbClientPrinc = new KerberosPrincipal(principal.getName());
 
-            // create Kerberos Ticket
+            // create Kerberos Ticket  创建一个票据
             if (isInitiator) {
+                // todo:  创建一个票据 Ticket
                 kerbTicket = Krb5Util.credsToTicket(cred);
             }
 
@@ -1156,6 +1414,14 @@ public class Krb5LoginModule implements LoginModule {
      *
      * <p>
      *
+     * 如果LoginContext的整体身份验证失败，则调用此方法。(相关的REQUIRED、REQUISITE、
+     * SUFFICIENT和OPTIONAL LoginModules没有成功)。
+     *
+     *
+     *
+     * 如果这个LoginModule自己的身份验证尝试成功(通过检索登录和提交方法保存的私有状态
+     * 进行检查)，那么这个方法将清除最初保存的任何状态。
+     *
      * @exception LoginException if the abort fails.
      *
      * @return false if this LoginModule's own login and/or commit attempts
@@ -1172,6 +1438,8 @@ public class Krb5LoginModule implements LoginModule {
         } else {
             // overall authentication succeeded and commit succeeded,
             // but someone else's commit failed
+            //
+            // 整体认证成功，提交成功，但其他人提交失败
             logout();
         }
         return true;
@@ -1184,6 +1452,10 @@ public class Krb5LoginModule implements LoginModule {
      * that was added by the <code>commit</code> method.
      *
      * <p>
+     *
+     * 注销用户。
+     *
+     * 该方法移除Krb5Principal，该commit方法添加了该Krb5Principal。
      *
      * @exception LoginException if the logout fails.
      *
@@ -1232,6 +1504,7 @@ public class Krb5LoginModule implements LoginModule {
         // Clean the ticket and server key
         try {
             if (kerbTicket != null)
+                // 摧毁票据
                 kerbTicket.destroy();
             if (kerbKeys != null) {
                 for (int i = 0; i < kerbKeys.length; i++) {

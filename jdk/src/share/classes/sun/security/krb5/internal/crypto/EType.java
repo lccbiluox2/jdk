@@ -44,6 +44,8 @@ import java.util.ArrayList;
 
 //only needed if dataSize() implementation changes back to spec;
 //see dataSize() below
+//
+// 只有在dataSize()实现更改回规范时才需要;看到dataSize下面()
 
 public abstract class EType {
 

@@ -76,6 +76,12 @@ public abstract class SocketImpl implements SocketOptions {
      * @exception  IOException  if an I/O error occurs while creating the
      *               socket.
      */
+    /*
+     * 创建Socket文件，并记下其文件描述符（该文件描述符会被清理器追踪）
+     *
+     * stream==true ：创建TCP Socket
+     * stream==false：创建UDP Socket
+     */
     protected abstract void create(boolean stream) throws IOException;
 
     /**
@@ -108,6 +114,12 @@ public abstract class SocketImpl implements SocketOptions {
      * @exception  IOException  if an I/O error occurs when attempting a
      *               connection.
      * @since 1.4
+     */
+    /*
+     * 对本地Socket执行【connect】操作，以便连接到远端Socket；允许指定超时时间，以便等待远端就绪。
+     *
+     * endpoint: 待连接的远端地址，其含义依子类实现而定
+     * timeout : 超时时间，即允许连接等待的时间
      */
     protected abstract void connect(SocketAddress address, int timeout) throws IOException;
 

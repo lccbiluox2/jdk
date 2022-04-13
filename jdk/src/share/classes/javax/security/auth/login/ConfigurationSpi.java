@@ -38,6 +38,13 @@ package javax.security.auth.login;
  * an IllegalArgumentException if it does not understand the
  * {@code Configuration.Parameters} input.
  *
+ * 这个类定义了{@code Configuration}类的服务提供者接口(Service Provider Interface, SPI)。
+ * 该类中的所有抽象方法都必须由希望提供Configuration实现的每个服务提供者实现。
+ *
+ * 这个抽象类的子类实现必须提供一个公共构造函数，该构造函数接受一个{@code Configuration。
+ * 对象作为输入参数。如果构造函数不理解输入参数{@code Configuration]，它也必须抛出一个
+ * IllegalArgumentException。}。
+ *
  *
  * @since 1.6
  */
@@ -45,6 +52,8 @@ package javax.security.auth.login;
 public abstract class ConfigurationSpi {
     /**
      * Retrieve the AppConfigurationEntries for the specified <i>name</i>.
+     *
+     * 检索指定name的AppConfigurationEntries。
      *
      * <p>
      *
@@ -70,6 +79,15 @@ public abstract class ConfigurationSpi {
      *
      * @exception SecurityException if the caller does not have permission
      *          to refresh its Configuration.
+     *
+     * 刷新并重新加载配置。
+     *
+     * 此方法导致这个Configuration对象以一种依赖于实现的方式刷新/重新加载其内容。例如，
+     * 如果这个Configuration对象将它的条目存储在一个文件中，调用{@code refresh}可能
+     * 会导致该文件被重新读取。
+
+     * 此方法的默认实现不执行任何操作。如果实现支持刷新操作，则应重写此方法。如果调用者
+     * 没有刷新配置的权限，则SecurityException异常。
      */
     protected void engineRefresh() { }
 }

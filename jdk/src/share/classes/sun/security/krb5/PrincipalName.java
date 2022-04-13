@@ -77,6 +77,8 @@ public class PrincipalName implements Cloneable {
 
     /**
      * Service with host name as instance (telnet, rcommands)
+     *
+     * 以主机名作为实例的服务(telnet, rcommands)
      */
     public static final int KRB_NT_SRV_HST =   3;
 
@@ -127,6 +129,8 @@ public class PrincipalName implements Cloneable {
     /**
      * When constructing a PrincipalName, whether the realm is included in
      * the input, or deduced from default realm or domain-realm mapping.
+     *
+     * 在构造PrincipalName时，域是包含在输入中，还是从默认域或域域映射推导出来。
      */
     private final boolean realmDeduced;
 
@@ -319,6 +323,7 @@ public class PrincipalName implements Cloneable {
 
     // XXX Error checkin consistent with MIT krb5_parse_name
     // Code repetition, realm parsed again by class Realm
+    // 错误签入与MIT一致krb5_parse_name，代码重复，领域被类realm再次解析
     private static String[] parseName(String name) {
 
         Vector<String> tempStrings = new Vector<>();
@@ -403,6 +408,7 @@ public class PrincipalName implements Cloneable {
         realmDeduced = realm == null;
 
         switch (type) {
+        // 以主机名作为实例的服务(telnet, rcommands)
         case KRB_NT_SRV_HST:
             if (nameParts.length >= 2) {
                 String hostName = nameParts[1];

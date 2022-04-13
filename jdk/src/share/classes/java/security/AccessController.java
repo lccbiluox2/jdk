@@ -836,6 +836,11 @@ public final class AccessController {
      * getPermission method of the AccessControlException returns the
      * {@code perm} Permission object instance.
      *
+     * 根据当前的AccessControlContext和安全策略，确定由指定权限指示的访问请求应该被
+     * 允许还是拒绝。如果访问请求被允许，此方法将悄悄返回，否则将抛出AccessControlException异常。
+     *
+     * AccessControlException的getPermission方法返回{@code perm} Permission对象实例。
+     *
      * @param perm the requested permission.
      *
      * @exception AccessControlException if the specified permission
