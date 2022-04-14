@@ -949,6 +949,7 @@ public class Krb5LoginModule implements LoginModule {
                  * 我们将使用密码并保持标志不变(为了重用?)在这个方法中，我们使用(ktab != null)
                  * 来检查是否使用了keytab。在这个方法之后(当storeKey == true时)，我们使用
                  * (encKeys == null)进行检查。
+                 *
                  */
                 if (useKeyTab) {
                     // 如果不是支持所有 * 号
