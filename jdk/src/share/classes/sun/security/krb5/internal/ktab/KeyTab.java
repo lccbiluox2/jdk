@@ -280,6 +280,10 @@ public class KeyTab implements KeyTabConstants {
     /**
      * Reads all keys for a service from the keytab file that have
      * etypes that have been configured for use.
+     *
+     * 从keytab文件中读取服务的所有密钥，这些密钥的类型已配置为使用。
+     *
+     *
      * @param service the PrincipalName of the requested service
      * @return an array containing all the service keys, never null
      */

@@ -42,7 +42,7 @@ public class Credentials {
     KerberosTime starttime;//optional
     KerberosTime endtime;
     KerberosTime renewTill; //optional
-    HostAddresses caddr; //optional; for proxied tickets only
+    HostAddresses caddr; //optional; for proxied tickets only 可选的;只适用于代理票
     AuthorizationData authorizationData; //optional, not being actually used
     public boolean isEncInSKey;  // true if ticket is encrypted in another ticket's skey
     TicketFlags flags;
@@ -176,10 +176,17 @@ public class Credentials {
         // which is documented as the authData in the service ticket. That
         // is on the acceptor side.
         //
+        // 注意:我们不会将authorizationData传递给s.s.k凭据。该类中的字段将作为
+        // ExtendedGSSContext.inquireSecContext(KRB5_GET_AUTHZ_DATA)的返回值传递
+        // 给Krb5Context，它被记录为服务票据中的authData。这是在受体这边。
+        //
         // This class is for the initiator side. Also, authdata inside a ccache
         // is most likely to be the one in Authenticator in PA-TGS-REQ encoded
         // in TGS-REQ, therefore only stored with a service ticket. Currently
         // in Java, we only reads TGTs.
+        //
+        // 该类用于启动器端。此外，缓存中的authdata很可能是在TGS-REQ中编码的PA-TGS-REQ中的
+        // Authenticator，因此只存储在服务票据中。目前在Java中，我们只读取tgt。
         return new sun.security.krb5.Credentials(ticket,
                 cname, sname, key, flags, authtime, starttime, endtime, renewTill, caddr);
     }

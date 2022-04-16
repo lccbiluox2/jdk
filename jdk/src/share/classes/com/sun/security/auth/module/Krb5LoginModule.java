@@ -597,6 +597,8 @@ public class Krb5LoginModule implements LoginModule {
 
     // specify if initiator.
     // perform authentication exchange if initiator
+    //
+    // 如果发起人指定。如果启动器进行鉴权交换
     private boolean isInitiator = true;
 
     // the authentication status
@@ -866,17 +868,19 @@ public class Krb5LoginModule implements LoginModule {
         }
 
         try {
-            // 一般我们都设置false
+            // 一般我们都设置false 这是走的缓存
             if (useTicketCache) {
                 // ticketCacheName == null implies the default cache
                 if (debug)
                     System.out.println("Acquire TGT from Cache");
-                cred  = Credentials.acquireTGTFromCache
-                    (principal, ticketCacheName);
+                // 实际返回了一个类封装了Kerberos服务凭据的概念。这包括一个Kerberos ticket 和一个关联的会话密钥。
+                cred  = Credentials.acquireTGTFromCache(principal, ticketCacheName);
 
                 if (cred != null) {
-                    // check to renew credentials
+                    // check to renew credentials  检查以更新凭证
+                    // 判断是不是过期了，如果过期了
                     if (!isCurrent(cred)) {
+                        // 是否配置了获取新的
                         if (renewTGT) {
                             cred = renewCredentials(cred);
                         } else {
@@ -908,6 +912,7 @@ public class Krb5LoginModule implements LoginModule {
             // from the cache or useTicketCache was false
             // cred = null表示我们没有从缓存中获取cred，或者useTicketCache为false
 
+            // 这里相当于没有缓存，每次从某些地方获取
             if (cred == null) {
                 // We need the principal name whether we use keytab
                 // or AS Exchange  无论使用keytab还是AS Exchange，我们都需要主体名称
@@ -1235,6 +1240,7 @@ public class Krb5LoginModule implements LoginModule {
         if (endTime != null) {
             return (System.currentTimeMillis() <= endTime.getTime());
         }
+        // 没有过期
         return true;
     }
 

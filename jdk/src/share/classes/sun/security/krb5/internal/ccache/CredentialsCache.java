@@ -72,6 +72,7 @@ public abstract class CredentialsCache {
         if (cache != null &&
             (cache.length() >= 5) &&
             cache.regionMatches(true, 0, "FILE:", 0, 5)) {
+            // CredentialsCache将凭据(票据、会话密钥等)存储在半永久存储中，供不同的程序使用。
             return FileCredentialsCache.acquireInstance(principal,
                                                         cache.substring(5));
         }
@@ -80,6 +81,9 @@ public abstract class CredentialsCache {
         // XXX else ..we haven't provided support for memory credential cache
         // yet. (supported in native code)
         // default is file credentials cache.
+        //
+        // 当缓存为空时，读取默认缓存。XXX其他. .我们还没有提供对内存凭证缓存的支持。
+        // (在本机代码中支持)默认是文件凭证缓存。
         return FileCredentialsCache.acquireInstance(principal, cache);
 
     }

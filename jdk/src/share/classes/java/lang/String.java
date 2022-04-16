@@ -1385,6 +1385,28 @@ public final class String
      * </pre></blockquote>
      * </ul>
      *
+     *
+     * 测试两个字符串区域是否相等。
+     *
+     * target String 的子字符串与参数other的子字符串进行比较。如果这些子字符串表示相同的字符序列，
+     * 则结果为true，当且仅当ignoreCase为true时忽略大小写。要比较的String对象的子字符串从index \
+     * toffset开始，长度为len。要比较的other的子字符串从index ooffset开始，长度为 len。
+     * 当且仅当以下条件中至少有一个为真时，结果为false:
+     *
+     * {@code toffset} is negative.
+     * {@code ooffset} is negative.
+     * {@code toffset+len} is greater than the length of this {@code String} object.
+     * {@code ooffset+len} is greater than the length of the other argument.
+     * {@code ignoreCase} is {@code false} and there is some nonnegative integer k less than {@code len} such that:
+     * this.charAt(toffset+k) != other.charAt(ooffset+k)
+     * {@code ignoreCase} is {@code true} and there is some nonnegative integer k less than {@code len} such that:
+     * Character.toLowerCase(this.charAt(toffset+k)) !=
+     * aracter.toLowerCase(other.charAt(ooffset+k))
+     * and:
+     * Character.toUpperCase(this.charAt(toffset+k)) !=
+     *         Character.toUpperCase(other.charAt(ooffset+k))
+     *
+     *
      * @param   ignoreCase   if {@code true}, ignore case when comparing
      *                       characters.
      * @param   toffset      the starting offset of the subregion in this

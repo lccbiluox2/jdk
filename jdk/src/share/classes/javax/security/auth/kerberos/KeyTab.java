@@ -124,7 +124,7 @@ public final class KeyTab {
     // Source, null if using the default one. Note that the default name
     // is maintained in snapshot, this field is never "resolved".
     //
-    // 源，如果使用默认值，则为空。请注意，默认名称是在snapshot中维护的，这个字段永远不会被“解析”。
+    // readServiceKeys源，如果使用默认值，则为空。请注意，默认名称是在snapshot中维护的，这个字段永远不会被“解析”。
     private final File file;
 
     // Bound user: normally from the "principal" value in a JAAS krb5

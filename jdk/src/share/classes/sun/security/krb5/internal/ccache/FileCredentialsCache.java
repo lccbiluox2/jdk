@@ -50,6 +50,8 @@ import java.lang.reflect.*;
  * semi-permanent store
  * for later use by different program.
  *
+ * CredentialsCache将凭据(票据、会话密钥等)存储在半永久存储中，供不同的程序使用。
+ *
  * @author Yanni Zhang
  * @author Ram Marti
  */
@@ -63,11 +65,61 @@ public class FileCredentialsCache extends CredentialsCache
     private static String dir;
     private static boolean DEBUG = Krb5.DEBUG;
 
+    /**
+     * var2 = {FileCredentialsCache@2071}
+     *  version = 1283
+     *  tag = null
+     *  primaryPrincipal = {PrincipalName@2070} "mr/zdh2@ZDH.COM"
+     *   nameType = 1
+     *   nameStrings = {String[2]@2099}
+     *    0 = "mr"
+     *    1 = "zdh2"
+     *   nameRealm = {Realm@2100} "ZDH.COM"
+     *    realm = "ZDH.COM"
+     *   realmDeduced = false
+     *   salt = null
+     *  credentialsList = {Vector@2080}  size = 1
+     *   0 = {Credentials@2083}
+     *    cname = {PrincipalName@2084} "mr/zdh2@ZDH.COM"
+     *    sname = {PrincipalName@2085} "krbtgt/ZDH.COM@ZDH.COM"
+     *    key = {EncryptionKey@2086} "EncryptionKey: keyType=17 kvno=1283 keyValue (hex dump)=\n0000: 79 7B 0A 1E EE B9 97 C5   88 8A 4A 00 78 D0 10 15  y.........J.x...\n\n"
+     *     keyType = 17
+     *     keyValue = {byte[16]@2113}
+     *     kvno = {Integer@2114} 1283
+     *    authtime = {KerberosTime@2087} "20220415232327Z"
+     *    starttime = null
+     *    endtime = {KerberosTime@2088} "20220416232329Z"
+     *    renewTill = {KerberosTime@2089} "20220416085929Z"
+     *    caddr = null
+     *    authorizationData = null
+     *    isEncInSKey = false
+     *    flags = {TicketFlags@2090} "FORWARDABLE;PROXIABLE;RENEWABLE;INITIAL;PRE-AUTHENT"
+     *    ticket = {Ticket@2091}
+     *     tkt_vno = 5
+     *     sname = {PrincipalName@2104} "krbtgt/ZDH.COM@ZDH.COM"
+     *      nameType = 1
+     *      nameStrings = {String[2]@2107}
+     *       0 = "krbtgt"
+     *       1 = "ZDH.COM"
+     *      nameRealm = {Realm@2108} "ZDH.COM"
+     *       realm = "ZDH.COM"
+     *        value = {char[7]@2112}
+     *        hash = 0
+     *      realmDeduced = false
+     *      salt = null
+     *     encPart = {EncryptedData@2105}
+     *    secondTicket = null
+     *    DEBUG = true
+     * @param principal
+     * @param cache
+     * @return
+     */
     public static synchronized FileCredentialsCache acquireInstance(
                 PrincipalName principal, String cache) {
         try {
             FileCredentialsCache fcc = new FileCredentialsCache();
             if (cache == null) {
+                // linux下获取默认的 cat /tmp/krb5cc_0
                 cacheName = FileCredentialsCache.getDefaultCacheName();
             } else {
                 cacheName = FileCredentialsCache.checkValidation(cache);
@@ -352,6 +404,13 @@ public class FileCredentialsCache extends CredentialsCache
      * 2. /tmp/krb5cc_<uid> on unix systems
      * 3. <user.home>/krb5cc_<user.name>
      * 4. <user.home>/krb5cc (if can't get <user.name>)
+     *
+     * 返回凭据缓存文件的路径名。搜索路径名的顺序如下:
+     *
+     * 1. KRB5CCNAME (bare file name without FILE:)
+     * 2. /tmp/krb5cc_<uid> on unix systems
+     * 3. <user.home>/krb5cc_<user.name>
+     * 4. <user.home>/krb5cc (if can't get <user.name>)
      */
 
     public static String getDefaultCacheName() {
@@ -365,6 +424,7 @@ public class FileCredentialsCache extends CredentialsCache
                 new java.security.PrivilegedAction<String>() {
             @Override
             public String run() {
+                // 测试的时候 这个一直为空 打包放到Linux中测试kerberos认证的，发现这个一直为空
                 String cache = System.getenv("KRB5CCNAME");
                 if (cache != null &&
                         (cache.length() >= 5) &&
@@ -376,6 +436,7 @@ public class FileCredentialsCache extends CredentialsCache
         });
         if (name != null) {
             if (DEBUG) {
+                //  没有打印这个日志
                 System.out.println(">>>KinitOptions cache name is " + name);
             }
             return name;
@@ -395,6 +456,10 @@ public class FileCredentialsCache extends CredentialsCache
          * however when we create cache we will create a cache under
          * {user_home}/krb5_cc{user_name} for non-Unix platforms including
          * Windows 2K.
+         *
+         * 对于Unix平台，我们使用默认的缓存名/tmp/krbcc_uid;请注意，对于Windows 2K，
+         * 我们将使用LSA从默认缓存中获取TGT，甚至在我们来这里之前;然而，当我们创建缓存时，
+         * 我们将在{user_home}/krb5_cc{user_name}下为非unix平台(包括Windows 2K)创建一个缓存。
          */
 
         if (osname != null) {
@@ -404,6 +469,14 @@ public class FileCredentialsCache extends CredentialsCache
 
             if (!osname.startsWith("Windows")) {
                 try {
+                    /**
+                     * 在linux系统下 打印如下 >>>KinitOptions cache name is /tmp/krb5cc_0
+                     * [root@zdh2 ~]# cat /tmp/krb5cc_0
+                     * ZDH.COMmrzdh2ZDH.COMmrzdh2ZDH.COMkrbtgtZDH.COMy{
+                     * Җ�9��H� �\룷��l���F�,��:�ȑ�n0{2��#��Z�5�£�10krbtgtZDH.COM���0�������������s
+                     * �6�1    �␌�����␉��R:�│��J��_┬\�≥���U�;�U\��o�h�'��3��)�����0�����jn�5�#D��Y��Mg�        �_dQ��1┴Q�#���▒9��ԩ��U[⎼⎺⎺├@≥␍␤2 ·]#
+                     * [⎼⎺⎺├@≥␍␤2 ·]#
+                     */
                     Class<?> c = Class.forName
                         ("com.sun.security.auth.module.UnixSystem");
                     Constructor<?> constructor = c.getConstructor();

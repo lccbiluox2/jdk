@@ -405,6 +405,7 @@ public class PrincipalName implements Cloneable {
         }
 
         // No realm info from parameter and string, must deduce later
+        // 不能从参数和字符串中推断任何领域信息
         realmDeduced = realm == null;
 
         switch (type) {
@@ -416,6 +417,8 @@ public class PrincipalName implements Cloneable {
                     // RFC4120 does not recommend canonicalizing a hostname.
                     // However, for compatibility reason, we will try
                     // canonicalize it and see if the output looks better.
+                    //
+                    // RFC4120不建议规范化主机名。但是，出于兼容性的原因，我们将尝试将其规范化，看看输出是否看起来更好。
 
                     String canonicalized = (InetAddress.getByName(hostName)).
                             getCanonicalHostName();
@@ -447,6 +450,10 @@ public class PrincipalName implements Cloneable {
                 // not allow a realm to be specified. The name string must of
                 // the form service@host and this is internally changed into
                 // service/host by Kerberos
+                //
+                // 我们将尝试从配置中的映射中获取域名。如果没有指定，我们将使用默认域。
+                // 此名称类型不允许指定领域。名称字符串必须为service@host,
+                // Kerberos将其内部更改为service/host
                 String mapRealm =  mapHostToRealm(nameParts[1]);
                 if (mapRealm != null) {
                     nameRealm = new Realm(mapRealm);

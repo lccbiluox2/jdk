@@ -276,6 +276,8 @@ public class Credentials {
     /**
      * Returns a TGT for the given client principal from a ticket cache.
      *
+     * 从票据缓存中返回给定客户端主体的TGT。
+     *
      * @param princ the client principal. A value of null means that the
      * default principal name in the credentials cache will be used.
      * @param ticketCache the path to the tickets file. A value
@@ -290,6 +292,8 @@ public class Credentials {
 
         if (ticketCache == null) {
             // The default ticket cache on Windows and Mac is not a file.
+            //
+            // Windows和Mac上的默认票据缓存不是一个文件。
             String os = java.security.AccessController.doPrivileged(
                         new sun.security.action.GetPropertyAction("os.name"));
             if (os.toUpperCase(Locale.ENGLISH).startsWith("WINDOWS") ||
@@ -330,10 +334,13 @@ public class Credentials {
         /*
          * Returns the appropriate cache. If ticketCache is null, it is the
          * default cache otherwise it is the cache filename contained in it.
+         *
+         * 返回适当的缓存。如果ticketCache为空，它是默认的缓存，否则它是包含在其中的缓存文件名。
          */
         CredentialsCache ccache =
             CredentialsCache.getInstance(princ, ticketCache);
 
+        // 一般不为空
         if (ccache == null) {
             return null;
         }
@@ -341,11 +348,14 @@ public class Credentials {
         sun.security.krb5.internal.ccache.Credentials tgtCred  =
             ccache.getDefaultCreds();
 
+        // 一般不为空
         if (tgtCred == null) {
             return null;
         }
 
+        // 一般为true
         if (EType.isSupported(tgtCred.getEType())) {
+            // 创建一个实体类 Credentials
             return tgtCred.setKrbCreds();
         } else {
             if (DEBUG) {
