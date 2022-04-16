@@ -56,10 +56,16 @@ package java.net;
 
 // There are no abstract methods, but to be useful the user must
 // subclass.
+/*
+ * 身份认证器，用来生成一个特定的用户身份信息。
+ *
+ * 注：该类虽然是抽象类，但是没有抽象方法，因此使用该类之前仍需要先"实现"它
+ */
 public abstract
 class Authenticator {
 
     // The system-wide authenticator object.  See setDefault().
+    // 默认的身份认证器
     private static Authenticator theAuthenticator;
 
     private String requestingHost;
@@ -119,6 +125,7 @@ class Authenticator {
      * @see SecurityManager#checkPermission
      * @see java.net.NetPermission
      */
+    // 设置默认的身份认证器
     public synchronized static void setDefault(Authenticator a) {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {

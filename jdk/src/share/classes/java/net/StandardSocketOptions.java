@@ -37,7 +37,7 @@ package java.net;
  *
  * @since 1.7
  */
-
+// 标准Socket配置参数
 public final class StandardSocketOptions {
     private StandardSocketOptions() { }
 
@@ -61,6 +61,7 @@ public final class StandardSocketOptions {
      * Broadcasting Internet Datagrams</a>
      * @see DatagramSocket#setBroadcast
      */
+    // 设置输出流缓冲区大小
     public static final SocketOption<Boolean> SO_BROADCAST =
         new StdSocketOption<Boolean>("SO_BROADCAST", Boolean.class);
 
@@ -81,6 +82,7 @@ public final class StandardSocketOptions {
      * Requirements for Internet Hosts -- Communication Layers</a>
      * @see Socket#setKeepAlive
      */
+    // 是否开启设置心跳机制
     public static final SocketOption<Boolean> SO_KEEPALIVE =
         new StdSocketOption<Boolean>("SO_KEEPALIVE", Boolean.class);
 
@@ -152,6 +154,7 @@ public final class StandardSocketOptions {
      * @see Socket#setReceiveBufferSize
      * @see ServerSocket#setReceiveBufferSize
      */
+    // 设置输入流缓冲区大小
     public static final SocketOption<Integer> SO_RCVBUF =
         new StdSocketOption<Integer>("SO_RCVBUF", Integer.class);
 
@@ -183,6 +186,7 @@ public final class StandardSocketOptions {
      * Control Protocol</a>
      * @see ServerSocket#setReuseAddress
      */
+    // 是否允许立刻重用(绑定)已关闭的socket地址；另一方面，也用来指示是否允许相同端口下的通配地址与别的地址同时被绑定
     public static final SocketOption<Boolean> SO_REUSEADDR =
         new StdSocketOption<Boolean>("SO_REUSEADDR", Boolean.class);
 
@@ -215,6 +219,7 @@ public final class StandardSocketOptions {
      *
      * @see Socket#setSoLinger
      */
+    // 是否启用延时关闭，即关闭Socket后，是否立即断开TCP连接；与SO_REUSEADDR参数有关联
     public static final SocketOption<Integer> SO_LINGER =
         new StdSocketOption<Integer>("SO_LINGER", Integer.class);
 
@@ -247,6 +252,7 @@ public final class StandardSocketOptions {
      *
      * @see DatagramSocket#setTrafficClass
      */
+    // 设置IP头部的Type-of-Service字段
     public static final SocketOption<Integer> IP_TOS =
         new StdSocketOption<Integer>("IP_TOS", Integer.class);
 
@@ -270,6 +276,7 @@ public final class StandardSocketOptions {
      * @see java.nio.channels.MulticastChannel
      * @see MulticastSocket#setInterface
      */
+    // 设置组播地址和端口
     public static final SocketOption<NetworkInterface> IP_MULTICAST_IF =
         new StdSocketOption<NetworkInterface>("IP_MULTICAST_IF", NetworkInterface.class);
 
@@ -297,6 +304,7 @@ public final class StandardSocketOptions {
      * @see java.nio.channels.MulticastChannel
      * @see MulticastSocket#setTimeToLive
      */
+    // 设置网络跳数(生存时间)
     public static final SocketOption<Integer> IP_MULTICAST_TTL =
         new StdSocketOption<Integer>("IP_MULTICAST_TTL", Integer.class);
 
@@ -322,6 +330,7 @@ public final class StandardSocketOptions {
      * @see java.nio.channels.MulticastChannel
      *  @see MulticastSocket#setLoopbackMode
      */
+    // 是否禁用组播回环
     public static final SocketOption<Boolean> IP_MULTICAST_LOOP =
         new StdSocketOption<Boolean>("IP_MULTICAST_LOOP", Boolean.class);
 
@@ -349,10 +358,12 @@ public final class StandardSocketOptions {
      * Requirements for Internet Hosts -- Communication Layers</a>
      * @see Socket#setTcpNoDelay
      */
+    // 是否禁用Nagle算法
     public static final SocketOption<Boolean> TCP_NODELAY =
         new StdSocketOption<Boolean>("TCP_NODELAY", Boolean.class);
 
 
+    // 标准Socket配置参数实现
     private static class StdSocketOption<T> implements SocketOption<T> {
         private final String name;
         private final Class<T> type;

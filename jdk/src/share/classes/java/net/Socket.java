@@ -813,23 +813,28 @@ class Socket implements java.io.Closeable {
     /**
      * set the flags after an accept() call.
      */
+    // 标记[服务端Socket(通信)]已就绪
     final void postAccept() {
         connected = true;
         created = true;
         bound = true;
     }
 
+    // 标记[客户端Socket]已创建
     void setCreated() {
         created = true;
     }
 
+    // 标记[客户端Socket]已绑定
     void setBound() {
         bound = true;
     }
 
+    // 标记[客户端Socket]已连接
     void setConnected() {
         connected = true;
     }
+
 
     /**
      * Returns the address to which the socket is connected.
@@ -841,13 +846,21 @@ class Socket implements java.io.Closeable {
      * @return  the remote IP address to which this socket is connected,
      *          or {@code null} if the socket is not connected.
      */
+    // 返回远程IP，如果还未连接就返回null
     public InetAddress getInetAddress() {
-        if (!isConnected())
+        if(!isConnected()) {
             return null;
-        try {
-            return getImpl().getInetAddress();
-        } catch (SocketException e) {
         }
+
+        try {
+            // 获取[客户端Socket]/[服务端Socket(通信)]的"Socket委托"
+            SocketImpl impl = getImpl();
+
+            // 获取远程IP
+            return impl.getInetAddress();
+        } catch(SocketException e) {
+        }
+
         return null;
     }
 
@@ -866,17 +879,23 @@ class Socket implements java.io.Closeable {
      *
      * @see SecurityManager#checkConnect
      */
+    // 返回本地IP；如果还未绑定，则返回通配地址
     public InetAddress getLocalAddress() {
         // This is for backward compatibility
         if (!isBound())
             return InetAddress.anyLocalAddress();
         InetAddress in = null;
         try {
-            in = (InetAddress) getImpl().getOption(SocketOptions.SO_BINDADDR);
+            // 获取[客户端Socket]/[服务端Socket(通信)]的"Socket委托"
+            in = (InetAddress) getImpl()
+                    // 获取Socket绑定的本地IP
+                    .getOption(SocketOptions.SO_BINDADDR);
             SecurityManager sm = System.getSecurityManager();
             if (sm != null)
                 sm.checkConnect(in.getHostAddress(), -1);
+            // 如果指定的地址为通配地址
             if (in.isAnyLocalAddress()) {
+                // 获取通配地址
                 in = InetAddress.anyLocalAddress();
             }
         } catch (SecurityException e) {
@@ -897,14 +916,22 @@ class Socket implements java.io.Closeable {
      * @return  the remote port number to which this socket is connected, or
      *          0 if the socket is not connected yet.
      */
+    // 返回远程端口
     public int getPort() {
-        if (!isConnected())
+        if(!isConnected()) {
             return 0;
+        }
+
         try {
-            return getImpl().getPort();
-        } catch (SocketException e) {
+            // 获取[客户端Socket]/[服务端Socket(通信)]的"Socket委托"
+            SocketImpl impl = getImpl();
+
+            // 返回远程端口
+            return impl.getPort();
+        } catch(SocketException e) {
             // Shouldn't happen as we're connected
         }
+
         return -1;
     }
 
@@ -918,11 +945,15 @@ class Socket implements java.io.Closeable {
      * @return  the local port number to which this socket is bound or -1
      *          if the socket is not bound yet.
      */
+    // 返回本地端口
     public int getLocalPort() {
         if (!isBound())
             return -1;
         try {
-            return getImpl().getLocalPort();
+            // 获取[客户端Socket]/[服务端Socket(通信)]的"Socket委托"
+            return getImpl()
+                    // 返回本地端口
+                    .getLocalPort();
         } catch(SocketException e) {
             // shouldn't happen as we're bound
         }
@@ -946,10 +977,15 @@ class Socket implements java.io.Closeable {
      * @see #connect(SocketAddress)
      * @since 1.4
      */
+    // 返回远程Socket地址(ip+port)
     public SocketAddress getRemoteSocketAddress() {
         if (!isConnected())
             return null;
-        return new InetSocketAddress(getInetAddress(), getPort());
+        return new InetSocketAddress(
+                // 获取远程IP，如果还未连接就返回null
+                getInetAddress(),
+                // 获取远程端口
+                getPort());
     }
 
     /**
@@ -981,11 +1017,15 @@ class Socket implements java.io.Closeable {
      * @see SecurityManager#checkConnect
      * @since 1.4
      */
-
+     // 返回本地Socket地址(ip+port)
     public SocketAddress getLocalSocketAddress() {
         if (!isBound())
             return null;
-        return new InetSocketAddress(getLocalAddress(), getLocalPort());
+        return new InetSocketAddress(
+                // 获取本地IP
+                getLocalAddress(),
+                // 获取本地端口
+                getLocalPort());
     }
 
     /**
@@ -1095,6 +1135,7 @@ class Socket implements java.io.Closeable {
      * @revised 1.4
      * @spec JSR-51
      */
+    // 获取Socket输出流，向其写入数据
     public OutputStream getOutputStream() throws IOException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1131,6 +1172,7 @@ class Socket implements java.io.Closeable {
      *
      * @see #getTcpNoDelay()
      */
+    // 设置是否禁用Nagle算法
     public void setTcpNoDelay(boolean on) throws SocketException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1196,6 +1238,7 @@ class Socket implements java.io.Closeable {
      * @since   JDK1.1
      * @see #setSoLinger(boolean, int)
      */
+    // 获取是否启用延时关闭
     public int getSoLinger() throws SocketException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1289,6 +1332,7 @@ class Socket implements java.io.Closeable {
      * @since   JDK 1.1
      * @see #getSoTimeout()
      */
+    // 设置超时约束的时间
     public synchronized void setSoTimeout(int timeout) throws SocketException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1309,6 +1353,7 @@ class Socket implements java.io.Closeable {
      * @since   JDK1.1
      * @see #setSoTimeout(int)
      */
+    // 获取超时约束的时间
     public synchronized int getSoTimeout() throws SocketException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1461,6 +1506,7 @@ class Socket implements java.io.Closeable {
      * @since 1.3
      * @see #getKeepAlive()
      */
+    // 设置是否开启设置心跳机制
     public void setKeepAlive(boolean on) throws SocketException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1672,6 +1718,7 @@ class Socket implements java.io.Closeable {
      * @see java.net.Socket#setSoLinger(boolean, int)
      * @see #isInputShutdown
      */
+    // 关闭读取功能
     public void shutdownInput() throws IOException
     {
         if (isClosed())
@@ -1680,6 +1727,8 @@ class Socket implements java.io.Closeable {
             throw new SocketException("Socket is not connected");
         if (isInputShutdown())
             throw new SocketException("Socket input is already shutdown");
+        // 获取[客户端Socket]/[服务端Socket(通信)]的"Socket委托"
+        // 结束Socket输入，后续的read()会返回-1
         getImpl().shutdownInput();
         shutIn = true;
     }
@@ -1702,6 +1751,7 @@ class Socket implements java.io.Closeable {
      * @see java.net.Socket#setSoLinger(boolean, int)
      * @see #isOutputShutdown
      */
+    // 关闭写入功能
     public void shutdownOutput() throws IOException
     {
         if (isClosed())
@@ -1710,7 +1760,10 @@ class Socket implements java.io.Closeable {
             throw new SocketException("Socket is not connected");
         if (isOutputShutdown())
             throw new SocketException("Socket output is already shutdown");
-        getImpl().shutdownOutput();
+        // 获取[客户端Socket]/[服务端Socket(通信)]的"Socket委托"
+        getImpl()
+                // 结束Socket输出，后续的write()会抛出异常
+                .shutdownOutput();
         shutOut = true;
     }
 
@@ -1741,6 +1794,7 @@ class Socket implements java.io.Closeable {
      * @return true if the socket was successfuly connected to a server
      * @since 1.4
      */
+    // 判断当前Socket是否已完成连接（关闭Socket不会清除此状态）
     public boolean isConnected() {
         // Before 1.3 Sockets were always connected during creation
         return connected || oldImpl;
@@ -1758,6 +1812,7 @@ class Socket implements java.io.Closeable {
      * @since 1.4
      * @see #bind
      */
+    // 判断当前Socket是否已完成绑定
     public boolean isBound() {
         // Before 1.3 Sockets were always bound during creation
         return bound || oldImpl;
@@ -1770,6 +1825,7 @@ class Socket implements java.io.Closeable {
      * @since 1.4
      * @see #close
      */
+    // 判断客户端的Socket是否已关闭
     public boolean isClosed() {
         synchronized(closeLock) {
             return closed;
@@ -1783,6 +1839,7 @@ class Socket implements java.io.Closeable {
      * @since 1.4
      * @see #shutdownInput
      */
+    // 判断Socket是否关闭了读取功能
     public boolean isInputShutdown() {
         return shutIn;
     }
@@ -1794,6 +1851,7 @@ class Socket implements java.io.Closeable {
      * @since 1.4
      * @see #shutdownOutput
      */
+    // 判断Socket是否关闭了写入功能
     public boolean isOutputShutdown() {
         return shutOut;
     }

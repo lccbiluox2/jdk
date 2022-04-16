@@ -32,6 +32,8 @@ import java.net.SocketOption;
  * {@link java.net.StandardSocketOptions}. These options may be platform
  * specific.
  */
+// 扩展Socket配置参数实现
+// 扩展的Socket参数， 这里的Socket参数可能是依赖平台实现的
 @jdk.Exported
 public final class ExtendedSocketOptions {
 
@@ -55,6 +57,7 @@ public final class ExtendedSocketOptions {
      * {@code ("setOption.SO_FLOW_SLA")} or {@code "getOption.SO_FLOW_SLA"}
      * respectively.
      */
+    // 扩展参数
     public static final SocketOption<SocketFlow> SO_FLOW_SLA = new
         ExtSocketOption<SocketFlow>("SO_FLOW_SLA", SocketFlow.class);
 }

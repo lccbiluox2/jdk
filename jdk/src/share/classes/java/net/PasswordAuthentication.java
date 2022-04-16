@@ -36,7 +36,7 @@ package java.net;
  * @author  Bill Foote
  * @since   1.2
  */
-
+// 用户名/密码容器
 public final class PasswordAuthentication {
 
     private String userName;
@@ -62,6 +62,7 @@ public final class PasswordAuthentication {
      *
      * @return the user name
      */
+    // 返回用户名
     public String getUserName() {
         return userName;
     }
@@ -75,6 +76,7 @@ public final class PasswordAuthentication {
      *
      * @return the password
      */
+    // 返回密码
     public char[] getPassword() {
         return password;
     }

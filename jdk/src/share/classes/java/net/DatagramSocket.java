@@ -63,24 +63,60 @@ import java.security.PrivilegedExceptionAction;
  * @see     java.nio.channels.DatagramChannel
  * @since JDK1.0
  */
+/*
+ * 无连接的Socket（使用UDP Socket）
+ *
+ *
+ * Linux上的UDP通信方法：
+ *
+ * 服务端                客户端
+ *
+ * sokcet()             sokcet()
+ *   ↓                     ↓
+ * bind()               bind()
+ *   ↓                     ↓
+ * readfrom()              ↓
+ *   ↓                     ↓
+ * 阻塞，等待客户端连接     ↓
+ *   ↓                     ↓
+ *   ↓     客户端发出请求   ↓
+ *   █    ←←←←←←←←←←←← sendto()
+ *   ↓                     ↓
+ * 服务端处理请求           ↓
+ * 服务端做出响应           ↓
+ *   ↓                     ↓
+ *   ↓     客户端接收响应   ↓
+ * sendto() →→→→→→→→→→→ readfrom()
+ *   ↓                     ↓
+ * close()              close()
+ *
+ *
+ * UDP-Scoket可以实现单播、广播、组播：
+ * 单播和广播均可以用DatagramSocket类完成，而组播需要使用其子类MulticastSocket来完成。
+ *
+ * 注：客户端与服务端是一个相对的概念，没有绝对的客户端或绝对的服务端
+ */
 public
 class DatagramSocket implements java.io.Closeable {
     /**
      * Various states of this socket.
      */
-    private boolean created = false;
-    private boolean bound = false;
-    private boolean closed = false;
+    private boolean created = false;    // UDP-Socket是否已创建
+    private boolean bound = false;    // UDP-Socket是否已绑定
+    private boolean closed = false;    // UDP-Socket是否已关闭
+
     private Object closeLock = new Object();
 
     /*
      * The implementation of this DatagramSocket.
      */
+    // "UDP-Socket委托"，用来完成位于双端的UDP-Socket之间的通讯
     DatagramSocketImpl impl;
 
     /**
      * Are we using an older DatagramSocketImpl?
      */
+    // 是否在使用旧式的"UDP-Socket委托"(JDK1.5起始，该值均为false)
     boolean oldImpl = false;
 
     /**
@@ -92,25 +128,30 @@ class DatagramSocket implements java.io.Closeable {
      * the connected destination. Other packets are read but
      * silently dropped.
      */
+    // 是否需要显式校验/过滤数据
     private boolean explicitFilter = false;
+
+    // 记录需要被检验/过滤的字节数量，初始时与输入缓冲区的容量大小一致
     private int bytesLeftToFilter;
+
     /*
      * Connection state:
      * ST_NOT_CONNECTED = socket not connected
      * ST_CONNECTED = socket connected
      * ST_CONNECTED_NO_IMPL = socket connected but not at impl level
      */
-    static final int ST_NOT_CONNECTED = 0;
-    static final int ST_CONNECTED = 1;
-    static final int ST_CONNECTED_NO_IMPL = 2;
+    static final int ST_NOT_CONNECTED = 0;  // 未连接
+    static final int ST_CONNECTED = 1;  // 已连接
+    static final int ST_CONNECTED_NO_IMPL = 2;  // "模拟已连接"，通常是发起了连接操作，但是连接失败了，或者是本地禁止了连接
 
+    // UDP-Socket的连接状态初始化为未连接
     int connectState = ST_NOT_CONNECTED;
 
     /*
      * Connected address & port
      */
-    InetAddress connectedAddress = null;
-    int connectedPort = -1;
+    InetAddress connectedAddress = null;    // 远端的连接IP
+    int connectedPort = -1;      // 远端的连接端口
 
     /**
      * Connects this socket to a remote socket address (IP address + port number).
@@ -120,6 +161,7 @@ class DatagramSocket implements java.io.Closeable {
      * @param   port    The remote port
      * @throws  SocketException if binding the socket fails.
      */
+    // UDP-Socket连接的内部实现，通过"UDP-Socket委托"与远端建立连接
     private synchronized void connectInternal(InetAddress address, int port) throws SocketException {
         if (port < 0 || port > 0xFFFF) {
             throw new IllegalArgumentException("connect: " + port);
@@ -140,31 +182,52 @@ class DatagramSocket implements java.io.Closeable {
             }
         }
 
+        // 如果还未绑定，则绑定到本地地址
         if (!isBound())
           bind(new InetSocketAddress(0));
 
         // old impls do not support connect/disconnect
+        // 旧式"UDP-Socket委托"不支持连接。新式委托下，需要调用nativeConnectDisabled()判断是否禁用了连接
         if (oldImpl || (impl instanceof AbstractPlainDatagramSocketImpl &&
              ((AbstractPlainDatagramSocketImpl)impl).nativeConnectDisabled())) {
+            // 禁用了连接
             connectState = ST_CONNECTED_NO_IMPL;
-        } else {
+        } else {  // 如果允许使用UDP连接
             try {
-                getImpl().connect(address, port);
+                // 获取"UDP-Socket委托"
+                getImpl()
+                        // 执行连接过程
+                        .connect(address, port);
 
                 // socket is now connected by the impl
+                // 连接正常建立
                 connectState = ST_CONNECTED;
                 // Do we need to filter some packets?
+                /*
+                 * 连接完成后，获取连接前就积压的数据包长度。
+                 *
+                 * 因为建立连接后，要求接收的数据都来自固定的远端地址处，
+                 * 所以需要对连接前就积压的数据进行一个校验/过滤
+                 */
                 int avail = getImpl().dataAvailable();
                 if (avail == -1) {
                     throw new SocketException();
                 }
+                // 如果连接前就存在积压的数据，则后续在接收数据时需要进行一个显式的校验/过滤操作
                 explicitFilter = avail > 0;
+                /*
+                 * 如果需要显式校验/过滤数据，则需要获取输入流缓冲区大小。
+                 * 原因是连接前积压的数据量不会比输入缓冲区容量还大，
+                 * 后续只需要对这批数据进行校验/过滤即可。
+                 */
                 if (explicitFilter) {
+                    // 获取输入流缓冲区大小
                     bytesLeftToFilter = getReceiveBufferSize();
                 }
             } catch (SocketException se) {
 
                 // connection will be emulated by DatagramSocket
+                // 连接失败
                 connectState = ST_CONNECTED_NO_IMPL;
             }
         }
@@ -192,6 +255,7 @@ class DatagramSocket implements java.io.Closeable {
      *
      * @see SecurityManager#checkListen
      */
+    // ▶ 1-1 构造UDP-Socket，并将其绑定到通配IP与随机端口
     public DatagramSocket() throws SocketException {
         this(new InetSocketAddress(0));
     }
@@ -204,6 +268,7 @@ class DatagramSocket implements java.io.Closeable {
      *        the subclass wishes to use on the DatagramSocket.
      * @since   1.4
      */
+    // ▶ 1-2 构造UDP-Socket，并将其绑定到指定的IP和端口
     protected DatagramSocket(DatagramSocketImpl impl) {
         if (impl == null)
             throw new NullPointerException();
@@ -234,9 +299,11 @@ class DatagramSocket implements java.io.Closeable {
      * @see SecurityManager#checkListen
      * @since   1.4
      */
+    // ▶ 1 构造UDP-Socket，并将其绑定到指定的Socket地址
     public DatagramSocket(SocketAddress bindaddr) throws SocketException {
-        // create a datagram socket.
+        // 创建UDP-Socket和"UDP-Socket委托"，并完成它们之间的双向引用
         createImpl();
+
         if (bindaddr != null) {
             try {
                 bind(bindaddr);
@@ -267,6 +334,7 @@ class DatagramSocket implements java.io.Closeable {
      *
      * @see SecurityManager#checkListen
      */
+    // ▶ 1-2-1 构造UDP-Socket，并将其绑定到通配IP和指定的端口
     public DatagramSocket(int port) throws SocketException {
         this(port, null);
     }
@@ -299,6 +367,12 @@ class DatagramSocket implements java.io.Closeable {
         this(new InetSocketAddress(laddr, port));
     }
 
+    /*
+     * 判断"UDP-Socket委托"是否为旧式委托。
+     *
+     * 如果该委托中实现了peekData()方法，则说明这不是旧式委托，即oldImpl=false。
+     * JDK 5开始都在使用新的委托了。
+     */
     private void checkOldImpl() {
         if (impl == null)
             return;
@@ -321,23 +395,36 @@ class DatagramSocket implements java.io.Closeable {
 
     static Class<?> implClass = null;
 
+    // 创建UDP-Socket和"UDP-Socket委托"，并完成它们之间的双向引用
     void createImpl() throws SocketException {
-        if (impl == null) {
-            if (factory != null) {
+        // 如果还未创建"UDP-Socket委托"
+        if(impl == null) {
+            // 如果存在用户指定的"UDP-Socket委托"工厂，则通过该工厂来创建"UDP-Socket委托"
+            if(factory != null) {
                 impl = factory.createDatagramSocketImpl();
                 checkOldImpl();
+
+                // 如果不存在用户指定的"UDP-Socket委托"工厂
             } else {
-                boolean isMulticast = (this instanceof MulticastSocket) ? true : false;
+                // 首先判断是否为组播Socket
+                boolean isMulticast = this instanceof MulticastSocket;
+
+                // 使用内置的"UDP-Socket委托"工厂来创建"UDP-Socket委托"
                 impl = DefaultDatagramSocketImplFactory.createDatagramSocketImpl(isMulticast);
 
                 checkOldImpl();
             }
         }
-        // creates a udp socket
+
+        // 创建Socket文件，并记下其文件描述符到fd字段中（该文件描述符会被清理器追踪）
         impl.create();
+
+        // 将当前UDP-Socket关联到指定的"UDP-Socket委托"中
         impl.setDatagramSocket(this);
+
         created = true;
     }
+
 
     /**
      * Get the {@code DatagramSocketImpl} attached to this socket,
@@ -348,9 +435,13 @@ class DatagramSocket implements java.io.Closeable {
      * @throws SocketException if creation fails.
      * @since 1.4
      */
+    // 返回"UDP-Socket委托"
     DatagramSocketImpl getImpl() throws SocketException {
-        if (!created)
+        // 如果"UDP-Socket委托"还未创建，则需要先创建它
+        if(!created) {
             createImpl();
+        }
+
         return impl;
     }
 
@@ -369,31 +460,57 @@ class DatagramSocket implements java.io.Closeable {
      *         not supported by this socket.
      * @since 1.4
      */
-    public synchronized void bind(SocketAddress addr) throws SocketException {
-        if (isClosed())
+    /*
+     * 对UDP-Socket执行【bind】操作。
+     *
+     * bindpoint: 待绑定的地址(ip+port)
+     */
+    public synchronized void bind(SocketAddress bindpoint) throws SocketException {
+        if(isClosed()) {
             throw new SocketException("Socket is closed");
-        if (isBound())
+        }
+
+        // 禁止重复绑定
+        if(isBound()) {
             throw new SocketException("already bound");
-        if (addr == null)
-            addr = new InetSocketAddress(0);
-        if (!(addr instanceof InetSocketAddress))
+        }
+
+        if(bindpoint == null) {
+            bindpoint = new InetSocketAddress(0);
+        }
+
+        if(!(bindpoint instanceof InetSocketAddress)) {
             throw new IllegalArgumentException("Unsupported address type!");
-        InetSocketAddress epoint = (InetSocketAddress) addr;
-        if (epoint.isUnresolved())
+        }
+
+        InetSocketAddress epoint = (InetSocketAddress) bindpoint;
+        if(epoint.isUnresolved()) {
             throw new SocketException("Unresolved address");
+        }
+
+        // 从Socket地址中解析出IP
         InetAddress iaddr = epoint.getAddress();
+        // 从Socket地址中解析出端口
         int port = epoint.getPort();
+
         checkAddress(iaddr, "bind");
+
         SecurityManager sec = System.getSecurityManager();
-        if (sec != null) {
+        if(sec != null) {
             sec.checkListen(port);
         }
+
+        // 获取"UDP-Socket委托"
+        DatagramSocketImpl impl = getImpl();
+
         try {
-            getImpl().bind(port, iaddr);
-        } catch (SocketException e) {
-            getImpl().close();
+            // 将当前UDP-Socket绑定到指定的IP和端口
+            impl.bind(port, iaddr);
+        } catch(SocketException e) {
+            impl.close();
             throw e;
         }
+
         bound = true;
     }
 
@@ -453,10 +570,18 @@ class DatagramSocket implements java.io.Closeable {
      *
      * @see #disconnect
      */
-    public void connect(InetAddress address, int port) {
+    /*
+     * 对UDP-Socket执行【connect】操作。
+     *
+     * 将UDP-Socket连接到远程地址，之后只能向该远程地址发送数据，或从该远程地址接收数据。
+     *
+     * 注：这与TCP-Socket中的绑定意义完全不同，不会经过握手验证
+     */
+    public void connect(InetAddress endpoint, int port) {
         try {
-            connectInternal(address, port);
-        } catch (SocketException se) {
+            // 通过"UDP-Socket委托"与远端建立连接
+            connectInternal(endpoint, port);
+        } catch(SocketException se) {
             throw new Error("connect failed", se);
         }
     }
@@ -483,6 +608,13 @@ class DatagramSocket implements java.io.Closeable {
      *
      * @since 1.4
      */
+    /*
+     * 对UDP-Socket执行【connect】操作。
+     *
+     * 将UDP-Socket连接到远程地址，之后只能向该远程地址发送数据，或从该远程地址接收数据。
+     *
+     * 注：这与TCP-Socket中的绑定意义完全不同，不会经过握手验证
+     */
     public void connect(SocketAddress addr) throws SocketException {
         if (addr == null)
             throw new IllegalArgumentException("Address can't be null");
@@ -491,6 +623,7 @@ class DatagramSocket implements java.io.Closeable {
         InetSocketAddress epoint = (InetSocketAddress) addr;
         if (epoint.isUnresolved())
             throw new SocketException("Unresolved address");
+        // 通过"UDP-Socket委托"与远端建立连接
         connectInternal(epoint.getAddress(), epoint.getPort());
     }
 
@@ -499,6 +632,9 @@ class DatagramSocket implements java.io.Closeable {
      * then this method has no effect.
      *
      * @see #connect
+     */
+    /*
+     * 对UDP-Socket执行【disconnect】操作，即断开连接。
      */
     public void disconnect() {
         synchronized (this) {
@@ -586,6 +722,7 @@ class DatagramSocket implements java.io.Closeable {
      * @see #connect(SocketAddress)
      * @since 1.4
      */
+    // 返回当前UDP-Socket连接的远端Socket地址
     public SocketAddress getRemoteSocketAddress() {
         if (!isConnected())
             return null;
@@ -602,7 +739,7 @@ class DatagramSocket implements java.io.Closeable {
      * @see #bind(SocketAddress)
      * @since 1.4
      */
-
+    // 返回当前UDP-Socket绑定的本地Socket地址
     public SocketAddress getLocalSocketAddress() {
         if (isClosed())
             return null;
@@ -651,12 +788,14 @@ class DatagramSocket implements java.io.Closeable {
      * @revised 1.4
      * @spec JSR-51
      */
+    // 向远端(目的地)发送packet中存储的UDP数据包
     public void send(DatagramPacket p) throws IOException  {
         InetAddress packetAddress = null;
         synchronized (p) {
             if (isClosed())
                 throw new SocketException("Socket is closed");
             checkAddress (p.getAddress(), "send");
+            // 如果UDP-Socket未建立连接，则需要先通过安全管理器检查远端地址
             if (connectState == ST_NOT_CONNECTED) {
                 // check the address is ok wiht the security manager on every send.
                 SecurityManager security = System.getSecurityManager();
@@ -673,7 +812,12 @@ class DatagramSocket implements java.io.Closeable {
                                               p.getPort());
                     }
                 }
+
+                // UDP-Socket已与远端建立连接时，需要确保数据包中包含有效的目的地地址
             } else {
+
+                // 获取远端IP(数据包将要被发送到的IP地址)
+
                 // we're connected
                 packetAddress = p.getAddress();
                 if (packetAddress == null) {
@@ -687,10 +831,15 @@ class DatagramSocket implements java.io.Closeable {
                 }
             }
             // Check whether the socket is bound
+            // 如果UDP-Socket还未完成绑定，则必须先将其绑定到本地地址
             if (!isBound())
                 bind(new InetSocketAddress(0));
             // call the  method to send
-            getImpl().send(p);
+            // 获取"UDP-Socket委托"
+            DatagramSocketImpl impl = getImpl();
+
+            // 向目的地发送UDP数据包，待发送的数据存储在packet中
+            impl.send(p);
         }
     }
 
@@ -725,18 +874,26 @@ class DatagramSocket implements java.io.Closeable {
      * @revised 1.4
      * @spec JSR-51
      */
+    // 从远端UDP-Socket接收UDP数据包并存入packet
     public synchronized void receive(DatagramPacket p) throws IOException {
         synchronized (p) {
             if (!isBound())
                 bind(new InetSocketAddress(0));
+
+            /*
+             * 如果已建立连接，则需要从固定的远端地址接收数据包，
+             * 那么在此之前，先丢掉那些地址信息与连接到的远端地址不匹配的那些数据包
+             */
             if (connectState == ST_NOT_CONNECTED) {
                 // check the address is ok with the security manager before every recv.
+                // 每次接收前，都需要通过安全管理员确认地址是否正确
                 SecurityManager security = System.getSecurityManager();
                 if (security != null) {
                     while(true) {
                         String peekAd = null;
                         int peekPort = 0;
                         // peek at the packet to see who it is from.
+                        // 查看远端积压的数据包，获取其IP和端口
                         if (!oldImpl) {
                             // We can use the new peekData() API
                             DatagramPacket peekPacket = new DatagramPacket(new byte[1], 1);
@@ -748,13 +905,17 @@ class DatagramSocket implements java.io.Closeable {
                             peekAd = adr.getHostAddress();
                         }
                         try {
+                            // 校验远端数据包的IP和端口
                             security.checkAccept(peekAd, peekPort);
                             // security check succeeded - so now break
                             // and recv the packet.
+
+                            // 校验成功的情形下，结束循环，后续可以正常接收数据包了
                             break;
                         } catch (SecurityException se) {
                             // Throw away the offending packet by consuming
                             // it in a tmp buffer.
+                            // 校验失败的情形下，先消耗这个地址不匹配的数据包
                             DatagramPacket tmp = new DatagramPacket(new byte[1], 1);
                             getImpl().receive(tmp);
 
@@ -770,6 +931,10 @@ class DatagramSocket implements java.io.Closeable {
                 }
             }
             DatagramPacket tmp = null;
+            /*
+             * 如果需要模拟已连接状态，或者是需要显式过滤一批数据，
+             * 那么接下来仍然要对远端积压的数据包进行校验/过滤。
+             */
             if ((connectState == ST_CONNECTED_NO_IMPL) || explicitFilter) {
                 // We have to do the filtering the old fashioned way since
                 // the native impl doesn't support connect or the connect
@@ -781,6 +946,7 @@ class DatagramSocket implements java.io.Closeable {
                     InetAddress peekAddress = null;
                     int peekPort = -1;
                     // peek at the packet to see who it is from.
+                    // 查看远端积压的数据包，获取其IP和端口
                     if (!oldImpl) {
                         // We can use the new peekData() API
                         DatagramPacket peekPacket = new DatagramPacket(new byte[1], 1);
@@ -791,14 +957,19 @@ class DatagramSocket implements java.io.Closeable {
                         peekAddress = new InetAddress();
                         peekPort = getImpl().peek(peekAddress);
                     }
+                    // 如果数据包的地址信息与连接到的远程地址信息是匹配的，说明这些数据包可信，直接放行
                     if ((!connectedAddress.equals(peekAddress)) ||
                         (connectedPort != peekPort)) {
                         // throw the packet away and silently continue
+                        // 消耗这批不可信的数据包，相当于丢弃
                         tmp = new DatagramPacket(
                                                 new byte[1024], 1024);
                         getImpl().receive(tmp);
+
+                        // 在已经过滤掉packet数据包中的数据后，判断后续是否仍然需要继续过滤
                         if (explicitFilter) {
                             if (checkFiltering(tmp)) {
+                                // 如果过滤完成，则不需要再过滤，直接退出循环即可
                                 stop = true;
                             }
                         }
@@ -809,21 +980,42 @@ class DatagramSocket implements java.io.Closeable {
             }
             // If the security check succeeds, or the datagram is
             // connected then receive the packet
+
+            // 接收UDP数据包，接收到的数据存储到packet中
             getImpl().receive(p);
+
+            // 如果需要显式校验/过滤，且前面没有丢弃过数据，则需要在此尝试过滤
             if (explicitFilter && tmp == null) {
                 // packet was not filtered, account for it here
+                // 注：这里的packet没有被过滤，但是会将其当成已过滤(丢弃)一样进行计数
                 checkFiltering(p);
             }
         }
     }
 
-    private boolean checkFiltering(DatagramPacket p) throws SocketException {
-        bytesLeftToFilter -= p.getLength();
-        if (bytesLeftToFilter <= 0 || getImpl().dataAvailable() <= 0) {
-            explicitFilter = false;
-            return true;
+    // 在已经过滤掉packet数据包中的数据后，后续是否仍然需要继续过滤
+    private boolean checkFiltering(DatagramPacket packet) throws SocketException {
+        // 获取"UDP-Socket委托"
+        DatagramSocketImpl impl = getImpl();
+
+        /*
+         * 获取接收到的数据包的长度
+         *
+         * 注：该方法由客户端间接调用
+         */
+        int len = packet.getLength();
+
+        // 在已经过滤掉一波数据后，查看剩余的数据量
+        bytesLeftToFilter -= len;
+
+        // 如果仍有剩余数据，则返回false，意思是后续还得继续过滤
+        if(bytesLeftToFilter>0 && impl.dataAvailable()>0) {
+            return false;
         }
-        return false;
+
+        explicitFilter = false;
+
+        return true;
     }
 
     /**
@@ -844,11 +1036,14 @@ class DatagramSocket implements java.io.Closeable {
      *          method does not allow the operation
      * @since   1.1
      */
+    // 返回当前UDP-Socket绑定的本地IP
     public InetAddress getLocalAddress() {
         if (isClosed())
             return null;
         InetAddress in = null;
         try {
+            // 获取"UDP-Socket委托"
+            // 获取UDP-Socket绑定的本地IP
             in = (InetAddress) getImpl().getOption(SocketOptions.SO_BINDADDR);
             if (in.isAnyLocalAddress()) {
                 in = InetAddress.anyLocalAddress();
@@ -871,12 +1066,19 @@ class DatagramSocket implements java.io.Closeable {
                 {@code -1} if the socket is closed, or
                 {@code 0} if it is not bound yet.
      */
+    // 返回当前UDP-Socket绑定的本地端口
     public int getLocalPort() {
-        if (isClosed())
+        if(isClosed()) {
             return -1;
+        }
+
         try {
-            return getImpl().getLocalPort();
-        } catch (Exception e) {
+            // 获取"UDP-Socket委托"
+            DatagramSocketImpl impl = getImpl();
+
+            // 返回当前UDP-Socket绑定的本地端口
+            return impl.getLocalPort();
+        } catch(Exception e) {
             return 0;
         }
     }
@@ -1119,6 +1321,7 @@ class DatagramSocket implements java.io.Closeable {
      * @since 1.4
      * @see #getBroadcast()
      */
+    // 设置是否允许发送广播
     public synchronized void setBroadcast(boolean on) throws SocketException {
         if (isClosed())
             throw new SocketException("Socket is closed");
@@ -1176,6 +1379,7 @@ class DatagramSocket implements java.io.Closeable {
      * @since 1.4
      * @see #getTrafficClass
      */
+    // 设置IP参数，即设置IP头部的Type-of-Service字段，用于描述IP包的优先级和QoS选项
     public synchronized void setTrafficClass(int tc) throws SocketException {
         if (tc < 0 || tc > 255)
             throw new IllegalArgumentException("tc is not in range 0 -- 255");
@@ -1183,6 +1387,7 @@ class DatagramSocket implements java.io.Closeable {
         if (isClosed())
             throw new SocketException("Socket is closed");
         try {
+            // 获取"UDP-Socket委托"
             getImpl().setOption(SocketOptions.IP_TOS, tc);
         } catch (SocketException se) {
             // not supported if socket already connected
@@ -1261,6 +1466,11 @@ class DatagramSocket implements java.io.Closeable {
      * @since 1.4
      * @spec JSR-51
      */
+    /*
+     * 返回当前UDP-Socket关联的通道源
+     *
+     * 目前只有当前类被实现为UDP-Socket适配器时，才返回已适配的UDP-Scoket通道；否则，返回null
+     */
     public DatagramChannel getChannel() {
         return null;
     }
@@ -1268,6 +1478,7 @@ class DatagramSocket implements java.io.Closeable {
     /**
      * User defined factory for all datagram sockets.
      */
+    // "UDP-Socket委托"的工厂
     static DatagramSocketImplFactory factory;
 
     /**

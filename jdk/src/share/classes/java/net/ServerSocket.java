@@ -29,6 +29,7 @@ import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.channels.ServerSocketChannel;
 import java.security.AccessController;
+import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 
 /**
@@ -48,24 +49,63 @@ import java.security.PrivilegedExceptionAction;
  * @see     java.nio.channels.ServerSocketChannel
  * @since   JDK1.0
  */
+/*
+ * 面向连接的ServerSocket(使用TCP Socket)，用在服务端
+ *
+ * 注：ServerSocket可以看做是对[服务端Socket(监听)]的"间接"包装。
+ *
+ *
+ * Linux上的TCP通信方法（本类中实现的API与底层API略有区别）：
+ *
+ * 服务端                客户端
+ *
+ * sokcet()             sokcet()
+ *   ↓                     ↓
+ * bind()               bind()-可选
+ *   ↓                     ↓
+ * listen()                ↓
+ *   ↓                     ↓
+ * accept()                ↓
+ *   ↓                     ↓
+ * 阻塞，等待客户端连接      ↓
+ *   ↓                     ↓
+ *   █    ←←←←←←←←←←←←← connect()
+ *   ↓                     ↓
+ *   ↓     客户端发出请求   ↓
+ * read() ←←←←←←←←←←←←← write()
+ *   ↓                     ↓
+ * 服务端处理请求           ↓
+ * 服务端做出响应           ↓
+ *   ↓                     ↓
+ *   ↓     客户端接收响应   ↓
+ * write() →→→→→→→→→→→→ read()
+ *   ↓                     ↓
+ * close()              close()
+ *
+ *
+ * 注：客户端与服务端是一个相对的概念，没有绝对的客户端或绝对的服务端
+ */
 public
 class ServerSocket implements java.io.Closeable {
     /**
      * Various states of this socket.
      */
-    private boolean created = false;
-    private boolean bound = false;
-    private boolean closed = false;
+    private boolean created = false;    // 指示[服务端Socket(监听)]是否已经创建
+    private boolean bound = false;    // 指示[服务端Socket(监听)]是否已绑定
+
+    private boolean closed = false;    // 指示[服务端Socket(监听)]是否已关闭
     private Object closeLock = new Object();
 
     /**
      * The implementation of this Socket.
      */
+    // [服务端Socket(监听)]的"Socket委托"
     private SocketImpl impl;
 
     /**
      * Are we using an older SocketImpl?
      */
+    // 是否在使用旧式的"Socket委托"(JDK1.5起始，该值均为false)
     private boolean oldImpl = false;
 
     /**
@@ -83,8 +123,9 @@ class ServerSocket implements java.io.Closeable {
      * @exception IOException IO error when opening the socket.
      * @revised 1.4
      */
+    // ▶ 2 构造一个"未就绪"的ServerSocket，需要在后续调用bind()方法来创建[服务端Socket(监听)]，以便进行【bind】和【listen】操作
     public ServerSocket() throws IOException {
-        setImpl();
+        setImpl();  // 创建"Socket委托"，并为其关联当前ServerSocket
     }
 
     /**
@@ -123,6 +164,12 @@ class ServerSocket implements java.io.Closeable {
      * @see        java.net.SocketImplFactory#createSocketImpl()
      * @see        java.net.ServerSocket#setSocketFactory(java.net.SocketImplFactory)
      * @see        SecurityManager#checkListen
+     */
+    /*
+     * ▶ 1-1 构造ServerSocket，本质是创建了[服务端Socket(监听)]，并对其执行了【bind】和【listen】操作，
+     *       默认绑定到服务端的本地IP上，且允许积压(排队)的待处理连接数为50。
+     *
+     * port [服务端Socket]绑定的本地端口
      */
     public ServerSocket(int port) throws IOException {
         this(port, 50, null);
@@ -177,6 +224,13 @@ class ServerSocket implements java.io.Closeable {
      * @see        java.net.ServerSocket#setSocketFactory(java.net.SocketImplFactory)
      * @see        SecurityManager#checkListen
      */
+    /*
+     * ▶ 1-2 构造ServerSocket，本质是创建了[服务端Socket(监听)]，并对其执行了【bind】和【listen】操作。
+     *       默认绑定到服务端的本地IP上。
+     *
+     * port     [服务端Socket]绑定的本地端口
+     * backlog  允许积压(排队)的待处理连接数
+     */
     public ServerSocket(int port, int backlog) throws IOException {
         this(port, backlog, null);
     }
@@ -226,19 +280,34 @@ class ServerSocket implements java.io.Closeable {
      * @see SecurityManager#checkListen
      * @since   JDK1.1
      */
+    /*
+     * ▶ 1 构造ServerSocket，本质是创建了[服务端Socket(监听)]，并对其执行了【bind】和【listen】操作。
+     *
+     * port     [服务端Socket]绑定的本地端口
+     * backlog  允许积压(排队)的待处理连接数
+     * bindAddr [服务端Socket]绑定的本地IP
+     */
     public ServerSocket(int port, int backlog, InetAddress bindAddr) throws IOException {
+        // 创建"Socket委托"，并为其关联当前ServerSocket
         setImpl();
-        if (port < 0 || port > 0xFFFF)
-            throw new IllegalArgumentException(
-                       "Port value out of range: " + port);
-        if (backlog < 1)
-          backlog = 50;
+
+        // 端口号必须位于[0, 65535]之间
+        if(port<0 || port>0xFFFF) {
+            throw new IllegalArgumentException("Port value out of range: " + port);
+        }
+
+        // 默认允许积压的待处理连接数为50
+        if(backlog<1) {
+            backlog = 50;
+        }
+
         try {
-            bind(new InetSocketAddress(bindAddr, port), backlog);
-        } catch(SecurityException e) {
-            close();
-            throw e;
-        } catch(IOException e) {
+            // 使用指定的IP地址和端口号构造一个Socket地址以便绑定
+            InetSocketAddress endpoint = new InetSocketAddress(bindAddr, port);
+
+            // 创建[服务端Socket(监听)]，并对其执行【bind】和【listen】操作
+            bind(endpoint, backlog);
+        } catch(SecurityException | IOException e) {
             close();
             throw e;
         }
@@ -252,43 +321,54 @@ class ServerSocket implements java.io.Closeable {
      * @throws SocketException if creation fails.
      * @since 1.4
      */
+    // (3)返回[服务端Socket(监听)]的"Socket委托"，期间已创建了[服务端Socket(监听)]
     SocketImpl getImpl() throws SocketException {
-        if (!created)
+        if(!created) {
+            // 创建"Socket委托"，随后通过该委托创建[服务端Socket(监听)]
             createImpl();
+        }
+
         return impl;
     }
 
+
+    // 检查是否使用了旧式"Socket委托"(JDK1.5开始，均不是旧式委托)
     private void checkOldImpl() {
-        if (impl == null)
+        if(impl == null) {
             return;
-        // SocketImpl.connect() is a protected method, therefore we need to use
-        // getDeclaredMethod, therefore we need permission to access the member
+        }
+
+        // SocketImpl.connect() is a protected method, therefore we need to use getDeclaredMethod, therefore we need permission to access the member
         try {
-            AccessController.doPrivileged(
-                new PrivilegedExceptionAction<Void>() {
-                    public Void run() throws NoSuchMethodException {
-                        impl.getClass().getDeclaredMethod("connect",
-                                                          SocketAddress.class,
-                                                          int.class);
-                        return null;
-                    }
-                });
-        } catch (java.security.PrivilegedActionException e) {
+            AccessController.doPrivileged(new PrivilegedExceptionAction<Void>() {
+                public Void run() throws NoSuchMethodException {
+                    // 如果包含void connect(SocketAddress, int)方法，则不属于旧式委托
+                    impl.getClass().getDeclaredMethod("connect", SocketAddress.class, int.class);
+                    return null;
+                }
+            });
+        } catch(PrivilegedActionException e) {
             oldImpl = true;
         }
     }
 
+    // (1)创建"Socket委托"，并为其关联当前ServerSocket
     private void setImpl() {
-        if (factory != null) {
+        // 如果存在"Socket委托"工厂
+        if(factory != null) {
+            // 从"Socket委托"工厂生成"Socket委托"
             impl = factory.createSocketImpl();
+            // 检查是否为旧式"Socket委托"
             checkOldImpl();
         } else {
-            // No need to do a checkOldImpl() here, we know it's an up to date
-            // SocketImpl!
+            // No need to do a checkOldImpl() here, we know it's an up to date SocketImpl!
             impl = new SocksSocketImpl();
         }
-        if (impl != null)
+
+        if(impl != null) {
+            // 为"Socket委托"关联ServerSocket
             impl.setServerSocket(this);
+        }
     }
 
     /**
@@ -297,13 +377,17 @@ class ServerSocket implements java.io.Closeable {
      * @throws IOException if creation fails
      * @since 1.4
      */
+    // (2)创建[服务端Socket(监听)]
     void createImpl() throws SocketException {
-        if (impl == null)
-            setImpl();
+        if(impl == null) {
+            setImpl();  // 创建"Socket委托"，并为其关联当前ServerSocket
+        }
+
         try {
+            // 创建[服务端Socket(监听)]，并将其文件描述符记录到impl中
             impl.create(true);
             created = true;
-        } catch (IOException e) {
+        } catch(IOException e) {
             throw new SocketException(e.getMessage());
         }
     }
@@ -324,6 +408,11 @@ class ServerSocket implements java.io.Closeable {
      * @throws  IllegalArgumentException if endpoint is a
      *          SocketAddress subclass not supported by this socket
      * @since 1.4
+     */
+    /*
+     * 创建[服务端Socket(监听)]，并对其执行【bind】和【listen】操作，此处允许积压(排队)的待处理连接数为50
+     *
+     * endpoint: 既作为服务端的绑定地址(包含端口)，也作为开启监听的地址(包含端口)
      */
     public void bind(SocketAddress endpoint) throws IOException {
         bind(endpoint, 50);
@@ -354,31 +443,61 @@ class ServerSocket implements java.io.Closeable {
      *          SocketAddress subclass not supported by this socket
      * @since 1.4
      */
+    /*
+     * 创建[服务端Socket(监听)]，并对其执行【bind】和【listen】操作
+     *
+     * endpoint: 既作为服务端的绑定地址(包含端口)，也作为开启监听的地址(包含端口)
+     * backlog : 允许积压(排队)的待处理连接数；如果backlog<1，则取默认值50
+     */
     public void bind(SocketAddress endpoint, int backlog) throws IOException {
-        if (isClosed())
+        // 如果ServerSocket已关闭，抛异常
+        if(isClosed()) {
             throw new SocketException("Socket is closed");
-        if (!oldImpl && isBound())
+        }
+
+        // 如果ServerSocket已绑定，抛异常(JDK1.5起始，oldImpl总是为false)
+        if(!oldImpl && isBound()) {
             throw new SocketException("Already bound");
-        if (endpoint == null)
+        }
+
+        if(endpoint == null) {
             endpoint = new InetSocketAddress(0);
-        if (!(endpoint instanceof InetSocketAddress))
+        }
+
+        if(!(endpoint instanceof InetSocketAddress)) {
             throw new IllegalArgumentException("Unsupported address type");
+        }
+
+        // 记录服务端的本地Socket地址(ip + port)
         InetSocketAddress epoint = (InetSocketAddress) endpoint;
-        if (epoint.isUnresolved())
+
+        // 此处要求为具体的IP，而不是域名
+        if(epoint.isUnresolved()) {
             throw new SocketException("Unresolved address");
-        if (backlog < 1)
-          backlog = 50;
+        }
+
+        // 默认允许排队的连接数为50
+        if(backlog<1) {
+            backlog = 50;
+        }
+
         try {
             SecurityManager security = System.getSecurityManager();
-            if (security != null)
+            if(security != null) {
                 security.checkListen(epoint.getPort());
-            getImpl().bind(epoint.getAddress(), epoint.getPort());
-            getImpl().listen(backlog);
+            }
+
+            // 获取[服务端Socket(监听)]的"Socket委托"，期间已创建了[服务端Socket(监听)]
+            SocketImpl impl = getImpl();
+
+            // 通过指定的"Socket委托"为引用的[服务端Socket(监听)]绑定IP与端口号
+            impl.bind(epoint.getAddress(), epoint.getPort());
+
+            // 通过指定的"Socket委托"为引用的[服务端Socket(监听)]开启监听，backlog代表允许积压的待处理连接数
+            impl.listen(backlog);
+
             bound = true;
-        } catch(SecurityException e) {
-            bound = false;
-            throw e;
-        } catch(IOException e) {
+        } catch(SecurityException | IOException e) {
             bound = false;
             throw e;
         }
@@ -402,22 +521,34 @@ class ServerSocket implements java.io.Closeable {
      *
      * @see SecurityManager#checkConnect
      */
+    // 返回本地IP，即服务端IP；如果没有绑定，则返回null
     public InetAddress getInetAddress() {
-        if (!isBound())
+        if(!isBound()) {
             return null;
-        try {
-            InetAddress in = getImpl().getInetAddress();
-            SecurityManager sm = System.getSecurityManager();
-            if (sm != null)
-                sm.checkConnect(in.getHostAddress(), -1);
-            return in;
-        } catch (SecurityException e) {
-            return InetAddress.getLoopbackAddress();
-        } catch (SocketException e) {
-            // nothing
-            // If we're bound, the impl has been created
-            // so we shouldn't get here
         }
+
+        try {
+            // 获取[服务端Socket(监听)]的"Socket委托"，期间已创建了[服务端Socket(监听)]
+            SocketImpl impl = getImpl();
+
+            // 获取本地IP，即服务端IP
+            InetAddress in = impl.getInetAddress();
+
+            SecurityManager sm = System.getSecurityManager();
+            if(sm != null) {
+                sm.checkConnect(in.getHostAddress(), -1);
+            }
+
+            // 返回本地IP
+            return in;
+        } catch(SecurityException e) {
+            return InetAddress.getLoopbackAddress();
+        } catch(SocketException e) {
+            // nothing,
+            // If we're bound, the impl has been created,
+            // so we shouldn't get here.
+        }
+
         return null;
     }
 
@@ -431,16 +562,22 @@ class ServerSocket implements java.io.Closeable {
      * @return  the port number to which this socket is listening or
      *          -1 if the socket is not bound yet.
      */
+    // 返回本地端口，即服务端的端口
     public int getLocalPort() {
-        if (!isBound())
+        if(!isBound()) {
             return -1;
-        try {
-            return getImpl().getLocalPort();
-        } catch (SocketException e) {
-            // nothing
-            // If we're bound, the impl has been created
-            // so we shouldn't get here
         }
+
+        try {
+            // 获取[服务端Socket(监听)]的"Socket委托"，期间已创建了[服务端Socket(监听)]
+            SocketImpl impl = getImpl();
+
+            // 返回本地端口，即服务端的端口
+            return impl.getLocalPort();
+        } catch(SocketException e) {
+            // nothing. If we're bound, the impl has been created so we shouldn't get here
+        }
+
         return -1;
     }
 
@@ -469,11 +606,20 @@ class ServerSocket implements java.io.Closeable {
      * @see SecurityManager#checkConnect
      * @since 1.4
      */
-
+    // 返回本地Socket地址(ip+port)，即服务端地址；如果还未绑定，则返回null
     public SocketAddress getLocalSocketAddress() {
-        if (!isBound())
+        if(!isBound()) {
             return null;
-        return new InetSocketAddress(getInetAddress(), getLocalPort());
+        }
+
+        // 获取本地IP，即服务端IP；如果没有绑定，则返回null
+        InetAddress address = getInetAddress();
+
+        // 获取本地端口
+        int port = getLocalPort();
+
+        // 包装为Socket地址后返回，如果IP地址为null，使用通配地址
+        return new InetSocketAddress(address, port);
     }
 
     /**
@@ -504,15 +650,29 @@ class ServerSocket implements java.io.Closeable {
      * @revised 1.4
      * @spec JSR-51
      */
+    /*
+     * [服务端Socket(监听)]等待客户端的连接请求；
+     * 连接成功后，返回与[客户端Socket]建立连接的[服务端Socket(通信)]
+     */
     public Socket accept() throws IOException {
-        if (isClosed())
+        if(isClosed()) {
             throw new SocketException("Socket is closed");
-        if (!isBound())
+        }
+
+        if(!isBound()) {
             throw new SocketException("Socket is not bound yet");
-        Socket s = new Socket((SocketImpl) null);
-        implAccept(s);
-        return s;
+        }
+
+        // 创建[服务端Socket(通信)]，未设置"Socket委托"
+        Socket socket = new Socket((SocketImpl) null);
+
+        // [服务端Socket(监听)]等待客户端的连接请求；连接成功后，进一步完善参数中的[服务端Socket(通信)]
+        implAccept(socket);
+
+        // 返回与[客户端Socket]建立连接的[服务端Socket(通信)]
+        return socket;
     }
+
 
     /**
      * Subclasses of ServerSocket use this method to override accept()
@@ -530,19 +690,41 @@ class ServerSocket implements java.io.Closeable {
      * @revised 1.4
      * @spec JSR-51
      */
+    /*
+     * [服务端Socket(监听)]等待客户端的连接请求；
+     * 连接成功后，进一步完善参数中的[服务端Socket(通信)]
+     */
     protected final void implAccept(Socket s) throws IOException {
+        // [服务端Socket(通信)]的"Socket委托"
         SocketImpl si = null;
         try {
             if (s.impl == null)
+                // 初始化"Socket委托"，并为其关联参数中的socket
               s.setImpl();
             else {
+                // 重置连接信息
                 s.impl.reset();
             }
+            // 获取上面创建的"Socket委托"
             si = s.impl;
+            // 置空socket内的"Socket委托"
             s.impl = null;
             si.address = new InetAddress();
+
+            // 将[服务端Socket(通信)]的文件描述符注册到清理器
             si.fd = new FileDescriptor();
-            getImpl().accept(si);
+
+            // 获取[服务端Socket(监听)]的"Socket委托"，期间已创建了[服务端Socket(监听)]
+            getImpl()
+                    /*
+                     * 由[服务端Socket(监听)]的"Socket委托"调用，对[服务端Socket(监听)]执行【accept】操作，
+                     * accept成功后，会获取到新生成的[服务端Socket(通信)]的文件描述符，
+                     * 随后，将客户端端口/客户端地址/服务端端口/[服务端Socket(通信)]文件描述符设置到参数中的"Socket委托"中。
+                     *
+                     * socketImpl: [服务端Socket(通信)]的"Socket委托"，
+                     *             accept成功后会为其填充相关的地址信息，以及为其关联[服务端Socket(通信)](的文件描述符)
+                     */
+                    .accept(si);
 
             SecurityManager security = System.getSecurityManager();
             if (security != null) {
@@ -551,6 +733,7 @@ class ServerSocket implements java.io.Closeable {
             }
         } catch (IOException e) {
             if (si != null)
+                // 重置连接信息
                 si.reset();
             s.impl = si;
             throw e;
@@ -560,7 +743,9 @@ class ServerSocket implements java.io.Closeable {
             s.impl = si;
             throw e;
         }
+        // 设置"Socket委托"
         s.impl = si;
+        // 指示[服务端Socket(通信)]已就绪
         s.postAccept();
     }
 
@@ -602,6 +787,12 @@ class ServerSocket implements java.io.Closeable {
      *
      * @since 1.4
      * @spec JSR-51
+     */
+    /*
+     * 返回当前ServerSocket关联的通道
+     *
+     * 这里返回null，因为直接创建出来的Socket不会关联通道，
+     * 可以通过ServerSocketChannel#open()一边创建Socket，一边关联通道。
      */
     public ServerSocketChannel getChannel() {
         return null;
@@ -708,11 +899,25 @@ class ServerSocket implements java.io.Closeable {
      * @see #isBound()
      * @see #isClosed()
      */
+    /*
+     * 设置是否允许立刻重用已关闭的socket端口
+     *
+     * 比如在连接异常关闭后，端口可能还没有被释放。
+     * 这时再次尝试绑定该端口时，如果没有启用SO_REUSEADDR，那么将会绑定失败。
+     *
+     * 需要注意的是setReuseAddress(boolean on)方法必须在socket还未绑定到一个本地端口之前调用，否则无效
+     */
     public void setReuseAddress(boolean on) throws SocketException {
-        if (isClosed())
+        if(isClosed()) {
             throw new SocketException("Socket is closed");
-        getImpl().setOption(SocketOptions.SO_REUSEADDR, Boolean.valueOf(on));
+        }
+
+        // 获取[服务端Socket(监听)]的"Socket委托"，期间已创建了[服务端Socket(监听)]
+        SocketImpl impl = getImpl();
+
+        impl.setOption(SocketOptions.SO_REUSEADDR, on);
     }
+
 
     /**
      * Tests if {@link SocketOptions#SO_REUSEADDR SO_REUSEADDR} is enabled.
@@ -724,10 +929,16 @@ class ServerSocket implements java.io.Closeable {
      * @since   1.4
      * @see #setReuseAddress(boolean)
      */
+    // 获取是否允许立刻重用已关闭的socket端口
     public boolean getReuseAddress() throws SocketException {
-        if (isClosed())
+        if(isClosed()) {
             throw new SocketException("Socket is closed");
-        return ((Boolean) (getImpl().getOption(SocketOptions.SO_REUSEADDR))).booleanValue();
+        }
+
+        // 获取[服务端Socket(监听)]的"Socket委托"，期间已创建了[服务端Socket(监听)]
+        SocketImpl impl = getImpl();
+
+        return (Boolean) (impl.getOption(SocketOptions.SO_REUSEADDR));
     }
 
     /**
@@ -755,17 +966,23 @@ class ServerSocket implements java.io.Closeable {
                 ",localport=" + impl.getLocalPort()  + "]";
     }
 
-    void setBound() {
-        bound = true;
-    }
+    /*▼ 状态 ████████████████████████████████████████████████████████████████████████████████┓ */
 
+    // 标记[服务端Socket(监听)]已创建
     void setCreated() {
         created = true;
     }
 
+    // 标记[服务端Socket(监听)]已绑定
+    void setBound() {
+        bound = true;
+    }
+
+
     /**
      * The factory for all server sockets.
      */
+    // "Socket委托"的工厂
     private static SocketImplFactory factory = null;
 
     /**
@@ -793,6 +1010,7 @@ class ServerSocket implements java.io.Closeable {
      * @see        java.net.SocketImplFactory#createSocketImpl()
      * @see        SecurityManager#checkSetFactory
      */
+    // 设置一个"Socket委托"工厂，以便用来构造"Socket委托"实例
     public static synchronized void setSocketFactory(SocketImplFactory fac) throws IOException {
         if (factory != null) {
             throw new SocketException("factory already defined");
