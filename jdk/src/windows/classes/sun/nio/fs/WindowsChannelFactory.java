@@ -48,8 +48,10 @@ import static sun.nio.fs.WindowsConstants.*;
 /**
  * Factory to create FileChannels and AsynchronousFileChannels.
  */
-
+// 文件通道工厂的本地实现，用来创建同步/异步文件通道
 class WindowsChannelFactory {
+
+    // 访问来自FileDescriptor的后门方法
     private static final JavaIOFileDescriptorAccess fdAccess =
         SharedSecrets.getJavaIOFileDescriptorAccess();
 
@@ -59,11 +61,13 @@ class WindowsChannelFactory {
      * Do not follow reparse points when opening an existing file. Do not fail
      * if the file is a reparse point.
      */
+    // 打开现有文件时不要追踪reparse points。如果文件是reparse point，不会打开失败
     static final OpenOption OPEN_REPARSE_POINT = new OpenOption() { };
 
     /**
      * Represents the flags from a user-supplied set of open options.
      */
+    // 收集文件操作属性
     private static class Flags {
         boolean read;
         boolean write;
@@ -136,6 +140,7 @@ class WindowsChannelFactory {
      * @param   pathToCheck
      *          The path used for permission checks (if security manager)
      */
+    // 创建/打开一个文件，并返回其关联的非异步文件通道
     static FileChannel newFileChannel(String pathForWindows,
                                       String pathToCheck,
                                       Set<? extends OpenOption> options,
@@ -149,6 +154,7 @@ class WindowsChannelFactory {
             if (flags.append) {
                 flags.write = true;
             } else {
+                // 默认使用"读"模式
                 flags.read = true;
             }
         }
@@ -159,7 +165,9 @@ class WindowsChannelFactory {
         if (flags.append && flags.truncateExisting)
             throw new IllegalArgumentException("APPEND + TRUNCATE_EXISTING not allowed");
 
+        // 创建/打开一个文件，并返回其文件描述符
         FileDescriptor fdObj = open(pathForWindows, pathToCheck, flags, pSecurityDescriptor);
+        // 返回为文件关联的IO通道
         return FileChannelImpl.open(fdObj, pathForWindows, flags.read, flags.write, flags.append, null);
     }
 
@@ -173,6 +181,7 @@ class WindowsChannelFactory {
      * @param   pool
      *          The thread pool that the channel is associated with
      */
+    // 创建/打开一个文件，并返回其关联的异步文件通道，工作线程在这个过程中会被启动并阻塞
     static AsynchronousFileChannel newAsynchronousFileChannel(String pathForWindows,
                                                               String pathToCheck,
                                                               Set<? extends OpenOption> options,
@@ -180,23 +189,28 @@ class WindowsChannelFactory {
                                                               ThreadPool pool)
         throws IOException
     {
+        // 解析文件操作属性
         Flags flags = Flags.toFlags(options);
 
         // Overlapped I/O required
+        // 强制使用重叠IO结构（异步通道必须）
         flags.overlapped = true;
 
         // default is reading
+        // 默认使文件通道可读
         if (!flags.read && !flags.write) {
             flags.read = true;
         }
 
         // validation
+        // 要求文件可追加
         if (flags.append)
             throw new UnsupportedOperationException("APPEND not allowed");
 
         // open file for overlapped I/O
         FileDescriptor fdObj;
         try {
+            // 创建/打开一个文件，并返回其文件描述符
             fdObj = open(pathForWindows, pathToCheck, flags, pSecurityDescriptor);
         } catch (WindowsException x) {
             x.rethrowAsIOException(pathForWindows);
@@ -205,6 +219,7 @@ class WindowsChannelFactory {
 
         // create the AsynchronousFileChannel
         try {
+            // 返回为文件关联的异步IO通道，此过程中会将工作线程就绪并阻塞，等待新的操作到达并执行完之后，再唤醒工作线程
             return WindowsAsynchronousFileChannelImpl.open(fdObj, flags.read, flags.write, pool);
         } catch (IOException x) {
             // IOException is thrown if the file handle cannot be associated
@@ -219,6 +234,7 @@ class WindowsChannelFactory {
      * Opens file based on parameters and options, returning a FileDescriptor
      * encapsulating the handle to the open file.
      */
+    // 创建/打开一个文件，并返回其文件描述符
     private static FileDescriptor open(String pathForWindows,
                                        String pathToCheck,
                                        Flags flags,
@@ -226,15 +242,18 @@ class WindowsChannelFactory {
         throws WindowsException
     {
         // set to true if file must be truncated after open
+        // 打开文件时是否将其长度截断为0
         boolean truncateAfterOpen = false;
 
         // map options
+        // 访问属性(读/写)
         int dwDesiredAccess = 0;
         if (flags.read)
             dwDesiredAccess |= GENERIC_READ;
         if (flags.write)
             dwDesiredAccess |= GENERIC_WRITE;
 
+        // 共享属性
         int dwShareMode = 0;
         if (flags.shareRead)
             dwShareMode |= FILE_SHARE_READ;
@@ -243,7 +262,9 @@ class WindowsChannelFactory {
         if (flags.shareDelete)
             dwShareMode |= FILE_SHARE_DELETE;
 
+        // 文件属性
         int dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL;
+        // 创建属性
         int dwCreationDisposition = OPEN_EXISTING;
         if (flags.write) {
             if (flags.createNew) {
@@ -274,6 +295,7 @@ class WindowsChannelFactory {
             dwFlagsAndAttributes |= FILE_FLAG_DELETE_ON_CLOSE;
 
         // NOFOLLOW_LINKS and NOFOLLOW_REPARSEPOINT mean open reparse point
+        // 是否可以处理符号链接
         boolean okayToFollowLinks = true;
         if (dwCreationDisposition != CREATE_NEW &&
             (flags.noFollowLinks ||
@@ -299,6 +321,7 @@ class WindowsChannelFactory {
         }
 
         // open file
+        // 创建/打开一个文件，返回文件句柄（底层引用）
         long handle = CreateFile(pathForWindows,
                                  dwDesiredAccess,
                                  dwShareMode,
@@ -309,6 +332,8 @@ class WindowsChannelFactory {
         // make sure this isn't a symbolic link.
         if (!okayToFollowLinks) {
             try {
+                // 返回handle文件的windows文件属性信息
+                // 如果handle文件是符号链接，则抛异常
                 if (WindowsFileAttributes.readAttributes(handle).isSymbolicLink())
                     throw new WindowsException("File is symbolic link");
             } catch (WindowsException x) {

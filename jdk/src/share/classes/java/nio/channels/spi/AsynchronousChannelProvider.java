@@ -49,8 +49,10 @@ import java.security.PrivilegedAction;
  *
  * @since 1.7
  */
-
+// 异步通道组和异步Socket通道的工厂
 public abstract class AsynchronousChannelProvider {
+
+    // 权限检查
     private static Void checkPermission() {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null)
@@ -71,6 +73,8 @@ public abstract class AsynchronousChannelProvider {
     }
 
     // lazy initialization of default provider
+
+    // 异步通道工厂引用
     private static class ProviderHolder {
         static final AsynchronousChannelProvider provider = load();
 
@@ -79,16 +83,22 @@ public abstract class AsynchronousChannelProvider {
                 .doPrivileged(new PrivilegedAction<AsynchronousChannelProvider>() {
                     public AsynchronousChannelProvider run() {
                         AsynchronousChannelProvider p;
+                        // 尝试从用户定义的属性中创建异步通道工厂，默认为null
                         p = loadProviderFromProperty();
                         if (p != null)
                             return p;
+
+                        // 尝试从用户注册的服务中创建异步通道工厂，默认为null
                         p = loadProviderAsService();
                         if (p != null)
                             return p;
+
+                        // 返回系统默认的异步通道工厂
                         return sun.nio.ch.DefaultAsynchronousChannelProvider.create();
                     }});
         }
 
+        // 尝试从用户定义的属性中创建异步通道工厂，默认为null
         private static AsynchronousChannelProvider loadProviderFromProperty() {
             String cn = System.getProperty("java.nio.channels.spi.AsynchronousChannelProvider");
             if (cn == null)
@@ -108,6 +118,7 @@ public abstract class AsynchronousChannelProvider {
             }
         }
 
+        // 尝试从用户注册的服务中创建异步通道工厂，默认为null
         private static AsynchronousChannelProvider loadProviderAsService() {
             ServiceLoader<AsynchronousChannelProvider> sl =
                 ServiceLoader.load(AsynchronousChannelProvider.class,
@@ -162,6 +173,7 @@ public abstract class AsynchronousChannelProvider {
      *
      * @return  The system-wide default AsynchronousChannel provider
      */
+    // 返回系统默认的异步通道组工厂
     public static AsynchronousChannelProvider provider() {
         return ProviderHolder.provider;
     }
@@ -183,6 +195,7 @@ public abstract class AsynchronousChannelProvider {
      *
      * @see AsynchronousChannelGroup#withFixedThreadPool
      */
+    // 返回一个带有固定容量线程池的异步通道组，线程池容量为nThreads
     public abstract AsynchronousChannelGroup
         openAsynchronousChannelGroup(int nThreads, ThreadFactory threadFactory) throws IOException;
 
@@ -202,6 +215,7 @@ public abstract class AsynchronousChannelProvider {
      *
      * @see AsynchronousChannelGroup#withCachedThreadPool
      */
+    // 返回一个包含指定线程池的异步通道组，线程池初始容量为initialSize(具体值还需要进一步计算)
     public abstract AsynchronousChannelGroup
         openAsynchronousChannelGroup(ExecutorService executor, int initialSize) throws IOException;
 
@@ -221,6 +235,7 @@ public abstract class AsynchronousChannelProvider {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 打开一个异步ServerSocket通道，group是该通道关联的异步通道组
     public abstract AsynchronousServerSocketChannel openAsynchronousServerSocketChannel
         (AsynchronousChannelGroup group) throws IOException;
 
@@ -240,6 +255,7 @@ public abstract class AsynchronousChannelProvider {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 打开一个异步Socket通道，group是该通道关联的异步通道组
     public abstract AsynchronousSocketChannel openAsynchronousSocketChannel
         (AsynchronousChannelGroup group) throws IOException;
 }
