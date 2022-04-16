@@ -49,7 +49,7 @@ import java.util.concurrent.Future;
  *
  * @since 1.7
  */
-
+// 异步IO通道，支持基础的读写操作
 public interface AsynchronousByteChannel
     extends AsynchronousChannel
 {
@@ -105,6 +105,12 @@ public interface AsynchronousByteChannel
      *          If the channel is associated with a {@link AsynchronousChannelGroup
      *          group} that has terminated
      */
+    /*
+     * 从当前通道读取数据并填充到缓冲区dst中
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际读到的字节数
+     *
+     * 注：此IO操作的结果是读取到的字节数。如果IO操作没成效，则执行结果可以是EOF或异常。
+     */
     <A> void read(ByteBuffer dst,
                   A attachment,
                   CompletionHandler<Integer,? super A> handler);
@@ -132,6 +138,12 @@ public interface AsynchronousByteChannel
      * @throws  ReadPendingException
      *          If the channel does not allow more than one read to be outstanding
      *          and a previous read has not completed
+     */
+    /*
+     * 从当前通道读取数据并填充到缓冲区dst中（读取的字节数量最多填满缓冲区的剩余空间）
+     * 返回值是一个包含IO操作结果的Future，主线程轮询此Future以判断是否读取完成，以及获取实际读取到的字节数
+     *
+     * 注：此IO操作的结果是读取到的字节数。如果IO操作没成效，则执行结果可以是EOF或异常。
      */
     Future<Integer> read(ByteBuffer dst);
 
@@ -184,6 +196,12 @@ public interface AsynchronousByteChannel
      *          If the channel is associated with a {@link AsynchronousChannelGroup
      *          group} that has terminated
      */
+    /*
+     * 从源缓冲区src中读取数据，并将读到的内容写入到当前通道中
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际写入的字节数
+     *
+     * 注：此IO操作的结果是写入的字节数。如果IO操作没成效，则执行结果可以是异常。
+     */
     <A> void write(ByteBuffer src,
                    A attachment,
                    CompletionHandler<Integer,? super A> handler);
@@ -208,6 +226,12 @@ public interface AsynchronousByteChannel
      * @throws  WritePendingException
      *          If the channel does not allow more than one write to be outstanding
      *          and a previous write has not completed
+     */
+    /*
+     * 从源缓冲区src中读取数据，并将读到的内容写入到当前通道中
+     * 返回值是一个包含IO操作结果的Future，主线程轮询此Future以判断是否写入完成，以及获取实际写入的字节数
+     *
+     * 注：此IO操作的结果是写入的字节数。如果IO操作没成效，则执行结果可以是异常。
      */
     Future<Integer> write(ByteBuffer src);
 }

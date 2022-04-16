@@ -44,7 +44,7 @@ import java.nio.ByteBuffer;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+// 可读的字节通道
 public interface ReadableByteChannel extends Channel {
 
     /**
@@ -102,6 +102,10 @@ public interface ReadableByteChannel extends Channel {
      *
      * @throws  IOException
      *          If some other I/O error occurs
+     */
+    /*
+     * 从当前通道中读取数据，读到的内容写入dst
+     * 该方法是一次性地，即已经读完的流不可以重复读取
      */
     public int read(ByteBuffer dst) throws IOException;
 

@@ -45,7 +45,7 @@ import java.nio.ByteBuffer;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+// 散射通道，可将单个通道的内容发送到多个缓存区。例如支持将文件中的内容批量读取到多个缓冲区
 public interface ScatteringByteChannel
     extends ReadableByteChannel
 {
@@ -120,6 +120,10 @@ public interface ScatteringByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    /*
+     * 从当前通道中读取数据，读到的内容依次存入dsts中offset处起的length个缓冲区
+     * 该方法是一次性地，即已经读完的流不可以重复读取
+     */
     public long read(ByteBuffer[] dsts, int offset, int length)
         throws IOException;
 
@@ -156,6 +160,10 @@ public interface ScatteringByteChannel
      *
      * @throws  IOException
      *          If some other I/O error occurs
+     */
+    /*
+     * 从当前通道中读取数据，读到的内容依次存入dsts中的各个缓冲区
+     * 该方法是一次性地，即已经读完的流不可以重复读取
      */
     public long read(ByteBuffer[] dsts) throws IOException;
 

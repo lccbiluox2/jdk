@@ -45,6 +45,7 @@ import java.nio.ByteBuffer;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
+// 聚集通道，可将多个缓存区的内容发送到单个通道。例如支持批量将多个缓冲区的内容写到文件中
 
 public interface GatheringByteChannel
     extends WritableByteChannel
@@ -124,6 +125,7 @@ public interface GatheringByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    // 从srcs中offset处起的length个缓冲区读取数据，读到的内容向当前通道中写入
     public long write(ByteBuffer[] srcs, int offset, int length)
         throws IOException;
 
@@ -161,6 +163,7 @@ public interface GatheringByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    // 从srcs中各个缓冲区读取数据，读到的内容向当前通道中写入
     public long write(ByteBuffer[] srcs) throws IOException;
 
 }

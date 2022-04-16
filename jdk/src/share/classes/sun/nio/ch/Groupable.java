@@ -29,7 +29,13 @@ package sun.nio.ch;
  * Implemented by asynchronous channels that can be associated with an
  * asynchronous channel group.
  */
-
+/*
+ * 可以关联异步通道组的通道
+ * 注：异步通道组在windows上实现为完成端口
+ */
 interface Groupable {
+
+    // 返回当前通道关联的异步通道组，不同的平台有其各自的实现
     AsynchronousChannelGroupImpl group();
+
 }

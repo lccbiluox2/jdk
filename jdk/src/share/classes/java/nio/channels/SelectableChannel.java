@@ -88,7 +88,7 @@ import java.nio.channels.spi.SelectorProvider;
  * @see SelectionKey
  * @see Selector
  */
-
+// 多路复用通道，且实现了中断接口。该通道通常应用在同步Socket通道，支持在非阻塞模式下运行
 public abstract class SelectableChannel
     extends AbstractInterruptibleChannel
     implements Channel
@@ -104,6 +104,7 @@ public abstract class SelectableChannel
      *
      * @return  The provider that created this channel
      */
+    // 获取当前通道使用的选择器工厂
     public abstract SelectorProvider provider();
 
     /**
@@ -115,6 +116,7 @@ public abstract class SelectableChannel
      *
      * @return  The valid-operation set
      */
+    // 返回当前通道允许监听的事件，或称为允许注册的参数
     public abstract int validOps();
 
     // Internal state:
@@ -134,6 +136,7 @@ public abstract class SelectableChannel
      *
      * @return <tt>true</tt> if, and only if, this channel is registered
      */
+    // 判断当前通道是否注册到了某个选择器上
     public abstract boolean isRegistered();
     //
     // sync(keySet) { return isRegistered; }
@@ -149,6 +152,7 @@ public abstract class SelectableChannel
      *          given selector, or <tt>null</tt> if this channel is not
      *          currently registered with that selector
      */
+    // 在已注册的SelectionKey集合中查找参数selector所在的SelectionKey
     public abstract SelectionKey keyFor(Selector sel);
     //
     // sync(keySet) { return findKey(sel); }
@@ -216,6 +220,20 @@ public abstract class SelectableChannel
      * @return  A key representing the registration of this channel with
      *          the given selector
      */
+    /*
+     * 当前通道向指定的选择器selector发起注册操作，返回生成的"选择键"
+     *
+     * 具体的注册行为是：
+     * 将通道(channel)、选择器(selector)、监听事件(ops)、附属对象(attachment)这四个属性打包成一个"选择键"对象，
+     * 并将该对象分别存储到各个相关的"选择键"集合/队列中，涉及到的"选择键"集合/队列包括：
+     *
+     * AbstractSelectableChannel -> keys
+     * SelectorImpl              -> keys
+     * WindowsSelectorImpl       -> newKeys、updateKeys
+     * AbstractSelector          -> cancelledKeys(出现异常时使用)
+     *
+     * 注：需要确保当前通道为非阻塞通道
+     */
     public abstract SelectionKey register(Selector sel, int ops, Object att)
         throws ClosedChannelException;
     //
@@ -274,9 +292,14 @@ public abstract class SelectableChannel
      * @return  A key representing the registration of this channel with
      *          the given selector
      */
+    /*
+     * 当前通道向指定的选择器selector发起注册操作，返回生成的"选择键"；
+     * 完整的注册行为参见register(selector, ops, attachment)。
+     */
     public final SelectionKey register(Selector sel, int ops)
         throws ClosedChannelException
     {
+        // 附属对象(attachment)设置为null
         return register(sel, ops, null);
     }
 
@@ -312,6 +335,7 @@ public abstract class SelectableChannel
      * @throws IOException
      *         If an I/O error occurs
      */
+    // 将当前通道设置为阻塞/非阻塞模式
     public abstract SelectableChannel configureBlocking(boolean block)
         throws IOException;
     //
@@ -329,6 +353,7 @@ public abstract class SelectableChannel
      *
      * @return <tt>true</tt> if, and only if, this channel is in blocking mode
      */
+    // 判断通道是否处于阻塞模式
     public abstract boolean isBlocking();
 
     /**
@@ -339,6 +364,7 @@ public abstract class SelectableChannel
      *
      * @return  The blocking-mode lock object
      */
+    // 获取设置通道阻塞模式时使用的锁，常用于Socket适配器中
     public abstract Object blockingLock();
 
 }

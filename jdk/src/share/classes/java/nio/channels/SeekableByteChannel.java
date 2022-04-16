@@ -49,7 +49,7 @@ import java.io.IOException;
  * @since 1.7
  * @see java.nio.file.Files#newByteChannel
  */
-
+// 支持随机读/写的字节通道（常用于file通道）
 public interface SeekableByteChannel
     extends ByteChannel
 {
@@ -60,6 +60,10 @@ public interface SeekableByteChannel
      * then the position is updated with the number of bytes actually read.
      * Otherwise this method behaves exactly as specified in the {@link
      * ReadableByteChannel} interface.
+     */
+    /*
+     * 从当前通道（关联的文件）中起始处读取，读到的内容存入dst后，返回读到的字节数量
+     * 该方法是一次性地，即已经读完的流不可以重复读取
      */
     @Override
     int read(ByteBuffer dst) throws IOException;
@@ -76,6 +80,10 @@ public interface SeekableByteChannel
      * actually written. Otherwise this method behaves exactly as specified by
      * the {@link WritableByteChannel} interface.
      */
+    /*
+     * 从缓冲区src读取，读到的内容向当前通道（关联的文件）中追加写入后，返回写入的字节数量
+     * 待写入内容从fd中上次position==-1时写完的末尾追加内容（不支持随机写入）
+     */
     @Override
     int write(ByteBuffer src) throws IOException;
 
@@ -91,6 +99,7 @@ public interface SeekableByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    // 返回此通道（文件）的游标位置
     long position() throws IOException;
 
     /**
@@ -122,6 +131,7 @@ public interface SeekableByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    // 设置此通道（文件）的游标位置
     SeekableByteChannel position(long newPosition) throws IOException;
 
     /**
@@ -134,6 +144,7 @@ public interface SeekableByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    // 返回此通道（文件）的字节数量
     long size() throws IOException;
 
     /**
@@ -164,5 +175,6 @@ public interface SeekableByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    // 用指定的新尺寸size截断通道（文件）
     SeekableByteChannel truncate(long size) throws IOException;
 }

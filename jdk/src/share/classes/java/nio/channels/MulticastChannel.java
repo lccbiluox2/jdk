@@ -118,7 +118,7 @@ import java.net.StandardSocketOptions;      // javadoc
  *
  * @since 1.7
  */
-
+// 组播通道接口，由UDP-Socket通道实现
 public interface MulticastChannel
     extends NetworkChannel
 {
@@ -136,6 +136,7 @@ public interface MulticastChannel
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 关闭组播通道
     @Override void close() throws IOException;
 
     /**
@@ -176,6 +177,10 @@ public interface MulticastChannel
      *          If a security manager is set, and its
      *          {@link SecurityManager#checkMulticast(InetAddress) checkMulticast}
      *          method denies access to the multiast group
+     */
+    /*
+     * 将当前组播Socket加入到group处的组播小组中，后续它将接收到该小组中的数据；interf是用来接收消息的网络接口(网卡)
+     * 注：不会过滤消息
      */
     MembershipKey join(InetAddress group, NetworkInterface interf)
         throws IOException;
@@ -224,6 +229,10 @@ public interface MulticastChannel
      *          If a security manager is set, and its
      *          {@link SecurityManager#checkMulticast(InetAddress) checkMulticast}
      *          method denies access to the multiast group
+     */
+    /*
+     * 将当前组播Socket加入到group处的组播小组中，后续它将接收到该小组中的数据；interf是用来接收消息的网络接口(网卡)
+     * 注：如果source不为null，则会过滤消息，即只处理源地址是source的那些数据包
      */
     MembershipKey join(InetAddress group, NetworkInterface interf, InetAddress source)
         throws IOException;

@@ -94,7 +94,7 @@ import java.util.concurrent.Future;  // javadoc
  *
  *  @since 1.7
  */
-
+// 异步IO通道，可关闭
 public interface AsynchronousChannel
     extends Channel
 {
@@ -112,6 +112,7 @@ public interface AsynchronousChannel
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 关闭异步通道
     @Override
     void close() throws IOException;
 }

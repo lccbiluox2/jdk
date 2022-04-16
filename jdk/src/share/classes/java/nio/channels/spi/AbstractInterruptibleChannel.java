@@ -83,11 +83,12 @@ import sun.nio.ch.Interruptible;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+// 可中断通道的抽象实现
 public abstract class AbstractInterruptibleChannel
     implements Channel, InterruptibleChannel
 {
 
+    // 执行关闭操作使用的锁
     private final Object closeLock = new Object();
     private volatile boolean open = true;
 
@@ -107,11 +108,14 @@ public abstract class AbstractInterruptibleChannel
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 关闭当前通道
     public final void close() throws IOException {
         synchronized (closeLock) {
             if (!open)
                 return;
+            // 将通道标记为关闭状态
             open = false;
+            // 关闭"可中断"通道
             implCloseChannel();
         }
     }
@@ -132,8 +136,10 @@ public abstract class AbstractInterruptibleChannel
      * @throws  IOException
      *          If an I/O error occurs while closing the channel
      */
+    // 将通道标记为关闭状态后，再调用此方法执行资源清理操作
     protected abstract void implCloseChannel() throws IOException;
 
+    // 判断通道是否处于开启状态
     public final boolean isOpen() {
         return open;
     }
@@ -141,8 +147,8 @@ public abstract class AbstractInterruptibleChannel
 
     // -- Interruption machinery --
 
-    private Interruptible interruptor;
-    private volatile Thread interrupted;
+    private Interruptible interruptor;// 记录被中断的线程
+    private volatile Thread interrupted;  // 线程中断回调标记
 
     /**
      * Marks the beginning of an I/O operation that might block indefinitely.
@@ -152,14 +158,19 @@ public abstract class AbstractInterruptibleChannel
      * shown <a href="#be">above</a>, in order to implement asynchronous
      * closing and interruption for this channel.  </p>
      */
+    // 标记可能阻塞的IO操作的开始：需要为阻塞通道所在的线程设置中断回调，该回调在遇到线程中断时会关闭通道
     protected final void begin() {
+        // 初始化线程中断回调标记
         if (interruptor == null) {
             interruptor = new Interruptible() {
+                // 线程已被中断，关闭通道
                     public void interrupt(Thread target) {
                         synchronized (closeLock) {
                             if (!open)
                                 return;
+                            // 标记通道关闭
                             open = false;
+                            // 记下被中断的线程
                             interrupted = target;
                             try {
                                 AbstractInterruptibleChannel.this.implCloseChannel();
@@ -167,8 +178,14 @@ public abstract class AbstractInterruptibleChannel
                         }
                     }};
         }
+
+        // 在线程可能进入阻塞前，为当前线程设置一个线程中断回调标记interruptor，以便在线程被中断时调用该标记的回调方法
         blockedOn(interruptor);
+
+        // 获取当前通道所在线程
         Thread me = Thread.currentThread();
+
+        // 如果当前线程已经带有中断标记，则执行线程中断回调标记中的逻辑
         if (me.isInterrupted())
             interruptor.interrupt(me);
     }
@@ -192,21 +209,31 @@ public abstract class AbstractInterruptibleChannel
      * @throws  ClosedByInterruptException
      *          If the thread blocked in the I/O operation was interrupted
      */
+
+    // 标记可能阻塞的IO操作的结束：需要移除为阻塞通道所在的线程设置的中断回调
     protected final void end(boolean completed)
         throws AsynchronousCloseException
     {
+        // 清除之前设置的线程中断回调
         blockedOn(null);
+
+        // 获取被中断的线程
         Thread interrupted = this.interrupted;
+
+        // 如果是由于线程中断而关闭了通道，这里抛出异常
         if (interrupted != null && interrupted == Thread.currentThread()) {
             interrupted = null;
             throw new ClosedByInterruptException();
         }
+
+        // 如果IO任务还未完成，但通道已关闭，这里抛出异常
         if (!completed && !open)
             throw new AsynchronousCloseException();
     }
 
 
     // -- sun.misc.SharedSecrets --
+    // 为当前线程设置/清除线程中断回调标记
     static void blockedOn(Interruptible intr) {         // package-private
         sun.misc.SharedSecrets.getJavaLangAccess().blockedOn(Thread.currentThread(),
                                                              intr);

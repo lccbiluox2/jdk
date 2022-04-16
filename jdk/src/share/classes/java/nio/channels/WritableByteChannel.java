@@ -44,7 +44,7 @@ import java.nio.ByteBuffer;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+// 可写的字节通道
 public interface WritableByteChannel
     extends Channel
 {
@@ -100,6 +100,7 @@ public interface WritableByteChannel
      * @throws  IOException
      *          If some other I/O error occurs
      */
+    // 从src中读取数据，读到的内容向当前通道中写入
     public int write(ByteBuffer src) throws IOException;
 
 }

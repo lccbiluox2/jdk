@@ -61,7 +61,7 @@ import java.io.IOException;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+// 可处理中断的通道
 public interface InterruptibleChannel
     extends Channel
 {
@@ -77,6 +77,7 @@ public interface InterruptibleChannel
      *
      * @throws  IOException  If an I/O error occurs
      */
+    // 关闭通道，允许抛出异常
     public void close() throws IOException;
 
 }

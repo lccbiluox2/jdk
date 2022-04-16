@@ -37,7 +37,7 @@ import java.io.IOException;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+// 同步IO通道，支持基础的读写操作
 public interface ByteChannel
     extends ReadableByteChannel, WritableByteChannel
 {

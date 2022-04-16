@@ -52,7 +52,7 @@ import java.io.Closeable;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+// 通道，必须支持开启和关闭操作
 public interface Channel extends Closeable {
 
     /**
@@ -60,6 +60,7 @@ public interface Channel extends Closeable {
      *
      * @return <tt>true</tt> if, and only if, this channel is open
      */
+    // 判断通道是否处于开启状态
     public boolean isOpen();
 
     /**
@@ -79,6 +80,7 @@ public interface Channel extends Closeable {
      *
      * @throws  IOException  If an I/O error occurs
      */
+    // 关闭通道
     public void close() throws IOException;
 
 }

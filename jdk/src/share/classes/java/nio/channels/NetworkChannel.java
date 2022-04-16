@@ -50,7 +50,7 @@ import java.io.IOException;
  *
  * @since 1.7
  */
-
+// 网络通道，用于TCP/UDP Socket通信
 public interface NetworkChannel
     extends Channel
 {
@@ -84,6 +84,7 @@ public interface NetworkChannel
      *
      * @see #getLocalAddress
      */
+    // 将当前Socket通道绑定到指定的本地地址
     NetworkChannel bind(SocketAddress local) throws IOException;
 
     /**
@@ -101,6 +102,7 @@ public interface NetworkChannel
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 获取当前Socket通道绑定的本地地址
     SocketAddress getLocalAddress() throws IOException;
 
     /**
@@ -127,6 +129,7 @@ public interface NetworkChannel
      *
      * @see java.net.StandardSocketOptions
      */
+    // 设置指定名称的Socket配置参数
     <T> NetworkChannel setOption(SocketOption<T> name, T value) throws IOException;
 
     /**
@@ -149,6 +152,7 @@ public interface NetworkChannel
      *
      * @see java.net.StandardSocketOptions
      */
+    // 获取指定名称的Socket配置参数
     <T> T getOption(SocketOption<T> name) throws IOException;
 
     /**
@@ -159,5 +163,6 @@ public interface NetworkChannel
      *
      * @return  A set of the socket options supported by this channel
      */
+    // 获取当前通道支持的Socket配置参数集合
     Set<SocketOption<?>> supportedOptions();
 }
