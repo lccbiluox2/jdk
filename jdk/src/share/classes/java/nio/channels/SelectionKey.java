@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,8 +26,6 @@
 package java.nio.channels;
 
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.io.IOException;
-
 
 /**
  * A token representing the registration of a {@link SelectableChannel} with a
@@ -42,7 +40,7 @@ import java.io.IOException;
  * next selection operation.  The validity of a key may be tested by invoking
  * its {@link #isValid isValid} method.
  *
- * <a name="opsets"></a>
+ * <a id="opsets"></a>
  *
  * <p> A selection key contains two <i>operation sets</i> represented as
  * integer values.  Each bit of an operation set denotes a category of
@@ -88,15 +86,9 @@ import java.io.IOException;
  * attached via the {@link #attach attach} method and then later retrieved via
  * the {@link #attachment() attachment} method.
  *
- * <p> Selection keys are safe for use by multiple concurrent threads.  The
- * operations of reading and writing the interest set will, in general, be
- * synchronized with certain operations of the selector.  Exactly how this
- * synchronization is performed is implementation-dependent: In a naive
- * implementation, reading or writing the interest set may block indefinitely
- * if a selection operation is already in progress; in a high-performance
- * implementation, reading or writing the interest set may block briefly, if at
- * all.  In any case, a selection operation will always use the interest-set
- * value that was current at the moment that the operation began.  </p>
+ * <p> Selection keys are safe for use by multiple concurrent threads.  A
+ * selection operation will always use the interest-set value that was current
+ * at the moment that the operation began.  </p>
  *
  *
  * @author Mark Reinhold
@@ -106,32 +98,393 @@ import java.io.IOException;
  * @see SelectableChannel
  * @see Selector
  */
-
+/*
+ * "选择键"，用来代表一条由通道向选择器发起的注册信息。
+ *
+ * 每个"选择键"对象中包含四个重要的属性：
+ * 通道　　：channel
+ * 选择器　：selector
+ * 监听事件：ops
+ * 附属对象：attachment
+ *
+ * 其中，通道(channel)和选择器(selector)是两个关键的属性，
+ * 因为用这两个属性可以确定一个"选择键"是否为新注册进来的。
+ */
 public abstract class SelectionKey {
+
+    /*
+     * 以下四个常量是JAVA层的四种可选的注册参数/事件（不同的语境下使用不同的称呼，但意义一致）
+     * 在实际运行中，它们会被转换为native层的内核参数/事件，参见Net类。
+     *
+     * 这些参数/事件均使用在通道发起注册操作的场合中，
+     * 一旦某个通道注册了这些参数/事件，它就可以响应来自native层的事件消息了。
+     */
+
+    /**
+     * Operation-set bit for read operations.
+     *
+     * <p> Suppose that a selection key's interest set contains
+     * {@code OP_READ} at the start of a <a
+     * href="Selector.html#selop">selection operation</a>.  If the selector
+     * detects that the corresponding channel is ready for reading, has reached
+     * end-of-stream, has been remotely shut down for further reading, or has
+     * an error pending, then it will add {@code OP_READ} to the key's
+     * ready-operation set.  </p>
+     */
+    public static final int OP_READ = 1 << 0;    // read
+
+    /**
+     * Operation-set bit for write operations.
+     *
+     * <p> Suppose that a selection key's interest set contains
+     * {@code OP_WRITE} at the start of a <a
+     * href="Selector.html#selop">selection operation</a>.  If the selector
+     * detects that the corresponding channel is ready for writing, has been
+     * remotely shut down for further writing, or has an error pending, then it
+     * will add {@code OP_WRITE} to the key's ready set.  </p>
+     */
+    public static final int OP_WRITE = 1 << 2;    // write
+
+    /**
+     * Operation-set bit for socket-connect operations.
+     *
+     * <p> Suppose that a selection key's interest set contains
+     * {@code OP_CONNECT} at the start of a <a
+     * href="Selector.html#selop">selection operation</a>.  If the selector
+     * detects that the corresponding socket channel is ready to complete its
+     * connection sequence, or has an error pending, then it will add
+     * {@code OP_CONNECT} to the key's ready set.  </p>
+     */
+    public static final int OP_CONNECT = 1 << 3;    // connect
+
+    /**
+     * Operation-set bit for socket-accept operations.
+     *
+     * <p> Suppose that a selection key's interest set contains
+     * {@code OP_ACCEPT} at the start of a <a
+     * href="Selector.html#selop">selection operation</a>.  If the selector
+     * detects that the corresponding server-socket channel is ready to accept
+     * another connection, or has an error pending, then it will add
+     * {@code OP_ACCEPT} to the key's ready set.  </p>
+     */
+    public static final int OP_ACCEPT = 1 << 4;    // accept
+
+
+    private volatile Object attachment; // 参与注册的附属对象
+
+    // 属性attachment的地址
+    private static final AtomicReferenceFieldUpdater<SelectionKey, Object> attachmentUpdater = AtomicReferenceFieldUpdater.newUpdater(SelectionKey.class, Object.class, "attachment");
+
+
+
+    /*▼ 构造器 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * Constructs an instance of this class.
      */
-    protected SelectionKey() { }
+    protected SelectionKey() {
+    }
+
+    /*▲ 构造器 ████████████████████████████████████████████████████████████████████████████████┛ */
 
 
-    // -- Channel and selector operations --
 
-    /**
-     * Returns the channel for which this key was created.  This method will
-     * continue to return the channel even after the key is cancelled.
-     *
-     * @return  This key's channel
-     */
-    public abstract SelectableChannel channel();
+    /*▼ 属性 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * Returns the selector for which this key was created.  This method will
      * continue to return the selector even after the key is cancelled.
      *
-     * @return  This key's selector
+     * @return This key's selector
      */
+    // 返回通道注册到的选择器
     public abstract Selector selector();
+
+    /**
+     * Returns the channel for which this key was created.  This method will
+     * continue to return the channel even after the key is cancelled.
+     *
+     * @return This key's channel
+     */
+    // 返回发起注册的通道
+    public abstract SelectableChannel channel();
+
+    /**
+     * Retrieves the current attachment.
+     *
+     * @return The object currently attached to this key,
+     * or {@code null} if there is no attachment
+     */
+    // 返回参与注册的附属对象
+    public final Object attachment() {
+        return attachment;
+    }
+
+    /**
+     * Attaches the given object to this key.
+     *
+     * <p> An attached object may later be retrieved via the {@link #attachment()
+     * attachment} method.  Only one object may be attached at a time; invoking
+     * this method causes any previous attachment to be discarded.  The current
+     * attachment may be discarded by attaching {@code null}.  </p>
+     *
+     * @param ob The object to be attached; may be {@code null}
+     *
+     * @return The previously-attached object, if any,
+     * otherwise {@code null}
+     */
+    // 向"选择键"对象设置附属对象(attachment)属性，并返回旧值
+    public final Object attach(Object attachment) {
+        return attachmentUpdater.getAndSet(this, attachment);
+    }
+
+    /*▲ 属性 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 已就绪事件 ████████████████████████████████████████████████████████████████████████████████┓ */
+
+    /**
+     * Tests whether this key's channel is ready for reading.
+     *
+     * <p> An invocation of this method of the form {@code k.isReadable()}
+     * behaves in exactly the same way as the expression
+     *
+     * <blockquote><pre>{@code
+     * k.readyOps() & OP_READ != 0
+     * }</pre></blockquote>
+     *
+     * <p> If this key's channel does not support read operations then this
+     * method always returns {@code false}.  </p>
+     *
+     * @return {@code true} if, and only if,
+     * {@code readyOps() & OP_READ} is nonzero
+     *
+     * @throws CancelledKeyException If this key has been cancelled
+     */
+    // 是否可以从通道读取数据了
+    public final boolean isReadable() {
+        return (readyOps() & OP_READ) != 0;
+    }
+
+    /**
+     * Tests whether this key's channel is ready for writing.
+     *
+     * <p> An invocation of this method of the form {@code k.isWritable()}
+     * behaves in exactly the same way as the expression
+     *
+     * <blockquote><pre>{@code
+     * k.readyOps() & OP_WRITE != 0
+     * }</pre></blockquote>
+     *
+     * <p> If this key's channel does not support write operations then this
+     * method always returns {@code false}.  </p>
+     *
+     * @return {@code true} if, and only if,
+     * {@code readyOps() & OP_WRITE} is nonzero
+     *
+     * @throws CancelledKeyException If this key has been cancelled
+     */
+    // 是否可以向通道写入数据了
+    public final boolean isWritable() {
+        return (readyOps() & OP_WRITE) != 0;
+    }
+
+    /**
+     * Tests whether this key's channel has either finished, or failed to
+     * finish, its socket-connection operation.
+     *
+     * <p> An invocation of this method of the form {@code k.isConnectable()}
+     * behaves in exactly the same way as the expression
+     *
+     * <blockquote><pre>{@code
+     * k.readyOps() & OP_CONNECT != 0
+     * }</pre></blockquote>
+     *
+     * <p> If this key's channel does not support socket-connect operations
+     * then this method always returns {@code false}.  </p>
+     *
+     * @return {@code true} if, and only if,
+     * {@code readyOps() & OP_CONNECT} is nonzero
+     *
+     * @throws CancelledKeyException If this key has been cancelled
+     */
+    // 客户端通道是否连接到了远端
+    public final boolean isConnectable() {
+        return (readyOps() & OP_CONNECT) != 0;
+    }
+
+    /**
+     * Tests whether this key's channel is ready to accept a new socket
+     * connection.
+     *
+     * <p> An invocation of this method of the form {@code k.isAcceptable()}
+     * behaves in exactly the same way as the expression
+     *
+     * <blockquote><pre>{@code
+     * k.readyOps() & OP_ACCEPT != 0
+     * }</pre></blockquote>
+     *
+     * <p> If this key's channel does not support socket-accept operations then
+     * this method always returns {@code false}.  </p>
+     *
+     * @return {@code true} if, and only if,
+     * {@code readyOps() & OP_ACCEPT} is nonzero
+     *
+     * @throws CancelledKeyException If this key has been cancelled
+     */
+    // 服务端通道是否收到了来自客户端的连接
+    public final boolean isAcceptable() {
+        return (readyOps() & OP_ACCEPT) != 0;
+    }
+
+    /*▲ 已就绪事件 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 监听事件/参数 ████████████████████████████████████████████████████████████████████████████████┓ */
+
+    /**
+     * Retrieves this key's interest set.
+     *
+     * It is guaranteed that the returned set will only contain operation bits that are valid for this key's channel.
+     *
+     * @return This key's interest set
+     *
+     * @throws CancelledKeyException If this key has been cancelled
+     */
+    // 返回注册的监听事件：SelectionKey.XXX(需要验证当前"选择键"是否有效)
+    public abstract int interestOps();
+
+
+    /**
+     * Sets this key's interest set to the given value.
+     *
+     * <p> This method may be invoked at any time.  If this method is invoked
+     * while a selection operation is in progress then it has no effect upon
+     * that operation; the change to the key's interest set will be seen by the
+     * next selection operation.
+     *
+     * @param ops The new interest set
+     *
+     * @return This selection key
+     *
+     * @throws IllegalArgumentException If a bit in the set does not correspond to an operation that
+     *                                  is supported by this key's channel, that is, if
+     *                                  {@code (ops & ~channel().validOps()) != 0}
+     * @throws CancelledKeyException    If this key has been cancelled
+     */
+    /*
+     *【覆盖更新】当前"选择键"内的监听事件，如果新旧事件不同，则将当前"选择键"加入到选择器的"已更新键队列"(updateKeys)中。
+     * 事件注册完成后，返回当前"选择键"。
+     *
+     * 参见：WindowsSelectorImpl#updateKeys()
+     */
+    public abstract SelectionKey interestOps(int ops);
+
+    /**
+     * Atomically sets this key's interest set to the bitwise union ("or") of
+     * the existing interest set and the given value. This method is guaranteed
+     * to be atomic with respect to other concurrent calls to this method or to
+     * {@link #interestOpsAnd(int)}.
+     *
+     * <p> This method may be invoked at any time.  If this method is invoked
+     * while a selection operation is in progress then it has no effect upon
+     * that operation; the change to the key's interest set will be seen by the
+     * next selection operation.
+     *
+     * @param ops The interest set to apply
+     *
+     * @return The previous interest set
+     *
+     * @throws IllegalArgumentException If a bit in the set does not correspond to an operation that
+     *                                  is supported by this key's channel, that is, if
+     *                                  {@code (ops & ~channel().validOps()) != 0}
+     * @throws CancelledKeyException    If this key has been cancelled
+     * @implSpec The default implementation synchronizes on this key and invokes
+     * {@code interestOps()} and {@code interestOps(int)} to retrieve and set
+     * this key's interest set.
+     * @since 11
+     */
+    /*
+     *【增量更新】当前"选择键"内的监听事件，如果新旧事件不同，则将当前"选择键"加入到选择器的"已更新键队列"(updateKeys)中。
+     * 事件注册完成后，返回旧的监听事件。
+     *
+     * 参见：WindowsSelectorImpl#updateKeys()
+     */
+    public int interestOpsOr(int ops) {
+        synchronized(this) {
+            int oldVal = interestOps();
+            interestOps(oldVal | ops);
+            return oldVal;
+        }
+    }
+
+    /**
+     * Atomically sets this key's interest set to the bitwise intersection ("and")
+     * of the existing interest set and the given value. This method is guaranteed
+     * to be atomic with respect to other concurrent calls to this method or to
+     * {@link #interestOpsOr(int)}.
+     *
+     * <p> This method may be invoked at any time.  If this method is invoked
+     * while a selection operation is in progress then it has no effect upon
+     * that operation; the change to the key's interest set will be seen by the
+     * next selection operation.
+     *
+     * @param ops The interest set to apply
+     *
+     * @return The previous interest set
+     *
+     * @throws CancelledKeyException If this key has been cancelled
+     * @apiNote Unlike the {@code interestOps(int)} and {@code interestOpsOr(int)}
+     * methods, this method does not throw {@code IllegalArgumentException} when
+     * invoked with bits in the interest set that do not correspond to an
+     * operation that is supported by this key's channel. This is to allow
+     * operation bits in the interest set to be cleared using bitwise complement
+     * values, e.g., {@code interestOpsAnd(~SelectionKey.OP_READ)} will remove
+     * the {@code OP_READ} from the interest set without affecting other bits.
+     * @implSpec The default implementation synchronizes on this key and invokes
+     * {@code interestOps()} and {@code interestOps(int)} to retrieve and set
+     * this key's interest set.
+     * @since 11
+     */
+    /*
+     *【交集更新】当前"选择键"内的监听事件，如果新旧事件不同，则将当前"选择键"加入到选择器的"已更新键队列"(updateKeys)中。
+     * 事件注册完成后，返回旧的监听事件。
+     *
+     * 参见：WindowsSelectorImpl#updateKeys()
+     */
+    public int interestOpsAnd(int ops) {
+        synchronized(this) {
+            int oldVal = interestOps();
+            interestOps(oldVal & ops);
+            return oldVal;
+        }
+    }
+
+    /*▲ 监听事件/参数 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 就绪参数/事件 ████████████████████████████████████████████████████████████████████████████████┓ */
+
+    /**
+     * Retrieves this key's ready-operation set.
+     *
+     * It is guaranteed that the returned set will only contain operation bits that are valid for this key's channel.
+     *
+     * @return This key's ready-operation set
+     *
+     * @throws CancelledKeyException If this key has been cancelled
+     */
+    // 返回已就绪事件(会验证当前"选择键"是否有效)
+    public abstract int readyOps();
+
+    /*▲ 就绪参数/事件 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 状态 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * Tells whether or not this key is valid.
@@ -139,8 +492,9 @@ public abstract class SelectionKey {
      * <p> A key is valid upon creation and remains so until it is cancelled,
      * its channel is closed, or its selector is closed.  </p>
      *
-     * @return  <tt>true</tt> if, and only if, this key is valid
+     * @return {@code true} if, and only if, this key is valid
      */
+    // 判断当前"选择键"对象是否有效
     public abstract boolean isValid();
 
     /**
@@ -157,245 +511,9 @@ public abstract class SelectionKey {
      * concurrently with a cancellation or selection operation involving the
      * same selector.  </p>
      */
+    // 取消当前"选择键"对象，取消之后其状态变为无效
     public abstract void cancel();
 
-
-    // -- Operation-set accessors --
-
-    /**
-     * Retrieves this key's interest set.
-     *
-     * <p> It is guaranteed that the returned set will only contain operation
-     * bits that are valid for this key's channel.
-     *
-     * <p> This method may be invoked at any time.  Whether or not it blocks,
-     * and for how long, is implementation-dependent.  </p>
-     *
-     * @return  This key's interest set
-     *
-     * @throws  CancelledKeyException
-     *          If this key has been cancelled
-     */
-    public abstract int interestOps();
-
-    /**
-     * Sets this key's interest set to the given value.
-     *
-     * <p> This method may be invoked at any time.  Whether or not it blocks,
-     * and for how long, is implementation-dependent.  </p>
-     *
-     * @param  ops  The new interest set
-     *
-     * @return  This selection key
-     *
-     * @throws  IllegalArgumentException
-     *          If a bit in the set does not correspond to an operation that
-     *          is supported by this key's channel, that is, if
-     *          {@code (ops & ~channel().validOps()) != 0}
-     *
-     * @throws  CancelledKeyException
-     *          If this key has been cancelled
-     */
-    public abstract SelectionKey interestOps(int ops);
-
-    /**
-     * Retrieves this key's ready-operation set.
-     *
-     * <p> It is guaranteed that the returned set will only contain operation
-     * bits that are valid for this key's channel.  </p>
-     *
-     * @return  This key's ready-operation set
-     *
-     * @throws  CancelledKeyException
-     *          If this key has been cancelled
-     */
-    public abstract int readyOps();
-
-
-    // -- Operation bits and bit-testing convenience methods --
-
-    /**
-     * Operation-set bit for read operations.
-     *
-     * <p> Suppose that a selection key's interest set contains
-     * <tt>OP_READ</tt> at the start of a <a
-     * href="Selector.html#selop">selection operation</a>.  If the selector
-     * detects that the corresponding channel is ready for reading, has reached
-     * end-of-stream, has been remotely shut down for further reading, or has
-     * an error pending, then it will add <tt>OP_READ</tt> to the key's
-     * ready-operation set and add the key to its selected-key&nbsp;set.  </p>
-     */
-    public static final int OP_READ = 1 << 0;
-
-    /**
-     * Operation-set bit for write operations.
-     *
-     * <p> Suppose that a selection key's interest set contains
-     * <tt>OP_WRITE</tt> at the start of a <a
-     * href="Selector.html#selop">selection operation</a>.  If the selector
-     * detects that the corresponding channel is ready for writing, has been
-     * remotely shut down for further writing, or has an error pending, then it
-     * will add <tt>OP_WRITE</tt> to the key's ready set and add the key to its
-     * selected-key&nbsp;set.  </p>
-     */
-    public static final int OP_WRITE = 1 << 2;
-
-    /**
-     * Operation-set bit for socket-connect operations.
-     *
-     * <p> Suppose that a selection key's interest set contains
-     * <tt>OP_CONNECT</tt> at the start of a <a
-     * href="Selector.html#selop">selection operation</a>.  If the selector
-     * detects that the corresponding socket channel is ready to complete its
-     * connection sequence, or has an error pending, then it will add
-     * <tt>OP_CONNECT</tt> to the key's ready set and add the key to its
-     * selected-key&nbsp;set.  </p>
-     */
-    public static final int OP_CONNECT = 1 << 3;
-
-    /**
-     * Operation-set bit for socket-accept operations.
-     *
-     * <p> Suppose that a selection key's interest set contains
-     * <tt>OP_ACCEPT</tt> at the start of a <a
-     * href="Selector.html#selop">selection operation</a>.  If the selector
-     * detects that the corresponding server-socket channel is ready to accept
-     * another connection, or has an error pending, then it will add
-     * <tt>OP_ACCEPT</tt> to the key's ready set and add the key to its
-     * selected-key&nbsp;set.  </p>
-     */
-    public static final int OP_ACCEPT = 1 << 4;
-
-    /**
-     * Tests whether this key's channel is ready for reading.
-     *
-     * <p> An invocation of this method of the form <tt>k.isReadable()</tt>
-     * behaves in exactly the same way as the expression
-     *
-     * <blockquote><pre>{@code
-     * k.readyOps() & OP_READ != 0
-     * }</pre></blockquote>
-     *
-     * <p> If this key's channel does not support read operations then this
-     * method always returns <tt>false</tt>.  </p>
-     *
-     * @return  <tt>true</tt> if, and only if,
-                {@code readyOps() & OP_READ} is nonzero
-     *
-     * @throws  CancelledKeyException
-     *          If this key has been cancelled
-     */
-    public final boolean isReadable() {
-        return (readyOps() & OP_READ) != 0;
-    }
-
-    /**
-     * Tests whether this key's channel is ready for writing.
-     *
-     * <p> An invocation of this method of the form <tt>k.isWritable()</tt>
-     * behaves in exactly the same way as the expression
-     *
-     * <blockquote><pre>{@code
-     * k.readyOps() & OP_WRITE != 0
-     * }</pre></blockquote>
-     *
-     * <p> If this key's channel does not support write operations then this
-     * method always returns <tt>false</tt>.  </p>
-     *
-     * @return  <tt>true</tt> if, and only if,
-     *          {@code readyOps() & OP_WRITE} is nonzero
-     *
-     * @throws  CancelledKeyException
-     *          If this key has been cancelled
-     */
-    public final boolean isWritable() {
-        return (readyOps() & OP_WRITE) != 0;
-    }
-
-    /**
-     * Tests whether this key's channel has either finished, or failed to
-     * finish, its socket-connection operation.
-     *
-     * <p> An invocation of this method of the form <tt>k.isConnectable()</tt>
-     * behaves in exactly the same way as the expression
-     *
-     * <blockquote><pre>{@code
-     * k.readyOps() & OP_CONNECT != 0
-     * }</pre></blockquote>
-     *
-     * <p> If this key's channel does not support socket-connect operations
-     * then this method always returns <tt>false</tt>.  </p>
-     *
-     * @return  <tt>true</tt> if, and only if,
-     *          {@code readyOps() & OP_CONNECT} is nonzero
-     *
-     * @throws  CancelledKeyException
-     *          If this key has been cancelled
-     */
-    public final boolean isConnectable() {
-        return (readyOps() & OP_CONNECT) != 0;
-    }
-
-    /**
-     * Tests whether this key's channel is ready to accept a new socket
-     * connection.
-     *
-     * <p> An invocation of this method of the form <tt>k.isAcceptable()</tt>
-     * behaves in exactly the same way as the expression
-     *
-     * <blockquote><pre>{@code
-     * k.readyOps() & OP_ACCEPT != 0
-     * }</pre></blockquote>
-     *
-     * <p> If this key's channel does not support socket-accept operations then
-     * this method always returns <tt>false</tt>.  </p>
-     *
-     * @return  <tt>true</tt> if, and only if,
-     *          {@code readyOps() & OP_ACCEPT} is nonzero
-     *
-     * @throws  CancelledKeyException
-     *          If this key has been cancelled
-     */
-    public final boolean isAcceptable() {
-        return (readyOps() & OP_ACCEPT) != 0;
-    }
-
-
-    // -- Attachments --
-
-    private volatile Object attachment = null;
-
-    private static final AtomicReferenceFieldUpdater<SelectionKey,Object>
-        attachmentUpdater = AtomicReferenceFieldUpdater.newUpdater(
-            SelectionKey.class, Object.class, "attachment"
-        );
-
-    /**
-     * Attaches the given object to this key.
-     *
-     * <p> An attached object may later be retrieved via the {@link #attachment()
-     * attachment} method.  Only one object may be attached at a time; invoking
-     * this method causes any previous attachment to be discarded.  The current
-     * attachment may be discarded by attaching <tt>null</tt>.  </p>
-     *
-     * @param  ob
-     *         The object to be attached; may be <tt>null</tt>
-     *
-     * @return  The previously-attached object, if any,
-     *          otherwise <tt>null</tt>
-     */
-    public final Object attach(Object ob) {
-        return attachmentUpdater.getAndSet(this, ob);
-    }
-
-    /**
-     * Retrieves the current attachment.
-     *
-     * @return  The object currently attached to this key,
-     *          or <tt>null</tt> if there is no attachment
-     */
-    public final Object attachment() {
-        return attachment;
-    }
+    /*▲ 状态 ████████████████████████████████████████████████████████████████████████████████┛ */
 
 }
