@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,13 +25,13 @@
 
 package java.nio.channels;
 
-import java.nio.channels.spi.*;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Future;
 import java.io.IOException;
-import java.net.SocketOption;
 import java.net.SocketAddress;
+import java.net.SocketOption;
 import java.nio.ByteBuffer;
+import java.nio.channels.spi.AsynchronousChannelProvider;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An asynchronous channel for stream-oriented connecting sockets.
@@ -62,31 +62,36 @@ import java.nio.ByteBuffer;
  * <p> Socket options are configured using the {@link #setOption(SocketOption,Object)
  * setOption} method. Asynchronous socket channels support the following options:
  * <blockquote>
- * <table border summary="Socket options">
+ * <table class="striped">
+ * <caption style="display:none">Socket options</caption>
+ * <thead>
  *   <tr>
- *     <th>Option Name</th>
- *     <th>Description</th>
+ *     <th scope="col">Option Name</th>
+ *     <th scope="col">Description</th>
  *   </tr>
+ * </thead>
+ * <tbody>
  *   <tr>
- *     <td> {@link java.net.StandardSocketOptions#SO_SNDBUF SO_SNDBUF} </td>
+ *     <th scope="row"> {@link java.net.StandardSocketOptions#SO_SNDBUF SO_SNDBUF} </th>
  *     <td> The size of the socket send buffer </td>
  *   </tr>
  *   <tr>
- *     <td> {@link java.net.StandardSocketOptions#SO_RCVBUF SO_RCVBUF} </td>
+ *     <th scope="row"> {@link java.net.StandardSocketOptions#SO_RCVBUF SO_RCVBUF} </th>
  *     <td> The size of the socket receive buffer </td>
  *   </tr>
  *   <tr>
- *     <td> {@link java.net.StandardSocketOptions#SO_KEEPALIVE SO_KEEPALIVE} </td>
+ *     <th scope="row"> {@link java.net.StandardSocketOptions#SO_KEEPALIVE SO_KEEPALIVE} </th>
  *     <td> Keep connection alive </td>
  *   </tr>
  *   <tr>
- *     <td> {@link java.net.StandardSocketOptions#SO_REUSEADDR SO_REUSEADDR} </td>
+ *     <th scope="row"> {@link java.net.StandardSocketOptions#SO_REUSEADDR SO_REUSEADDR} </th>
  *     <td> Re-use address </td>
  *   </tr>
  *   <tr>
- *     <td> {@link java.net.StandardSocketOptions#TCP_NODELAY TCP_NODELAY} </td>
+ *     <th scope="row"> {@link java.net.StandardSocketOptions#TCP_NODELAY TCP_NODELAY} </th>
  *     <td> Disable the Nagle algorithm </td>
  *   </tr>
+ * </tbody>
  * </table>
  * </blockquote>
  * Additional (implementation specific) options may also be supported.
@@ -115,29 +120,51 @@ import java.nio.ByteBuffer;
  *
  * @since 1.7
  */
+// 异步Socket通道
+public abstract class AsynchronousSocketChannel implements AsynchronousByteChannel, NetworkChannel {
 
-public abstract class AsynchronousSocketChannel
-    implements AsynchronousByteChannel, NetworkChannel
-{
-    private final AsynchronousChannelProvider provider;
+    private final AsynchronousChannelProvider provider;     // 异步Socket通道工厂
+
+
+
+    /*▼ 构造器 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * Initializes a new instance of this class.
      *
-     * @param  provider
-     *         The provider that created this channel
+     * @param provider The provider that created this channel
      */
     protected AsynchronousSocketChannel(AsynchronousChannelProvider provider) {
         this.provider = provider;
     }
 
+    /*▲ 构造器 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 工厂方法 ████████████████████████████████████████████████████████████████████████████████┓ */
+
     /**
-     * Returns the provider that created this channel.
+     * Opens an asynchronous socket channel.
      *
-     * @return  The provider that created this channel
+     * <p> This method returns an asynchronous socket channel that is bound to
+     * the <em>default group</em>.This method is equivalent to evaluating the
+     * expression:
+     * <blockquote><pre>
+     * open((AsynchronousChannelGroup)null);
+     * </pre></blockquote>
+     *
+     * @return A new asynchronous socket channel
+     *
+     * @throws IOException If an I/O error occurs
      */
-    public final AsynchronousChannelProvider provider() {
-        return provider;
+    /*
+     * 创建并返回一个异步Socket通道
+     *
+     * 这里使用了默认的异步Socket通道工厂，在使用该工厂创建异步Socket通道时，会自动启动工作线程。
+     */
+    public static AsynchronousSocketChannel open() throws IOException {
+        return open(null);
     }
 
     /**
@@ -150,136 +177,76 @@ public abstract class AsynchronousSocketChannel
      * is {@code null} then the resulting channel is created by the system-wide
      * default provider, and bound to the <em>default group</em>.
      *
-     * @param   group
-     *          The group to which the newly constructed channel should be bound,
-     *          or {@code null} for the default group
+     * @param group The group to which the newly constructed channel should be bound,
+     *              or {@code null} for the default group
      *
-     * @return  A new asynchronous socket channel
+     * @return A new asynchronous socket channel
      *
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group is shutdown
-     * @throws  IOException
-     *          If an I/O error occurs
+     * @throws ShutdownChannelGroupException If the channel group is shutdown
+     * @throws IOException                   If an I/O error occurs
      */
-    public static AsynchronousSocketChannel open(AsynchronousChannelGroup group)
-        throws IOException
-    {
-        AsynchronousChannelProvider provider = (group == null) ?
-            AsynchronousChannelProvider.provider() : group.provider();
+    /*
+     * 创建并返回一个异步Socket通道，group是该通道关联的异步通道组
+     *
+     * 如果group为null，则使用默认的异步Socket通道工厂；
+     * 如果group不为null，则应当使用group中提供的异步Socket通道工厂。
+     *
+     * 在使用异步Socket通道工厂创建异步Socket通道时，应当启动工作线程。
+     */
+    public static AsynchronousSocketChannel open(AsynchronousChannelGroup group) throws IOException {
+        AsynchronousChannelProvider provider = (group == null) ? AsynchronousChannelProvider.provider() : group.provider();
         return provider.openAsynchronousSocketChannel(group);
     }
 
-    /**
-     * Opens an asynchronous socket channel.
-     *
-     * <p> This method returns an asynchronous socket channel that is bound to
-     * the <em>default group</em>.This method is equivalent to evaluating the
-     * expression:
-     * <blockquote><pre>
-     * open((AsynchronousChannelGroup)null);
-     * </pre></blockquote>
-     *
-     * @return  A new asynchronous socket channel
-     *
-     * @throws  IOException
-     *          If an I/O error occurs
-     */
-    public static AsynchronousSocketChannel open()
-        throws IOException
-    {
-        return open(null);
-    }
+    /*▲ 工厂方法 ████████████████████████████████████████████████████████████████████████████████┛ */
 
 
-    // -- socket options and related --
+
+    /*▼ socket操作 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
-     * @throws  ConnectionPendingException
-     *          If a connection operation is already in progress on this channel
-     * @throws  AlreadyBoundException               {@inheritDoc}
-     * @throws  UnsupportedAddressTypeException     {@inheritDoc}
-     * @throws  ClosedChannelException              {@inheritDoc}
-     * @throws  IOException                         {@inheritDoc}
-     * @throws  SecurityException
-     *          If a security manager has been installed and its
-     *          {@link SecurityManager#checkListen checkListen} method denies
-     *          the operation
+     * @throws ConnectionPendingException      If a connection operation is already in progress on this channel
+     * @throws AlreadyBoundException           {@inheritDoc}
+     * @throws UnsupportedAddressTypeException {@inheritDoc}
+     * @throws ClosedChannelException          {@inheritDoc}
+     * @throws IOException                     {@inheritDoc}
+     * @throws SecurityException               If a security manager has been installed and its
+     *                                         {@link SecurityManager#checkListen checkListen} method denies
+     *                                         the operation
      */
+    // 对[客户端Socket]执行【bind】操作；local为null时，使用通配IP和随机端口
     @Override
-    public abstract AsynchronousSocketChannel bind(SocketAddress local)
-        throws IOException;
+    public abstract AsynchronousSocketChannel bind(SocketAddress local) throws IOException;
 
     /**
-     * @throws  IllegalArgumentException                {@inheritDoc}
-     * @throws  ClosedChannelException                  {@inheritDoc}
-     * @throws  IOException                             {@inheritDoc}
+     * Connects this channel.
+     *
+     * <p> This method initiates an operation to connect this channel. This
+     * method behaves in exactly the same manner as the {@link
+     * #connect(SocketAddress, Object, CompletionHandler)} method except that
+     * instead of specifying a completion handler, this method returns a {@code
+     * Future} representing the pending result. The {@code Future}'s {@link
+     * Future#get() get} method returns {@code null} on successful completion.
+     *
+     * @param remote The remote address to which this channel is to be connected
+     *
+     * @return A {@code Future} object representing the pending result
+     *
+     * @throws UnresolvedAddressException      If the given remote address is not fully resolved
+     * @throws UnsupportedAddressTypeException If the type of the given remote address is not supported
+     * @throws AlreadyConnectedException       If this channel is already connected
+     * @throws ConnectionPendingException      If a connection operation is already in progress on this channel
+     * @throws SecurityException               If a security manager has been installed
+     *                                         and it does not permit access to the given remote endpoint
      */
-    @Override
-    public abstract <T> AsynchronousSocketChannel setOption(SocketOption<T> name, T value)
-        throws IOException;
-
-    /**
-     * Shutdown the connection for reading without closing the channel.
+    /*
+     * 对[客户端Socket]执行【connect】操作，以便连接到远端Socket；
+     * 返回值是一个包含Void的Future，主线程轮询此Future以判断是否accept完成。
      *
-     * <p> Once shutdown for reading then further reads on the channel will
-     * return {@code -1}, the end-of-stream indication. If the input side of the
-     * connection is already shutdown then invoking this method has no effect.
-     * The effect on an outstanding read operation is system dependent and
-     * therefore not specified. The effect, if any, when there is data in the
-     * socket receive buffer that has not been read, or data arrives subsequently,
-     * is also system dependent.
-     *
-     * @return  The channel
-     *
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ClosedChannelException
-     *          If this channel is closed
-     * @throws  IOException
-     *          If some other I/O error occurs
+     * 注：这里的返回值包装Void的原因是connect操作本来就没有返回值，Void在这里只是用来占位。
+     * 　　又由于需要一个判断异步IO操作是否完成的机制，所以引入了Future。
      */
-    public abstract AsynchronousSocketChannel shutdownInput() throws IOException;
-
-    /**
-     * Shutdown the connection for writing without closing the channel.
-     *
-     * <p> Once shutdown for writing then further attempts to write to the
-     * channel will throw {@link ClosedChannelException}. If the output side of
-     * the connection is already shutdown then invoking this method has no
-     * effect. The effect on an outstanding write operation is system dependent
-     * and therefore not specified.
-     *
-     * @return  The channel
-     *
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ClosedChannelException
-     *          If this channel is closed
-     * @throws  IOException
-     *          If some other I/O error occurs
-     */
-    public abstract AsynchronousSocketChannel shutdownOutput() throws IOException;
-
-    // -- state --
-
-    /**
-     * Returns the remote address to which this channel's socket is connected.
-     *
-     * <p> Where the channel is bound and connected to an Internet Protocol
-     * socket address then the return value from this method is of type {@link
-     * java.net.InetSocketAddress}.
-     *
-     * @return  The remote address; {@code null} if the channel's socket is not
-     *          connected
-     *
-     * @throws  ClosedChannelException
-     *          If the channel is closed
-     * @throws  IOException
-     *          If an I/O error occurs
-     */
-    public abstract SocketAddress getRemoteAddress() throws IOException;
-
-    // -- asynchronous operations --
+    public abstract Future<Void> connect(SocketAddress remote);
 
     /**
      * Connects this channel.
@@ -296,63 +263,109 @@ public abstract class AsynchronousSocketChannel
      * java.lang.SecurityManager#checkConnect checkConnect} method permits
      * connecting to the address and port number of the given remote endpoint.
      *
-     * @param   <A>
-     *          The type of the attachment
-     * @param   remote
-     *          The remote address to which this channel is to be connected
-     * @param   attachment
-     *          The object to attach to the I/O operation; can be {@code null}
-     * @param   handler
-     *          The handler for consuming the result
+     * @param <A>        The type of the attachment
+     * @param remote     The remote address to which this channel is to be connected
+     * @param attachment The object to attach to the I/O operation; can be {@code null}
+     * @param handler    The handler for consuming the result
      *
-     * @throws  UnresolvedAddressException
-     *          If the given remote address is not fully resolved
-     * @throws  UnsupportedAddressTypeException
-     *          If the type of the given remote address is not supported
-     * @throws  AlreadyConnectedException
-     *          If this channel is already connected
-     * @throws  ConnectionPendingException
-     *          If a connection operation is already in progress on this channel
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group has terminated
-     * @throws  SecurityException
-     *          If a security manager has been installed
-     *          and it does not permit access to the given remote endpoint
-     *
+     * @throws UnresolvedAddressException      If the given remote address is not fully resolved
+     * @throws UnsupportedAddressTypeException If the type of the given remote address is not supported
+     * @throws AlreadyConnectedException       If this channel is already connected
+     * @throws ConnectionPendingException      If a connection operation is already in progress on this channel
+     * @throws ShutdownChannelGroupException   If the channel group has terminated
+     * @throws SecurityException               If a security manager has been installed
+     *                                         and it does not permit access to the given remote endpoint
      * @see #getRemoteAddress
      */
-    public abstract <A> void connect(SocketAddress remote,
-                                     A attachment,
-                                     CompletionHandler<Void,? super A> handler);
+    /*
+     * 对[客户端Socket]执行【connect】操作，以便连接到远端Socket；
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程。
+     *
+     * 注：这里的回调句柄包装Void的原因是connect操作本来就没有返回值，Void在这里只是用来占位。
+     * 　　又由于需要一个回调机制来向主线程反馈任务执行结果，所以引入了CompletionHandler。
+     */
+    public abstract <A> void connect(SocketAddress remote, A attachment, CompletionHandler<Void, ? super A> handler);
+
+    /*▲ socket操作 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 取消/关闭 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
-     * Connects this channel.
+     * Shutdown the connection for reading without closing the channel.
      *
-     * <p> This method initiates an operation to connect this channel. This
-     * method behaves in exactly the same manner as the {@link
-     * #connect(SocketAddress, Object, CompletionHandler)} method except that
-     * instead of specifying a completion handler, this method returns a {@code
-     * Future} representing the pending result. The {@code Future}'s {@link
-     * Future#get() get} method returns {@code null} on successful completion.
+     * <p> Once shutdown for reading then further reads on the channel will
+     * return {@code -1}, the end-of-stream indication. If the input side of the
+     * connection is already shutdown then invoking this method has no effect.
+     * The effect on an outstanding read operation is system dependent and
+     * therefore not specified. The effect, if any, when there is data in the
+     * socket receive buffer that has not been read, or data arrives subsequently,
+     * is also system dependent.
      *
-     * @param   remote
-     *          The remote address to which this channel is to be connected
+     * @return The channel
      *
-     * @return  A {@code Future} object representing the pending result
-     *
-     * @throws  UnresolvedAddressException
-     *          If the given remote address is not fully resolved
-     * @throws  UnsupportedAddressTypeException
-     *          If the type of the given remote address is not supported
-     * @throws  AlreadyConnectedException
-     *          If this channel is already connected
-     * @throws  ConnectionPendingException
-     *          If a connection operation is already in progress on this channel
-     * @throws  SecurityException
-     *          If a security manager has been installed
-     *          and it does not permit access to the given remote endpoint
+     * @throws NotYetConnectedException If this channel is not yet connected
+     * @throws ClosedChannelException   If this channel is closed
+     * @throws IOException              If some other I/O error occurs
      */
-    public abstract Future<Void> connect(SocketAddress remote);
+    // 关闭从当前通道读取数据的功能
+    public abstract AsynchronousSocketChannel shutdownInput() throws IOException;
+
+    /**
+     * Shutdown the connection for writing without closing the channel.
+     *
+     * <p> Once shutdown for writing then further attempts to write to the
+     * channel will throw {@link ClosedChannelException}. If the output side of
+     * the connection is already shutdown then invoking this method has no
+     * effect. The effect on an outstanding write operation is system dependent
+     * and therefore not specified.
+     *
+     * @return The channel
+     *
+     * @throws NotYetConnectedException If this channel is not yet connected
+     * @throws ClosedChannelException   If this channel is closed
+     * @throws IOException              If some other I/O error occurs
+     */
+    // 关闭向当前通道写入数据的功能
+    public abstract AsynchronousSocketChannel shutdownOutput() throws IOException;
+
+    /*▲ 取消/关闭 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 读/写操作 ████████████████████████████████████████████████████████████████████████████████┓ */
+
+    /**
+     * @throws IllegalArgumentException {@inheritDoc}
+     * @throws ReadPendingException     {@inheritDoc}
+     * @throws NotYetConnectedException If this channel is not yet connected
+     */
+    /*
+     * 从当前通道读取数据并填充到缓冲区dst中（读取的字节数量最多填满缓冲区的剩余空间）
+     * 返回值是一个包含IO操作结果的Future，主线程轮询此Future以判断是否读取完成，以及获取实际读取到的字节数
+     *
+     * 注：此IO操作的结果是读取到的字节数。如果IO操作没成效，则执行结果可以是EOF或异常。
+     */
+    @Override
+    public abstract Future<Integer> read(ByteBuffer dst);
+
+    /**
+     * @throws IllegalArgumentException      {@inheritDoc}
+     * @throws ReadPendingException          {@inheritDoc}
+     * @throws NotYetConnectedException      If this channel is not yet connected
+     * @throws ShutdownChannelGroupException If the channel group has terminated
+     */
+    /*
+     * 从当前通道读取数据并填充到缓冲区dst中
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际读到的字节数
+     *
+     * 注：此IO操作的结果是读取到的字节数。如果IO操作没成效，则执行结果可以是EOF或异常。
+     */
+    @Override
+    public final <A> void read(ByteBuffer dst, A attachment, CompletionHandler<Integer, ? super A> handler) {
+        read(dst, 0L, TimeUnit.MILLISECONDS, attachment, handler);
+    }
 
     /**
      * Reads a sequence of bytes from this channel into the given buffer.
@@ -373,61 +386,29 @@ public abstract class AsynchronousSocketChannel
      * thrown.
      *
      * <p> Otherwise this method works in the same manner as the {@link
-     * AsynchronousByteChannel#read(ByteBuffer,Object,CompletionHandler)}
+     * AsynchronousByteChannel#read(ByteBuffer, Object, CompletionHandler)}
      * method.
      *
-     * @param   <A>
-     *          The type of the attachment
-     * @param   dst
-     *          The buffer into which bytes are to be transferred
-     * @param   timeout
-     *          The maximum time for the I/O operation to complete
-     * @param   unit
-     *          The time unit of the {@code timeout} argument
-     * @param   attachment
-     *          The object to attach to the I/O operation; can be {@code null}
-     * @param   handler
-     *          The handler for consuming the result
+     * @param <A>        The type of the attachment
+     * @param dst        The buffer into which bytes are to be transferred
+     * @param timeout    The maximum time for the I/O operation to complete
+     * @param unit       The time unit of the {@code timeout} argument
+     * @param attachment The object to attach to the I/O operation; can be {@code null}
+     * @param handler    The handler for consuming the result
      *
-     * @throws  IllegalArgumentException
-     *          If the buffer is read-only
-     * @throws  ReadPendingException
-     *          If a read operation is already in progress on this channel
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group has terminated
+     * @throws IllegalArgumentException      If the buffer is read-only
+     * @throws ReadPendingException          If a read operation is already in progress on this channel
+     * @throws NotYetConnectedException      If this channel is not yet connected
+     * @throws ShutdownChannelGroupException If the channel group has terminated
      */
-    public abstract <A> void read(ByteBuffer dst,
-                                  long timeout,
-                                  TimeUnit unit,
-                                  A attachment,
-                                  CompletionHandler<Integer,? super A> handler);
-
-    /**
-     * @throws  IllegalArgumentException        {@inheritDoc}
-     * @throws  ReadPendingException            {@inheritDoc}
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group has terminated
+    /*
+     * 从当前通道读取数据并填充到缓冲区dst中
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际读到的字节数
+     * 允许设置超时时间，即在指定时间内没有完成读取操作的话，抛出异常
+     *
+     * 注：此IO操作的结果是读取到的字节数。如果IO操作没成效，则执行结果可以是EOF或异常。
      */
-    @Override
-    public final <A> void read(ByteBuffer dst,
-                               A attachment,
-                               CompletionHandler<Integer,? super A> handler)
-    {
-        read(dst, 0L, TimeUnit.MILLISECONDS, attachment, handler);
-    }
-
-    /**
-     * @throws  IllegalArgumentException        {@inheritDoc}
-     * @throws  ReadPendingException            {@inheritDoc}
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     */
-    @Override
-    public abstract Future<Integer> read(ByteBuffer dst);
+    public abstract <A> void read(ByteBuffer dst, long timeout, TimeUnit unit, A attachment, CompletionHandler<Integer, ? super A> handler);
 
     /**
      * Reads a sequence of bytes from this channel into a subsequence of the
@@ -452,11 +433,11 @@ public abstract class AsynchronousSocketChannel
      * at the moment that the read is attempted.
      *
      * <p> Suppose that a byte sequence of length <i>n</i> is read, where
-     * <tt>0</tt>&nbsp;<tt>&lt;</tt>&nbsp;<i>n</i>&nbsp;<tt>&lt;=</tt>&nbsp;<i>r</i>.
-     * Up to the first <tt>dsts[offset].remaining()</tt> bytes of this sequence
-     * are transferred into buffer <tt>dsts[offset]</tt>, up to the next
-     * <tt>dsts[offset+1].remaining()</tt> bytes are transferred into buffer
-     * <tt>dsts[offset+1]</tt>, and so forth, until the entire byte sequence
+     * {@code 0}&nbsp;{@code <}&nbsp;<i>n</i>&nbsp;{@code <=}&nbsp;<i>r</i>.
+     * Up to the first {@code dsts[offset].remaining()} bytes of this sequence
+     * are transferred into buffer {@code dsts[offset]}, up to the next
+     * {@code dsts[offset+1].remaining()} bytes are transferred into buffer
+     * {@code dsts[offset+1]}, and so forth, until the entire byte sequence
      * is transferred into the given buffers.  As many bytes as possible are
      * transferred into each buffer, hence the final position of each updated
      * buffer, except the last updated buffer, is guaranteed to be equal to
@@ -474,45 +455,63 @@ public abstract class AsynchronousSocketChannel
      * read from the channel will cause an unspecific runtime exception to be
      * thrown.
      *
-     * @param   <A>
-     *          The type of the attachment
-     * @param   dsts
-     *          The buffers into which bytes are to be transferred
-     * @param   offset
-     *          The offset within the buffer array of the first buffer into which
-     *          bytes are to be transferred; must be non-negative and no larger than
-     *          {@code dsts.length}
-     * @param   length
-     *          The maximum number of buffers to be accessed; must be non-negative
-     *          and no larger than {@code dsts.length - offset}
-     * @param   timeout
-     *          The maximum time for the I/O operation to complete
-     * @param   unit
-     *          The time unit of the {@code timeout} argument
-     * @param   attachment
-     *          The object to attach to the I/O operation; can be {@code null}
-     * @param   handler
-     *          The handler for consuming the result
+     * @param <A>        The type of the attachment
+     * @param dsts       The buffers into which bytes are to be transferred
+     * @param offset     The offset within the buffer array of the first buffer into which
+     *                   bytes are to be transferred; must be non-negative and no larger than
+     *                   {@code dsts.length}
+     * @param length     The maximum number of buffers to be accessed; must be non-negative
+     *                   and no larger than {@code dsts.length - offset}
+     * @param timeout    The maximum time for the I/O operation to complete
+     * @param unit       The time unit of the {@code timeout} argument
+     * @param attachment The object to attach to the I/O operation; can be {@code null}
+     * @param handler    The handler for consuming the result
      *
-     * @throws  IndexOutOfBoundsException
-     *          If the pre-conditions for the {@code offset}  and {@code length}
-     *          parameter aren't met
-     * @throws  IllegalArgumentException
-     *          If the buffer is read-only
-     * @throws  ReadPendingException
-     *          If a read operation is already in progress on this channel
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group has terminated
+     * @throws IndexOutOfBoundsException     If the pre-conditions for the {@code offset}  and {@code length}
+     *                                       parameter aren't met
+     * @throws IllegalArgumentException      If the buffer is read-only
+     * @throws ReadPendingException          If a read operation is already in progress on this channel
+     * @throws NotYetConnectedException      If this channel is not yet connected
+     * @throws ShutdownChannelGroupException If the channel group has terminated
      */
-    public abstract <A> void read(ByteBuffer[] dsts,
-                                  int offset,
-                                  int length,
-                                  long timeout,
-                                  TimeUnit unit,
-                                  A attachment,
-                                  CompletionHandler<Long,? super A> handler);
+    /*
+     * 从当前通道读取数据并填充到缓冲区组dsts中(填充到dsts中offset处起的length个缓冲区中)
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际读到的字节数
+     * 允许设置超时时间，即在指定时间内没有完成读取操作的话，抛出异常
+     *
+     * 注：此IO操作的结果是读取到的字节数。如果IO操作没成效，则执行结果可以是EOF或异常。
+     */
+    public abstract <A> void read(ByteBuffer[] dsts, int offset, int length, long timeout, TimeUnit unit, A attachment, CompletionHandler<Long, ? super A> handler);
+
+
+    /**
+     * @throws WritePendingException    {@inheritDoc}
+     * @throws NotYetConnectedException If this channel is not yet connected
+     */
+    /*
+     * 从源缓冲区src中读取数据，并将读到的内容写入到当前通道中
+     * 返回值是一个包含IO操作结果的Future，主线程轮询此Future以判断是否写入完成，以及获取实际写入的字节数
+     *
+     * 注：此IO操作的结果是写入的字节数。如果IO操作没成效，则执行结果可以是异常。
+     */
+    @Override
+    public abstract Future<Integer> write(ByteBuffer src);
+
+    /**
+     * @throws WritePendingException         {@inheritDoc}
+     * @throws NotYetConnectedException      If this channel is not yet connected
+     * @throws ShutdownChannelGroupException If the channel group has terminated
+     */
+    /*
+     * 从源缓冲区src中读取数据，并将读到的内容写入到当前通道中
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际写入的字节数
+     *
+     * 注：此IO操作的结果是写入的字节数。如果IO操作没成效，则执行结果可以是异常。
+     */
+    @Override
+    public final <A> void write(ByteBuffer src, A attachment, CompletionHandler<Integer, ? super A> handler) {
+        write(src, 0L, TimeUnit.MILLISECONDS, attachment, handler);
+    }
 
     /**
      * Writes a sequence of bytes to this channel from the given buffer.
@@ -532,58 +531,28 @@ public abstract class AsynchronousSocketChannel
      * thrown.
      *
      * <p> Otherwise this method works in the same manner as the {@link
-     * AsynchronousByteChannel#write(ByteBuffer,Object,CompletionHandler)}
+     * AsynchronousByteChannel#write(ByteBuffer, Object, CompletionHandler)}
      * method.
      *
-     * @param   <A>
-     *          The type of the attachment
-     * @param   src
-     *          The buffer from which bytes are to be retrieved
-     * @param   timeout
-     *          The maximum time for the I/O operation to complete
-     * @param   unit
-     *          The time unit of the {@code timeout} argument
-     * @param   attachment
-     *          The object to attach to the I/O operation; can be {@code null}
-     * @param   handler
-     *          The handler for consuming the result
+     * @param <A>        The type of the attachment
+     * @param src        The buffer from which bytes are to be retrieved
+     * @param timeout    The maximum time for the I/O operation to complete
+     * @param unit       The time unit of the {@code timeout} argument
+     * @param attachment The object to attach to the I/O operation; can be {@code null}
+     * @param handler    The handler for consuming the result
      *
-     * @throws  WritePendingException
-     *          If a write operation is already in progress on this channel
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group has terminated
+     * @throws WritePendingException         If a write operation is already in progress on this channel
+     * @throws NotYetConnectedException      If this channel is not yet connected
+     * @throws ShutdownChannelGroupException If the channel group has terminated
      */
-    public abstract <A> void write(ByteBuffer src,
-                                   long timeout,
-                                   TimeUnit unit,
-                                   A attachment,
-                                   CompletionHandler<Integer,? super A> handler);
-
-    /**
-     * @throws  WritePendingException          {@inheritDoc}
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group has terminated
+    /*
+     * 从源缓冲区src中读取数据，并将读到的内容写入到当前通道中
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际写入的字节数
+     * 允许设置超时时间，即在指定时间内没有完成写入操作的话，抛出异常
+     *
+     * 注：此IO操作的结果是写入的字节数。如果IO操作没成效，则执行结果可以是异常。
      */
-    @Override
-    public final <A> void write(ByteBuffer src,
-                                A attachment,
-                                CompletionHandler<Integer,? super A> handler)
-
-    {
-        write(src, 0L, TimeUnit.MILLISECONDS, attachment, handler);
-    }
-
-    /**
-     * @throws  WritePendingException       {@inheritDoc}
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     */
-    @Override
-    public abstract Future<Integer> write(ByteBuffer src);
+    public abstract <A> void write(ByteBuffer src, long timeout, TimeUnit unit, A attachment, CompletionHandler<Integer, ? super A> handler);
 
     /**
      * Writes a sequence of bytes to this channel from a subsequence of the given
@@ -606,11 +575,11 @@ public abstract class AsynchronousSocketChannel
      * at the moment that the write is attempted.
      *
      * <p> Suppose that a byte sequence of length <i>n</i> is written, where
-     * <tt>0</tt>&nbsp;<tt>&lt;</tt>&nbsp;<i>n</i>&nbsp;<tt>&lt;=</tt>&nbsp;<i>r</i>.
-     * Up to the first <tt>srcs[offset].remaining()</tt> bytes of this sequence
-     * are written from buffer <tt>srcs[offset]</tt>, up to the next
-     * <tt>srcs[offset+1].remaining()</tt> bytes are written from buffer
-     * <tt>srcs[offset+1]</tt>, and so forth, until the entire byte sequence is
+     * {@code 0}&nbsp;{@code <}&nbsp;<i>n</i>&nbsp;{@code <=}&nbsp;<i>r</i>.
+     * Up to the first {@code srcs[offset].remaining()} bytes of this sequence
+     * are written from buffer {@code srcs[offset]}, up to the next
+     * {@code srcs[offset+1].remaining()} bytes are written from buffer
+     * {@code srcs[offset+1]}, and so forth, until the entire byte sequence is
      * written.  As many bytes as possible are written from each buffer, hence
      * the final position of each updated buffer, except the last updated
      * buffer, is guaranteed to be equal to that buffer's limit. The underlying
@@ -627,43 +596,38 @@ public abstract class AsynchronousSocketChannel
      * to write to the channel will cause an unspecific runtime exception to be
      * thrown.
      *
-     * @param   <A>
-     *          The type of the attachment
-     * @param   srcs
-     *          The buffers from which bytes are to be retrieved
-     * @param   offset
-     *          The offset within the buffer array of the first buffer from which
-     *          bytes are to be retrieved; must be non-negative and no larger
-     *          than {@code srcs.length}
-     * @param   length
-     *          The maximum number of buffers to be accessed; must be non-negative
-     *          and no larger than {@code srcs.length - offset}
-     * @param   timeout
-     *          The maximum time for the I/O operation to complete
-     * @param   unit
-     *          The time unit of the {@code timeout} argument
-     * @param   attachment
-     *          The object to attach to the I/O operation; can be {@code null}
-     * @param   handler
-     *          The handler for consuming the result
+     * @param <A>        The type of the attachment
+     * @param srcs       The buffers from which bytes are to be retrieved
+     * @param offset     The offset within the buffer array of the first buffer from which
+     *                   bytes are to be retrieved; must be non-negative and no larger
+     *                   than {@code srcs.length}
+     * @param length     The maximum number of buffers to be accessed; must be non-negative
+     *                   and no larger than {@code srcs.length - offset}
+     * @param timeout    The maximum time for the I/O operation to complete
+     * @param unit       The time unit of the {@code timeout} argument
+     * @param attachment The object to attach to the I/O operation; can be {@code null}
+     * @param handler    The handler for consuming the result
      *
-     * @throws  IndexOutOfBoundsException
-     *          If the pre-conditions for the {@code offset}  and {@code length}
-     *          parameter aren't met
-     * @throws  WritePendingException
-     *          If a write operation is already in progress on this channel
-     * @throws  NotYetConnectedException
-     *          If this channel is not yet connected
-     * @throws  ShutdownChannelGroupException
-     *          If the channel group has terminated
+     * @throws IndexOutOfBoundsException     If the pre-conditions for the {@code offset}  and {@code length}
+     *                                       parameter aren't met
+     * @throws WritePendingException         If a write operation is already in progress on this channel
+     * @throws NotYetConnectedException      If this channel is not yet connected
+     * @throws ShutdownChannelGroupException If the channel group has terminated
      */
-    public abstract <A> void write(ByteBuffer[] srcs,
-                                   int offset,
-                                   int length,
-                                   long timeout,
-                                   TimeUnit unit,
-                                   A attachment,
-                                   CompletionHandler<Long,? super A> handler);
+    /*
+     * 从源缓冲区组srcs中offset处起的length个缓冲区中读取数据，并将读到的内容写入到当前通道中
+     * 最后一个参数是异步IO回调句柄，由工作线程执行完任务之后通过handler中的回调方法通知主线程，以便主线程获取实际写入的字节数
+     * 允许设置超时时间，即在指定时间内没有完成写入操作的话，抛出异常
+     *
+     * 注：此IO操作的结果是写入的字节数。如果IO操作没成效，则执行结果可以是异常。
+     */
+    public abstract <A> void write(ByteBuffer[] srcs, int offset, int length, long timeout, TimeUnit unit, A attachment, CompletionHandler<Long, ? super A> handler);
+
+    /*▲ 读/写操作 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ 地址信息 ████████████████████████████████████████████████████████████████████████████████┓ */
 
     /**
      * {@inheritDoc}
@@ -675,13 +639,59 @@ public abstract class AsynchronousSocketChannel
      * {@link java.net.InetAddress#getLoopbackAddress loopback} address and the
      * local port of the channel's socket is returned.
      *
-     * @return  The {@code SocketAddress} that the socket is bound to, or the
-     *          {@code SocketAddress} representing the loopback address if
-     *          denied by the security manager, or {@code null} if the
-     *          channel's socket is not bound
+     * @return The {@code SocketAddress} that the socket is bound to, or the
+     * {@code SocketAddress} representing the loopback address if
+     * denied by the security manager, or {@code null} if the
+     * channel's socket is not bound
      *
-     * @throws  ClosedChannelException     {@inheritDoc}
-     * @throws  IOException                {@inheritDoc}
+     * @throws ClosedChannelException {@inheritDoc}
+     * @throws IOException            {@inheritDoc}
      */
+    // 获取绑定的本地地址
     public abstract SocketAddress getLocalAddress() throws IOException;
+
+    /**
+     * Returns the remote address to which this channel's socket is connected.
+     *
+     * <p> Where the channel is bound and connected to an Internet Protocol
+     * socket address then the return value from this method is of type {@link
+     * java.net.InetSocketAddress}.
+     *
+     * @return The remote address; {@code null} if the channel's socket is not
+     * connected
+     *
+     * @throws ClosedChannelException If the channel is closed
+     * @throws IOException            If an I/O error occurs
+     */
+    // 获取连接到的远程地址
+    public abstract SocketAddress getRemoteAddress() throws IOException;
+
+    /*▲ 地址信息 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+
+    /*▼ Socket配置参数 ████████████████████████████████████████████████████████████████████████████████┓ */
+
+    /**
+     * @throws IllegalArgumentException {@inheritDoc}
+     * @throws ClosedChannelException   {@inheritDoc}
+     * @throws IOException              {@inheritDoc}
+     */
+    // 设置指定名称的Socket配置参数
+    @Override
+    public abstract <T> AsynchronousSocketChannel setOption(SocketOption<T> name, T value) throws IOException;
+
+    /*▲ Socket配置参数 ████████████████████████████████████████████████████████████████████████████████┛ */
+
+
+    /**
+     * Returns the provider that created this channel.
+     *
+     * @return The provider that created this channel
+     */
+    // 返回异步Socket通道工厂
+    public final AsynchronousChannelProvider provider() {
+        return provider;
+    }
+
 }
