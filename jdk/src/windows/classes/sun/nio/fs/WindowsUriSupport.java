@@ -31,22 +31,123 @@ import java.net.URISyntaxException;
 /**
  * Utility methods to convert between Path and URIs.
  */
-
+// 工具类，提供了URI与Path的转换
 class WindowsUriSupport {
-    private WindowsUriSupport() {
-    }
 
     // suffix for IPv6 literal address
     private static final String IPV6_LITERAL_SUFFIX = ".ipv6-literal.net";
 
+    private WindowsUriSupport() {
+    }
+
+    /**
+     * Converts given Path to a URI
+     */
+    // 将指定的路径转换为URI后返回
+    static URI toUri(WindowsPath path) {
+        // 获取绝对路径
+        path = path.toAbsolutePath();
+
+        String absolutePath = path.toString();
+
+        /*
+         * trailing slash will be added if file is a directory.
+         * Skip check if already have trailing space
+         */
+        boolean addSlash = false;
+
+        // 如果路径不以'\'结尾
+        if(!absolutePath.endsWith("\\")) {
+            try {
+                // 判断当前路径是否为目录，如果是目录的话，后续要加上"\"
+                addSlash = WindowsFileAttributes.get(path, true).isDirectory();
+            } catch(WindowsException x) {
+            }
+        }
+
+        // 将absolutePath转为URI后返回；isUnc指示path是否为UNC路径，addSlash指示是否在path后添加路径分隔符('\')
+        return toUri(absolutePath, path.isUnc(), addSlash);
+    }
+
+    /**
+     * Converts given URI to a Path
+     */
+    // 将指定的url转换为路径，目前仅支持"file"协议
+    static WindowsPath fromUri(WindowsFileSystem fs, URI uri) {
+        if(!uri.isAbsolute()) {
+            throw new IllegalArgumentException("URI is not absolute");
+        }
+
+        if(uri.isOpaque()) {
+            throw new IllegalArgumentException("URI is not hierarchical");
+        }
+
+        String scheme = uri.getScheme();
+        if((scheme == null) || !scheme.equalsIgnoreCase("file")) {
+            throw new IllegalArgumentException("URI scheme is not \"file\"");
+        }
+
+        if(uri.getRawFragment() != null) {
+            throw new IllegalArgumentException("URI has a fragment component");
+        }
+
+        if(uri.getRawQuery() != null) {
+            throw new IllegalArgumentException("URI has a query component");
+        }
+
+        String path = uri.getPath();
+        if(path.equals("")) {
+            throw new IllegalArgumentException("URI path component is empty");
+        }
+
+        // UNC
+        String auth = uri.getRawAuthority();
+        if(auth != null && !auth.equals("")) {
+            String host = uri.getHost();
+            if(host == null) {
+                throw new IllegalArgumentException("URI authority component has undefined host");
+            }
+
+            if(uri.getUserInfo() != null) {
+                throw new IllegalArgumentException("URI authority component has user-info");
+            }
+
+            if(uri.getPort() != -1) {
+                throw new IllegalArgumentException("URI authority component has port number");
+            }
+
+            // IPv6 literal
+            // 1. drop enclosing brackets
+            // 2. replace ":" with "-"
+            // 3. replace "%" with "s" (zone/scopeID delimiter)
+            // 4. Append .ivp6-literal.net
+            if(host.startsWith("[")) {
+                host = host.substring(1, host.length() - 1).replace(':', '-').replace('%', 's');
+                host += IPV6_LITERAL_SUFFIX;
+            }
+
+            // reconstitute the UNC
+            path = "\\\\" + host + path;
+        } else {
+            if((path.length()>2) && (path.charAt(2) == ':')) {
+                // "/c:/foo" --> "c:/foo"
+                path = path.substring(1);
+            }
+        }
+
+        // 使用预设的文件系统对指定的路径进行解析，返回的路径已经本地化
+        return WindowsPath.parse(fs, path);
+    }
+
     /**
      * Returns URI to represent the given (absolute) path
      */
+    // 将path转为URI后返回；isUnc指示path是否为UNC路径，addSlash指示是否在path后添加路径分隔符('\')
     private static URI toUri(String path, boolean isUnc, boolean addSlash) {
         String uriHost;
         String uriPath;
 
-        if (isUnc) {
+        if(isUnc) {
             int slash = path.indexOf('\\', 2);
             uriHost = path.substring(2, slash);
             uriPath = path.substring(slash).replace('\\', '/');
@@ -55,11 +156,8 @@ class WindowsUriSupport {
             // 1. drop .ivp6-literal.net
             // 2. replace "-" with ":"
             // 3. replace "s" with "%" (zone/scopeID delimiter)
-            if (uriHost.endsWith(IPV6_LITERAL_SUFFIX)) {
-                uriHost = uriHost
-                    .substring(0, uriHost.length() - IPV6_LITERAL_SUFFIX.length())
-                    .replace('-', ':')
-                    .replace('s', '%');
+            if(uriHost.endsWith(IPV6_LITERAL_SUFFIX)) {
+                uriHost = uriHost.substring(0, uriHost.length() - IPV6_LITERAL_SUFFIX.length()).replace('-', ':').replace('s', '%');
             }
         } else {
             uriHost = "";
@@ -67,101 +165,33 @@ class WindowsUriSupport {
         }
 
         // append slash if known to be directory
-        if (addSlash)
+        if(addSlash) {
             uriPath += "/";
+        }
 
         // return file:///C:/My%20Documents or file://server/share/foo
         try {
             return new URI("file", uriHost, uriPath, null);
-        } catch (URISyntaxException x) {
-            if (!isUnc)
+        } catch(URISyntaxException x) {
+            if(!isUnc) {
                 throw new AssertionError(x);
+            }
         }
 
-        // if we get here it means we've got a UNC with reserved characters
-        // in the server name. The authority component cannot contain escaped
-        // octets so fallback to encoding the server name into the URI path
-        // component.
+        /*
+         * if we get here it means we've got a UNC with reserved characters in the server name.
+         * The authority component cannot contain escaped octets so fallback to encoding the server name into the URI path component.
+         */
         uriPath = "//" + path.replace('\\', '/');
-        if (addSlash)
+        if(addSlash) {
             uriPath += "/";
+        }
+
         try {
             return new URI("file", null, uriPath, null);
-        } catch (URISyntaxException x) {
+        } catch(URISyntaxException x) {
             throw new AssertionError(x);
         }
     }
 
-    /**
-     * Converts given Path to a URI
-     */
-    static URI toUri(WindowsPath path) {
-        path = path.toAbsolutePath();
-        String s = path.toString();
-
-        // trailing slash will be added if file is a directory. Skip check if
-        // already have trailing space
-        boolean addSlash = false;
-        if (!s.endsWith("\\")) {
-            try {
-                 addSlash = WindowsFileAttributes.get(path, true).isDirectory();
-            } catch (WindowsException x) {
-            }
-        }
-
-        return toUri(s, path.isUnc(), addSlash);
-    }
-
-    /**
-     * Converts given URI to a Path
-     */
-    static WindowsPath fromUri(WindowsFileSystem fs, URI uri) {
-        if (!uri.isAbsolute())
-            throw new IllegalArgumentException("URI is not absolute");
-        if (uri.isOpaque())
-            throw new IllegalArgumentException("URI is not hierarchical");
-        String scheme = uri.getScheme();
-        if ((scheme == null) || !scheme.equalsIgnoreCase("file"))
-            throw new IllegalArgumentException("URI scheme is not \"file\"");
-        if (uri.getFragment() != null)
-            throw new IllegalArgumentException("URI has a fragment component");
-        if (uri.getQuery() != null)
-            throw new IllegalArgumentException("URI has a query component");
-        String path = uri.getPath();
-        if (path.equals(""))
-            throw new IllegalArgumentException("URI path component is empty");
-
-        // UNC
-        String auth = uri.getAuthority();
-        if (auth != null && !auth.equals("")) {
-            String host = uri.getHost();
-            if (host == null)
-                throw new IllegalArgumentException("URI authority component has undefined host");
-            if (uri.getUserInfo() != null)
-                throw new IllegalArgumentException("URI authority component has user-info");
-            if (uri.getPort() != -1)
-                throw new IllegalArgumentException("URI authority component has port number");
-
-            // IPv6 literal
-            // 1. drop enclosing brackets
-            // 2. replace ":" with "-"
-            // 3. replace "%" with "s" (zone/scopeID delimiter)
-            // 4. Append .ivp6-literal.net
-            if (host.startsWith("[")) {
-                host = host.substring(1, host.length()-1)
-                           .replace(':', '-')
-                           .replace('%', 's');
-                host += IPV6_LITERAL_SUFFIX;
-            }
-
-            // reconstitute the UNC
-            path = "\\\\" + host + path;
-        } else {
-            if ((path.length() > 2) && (path.charAt(2) == ':')) {
-                // "/c:/foo" --> "c:/foo"
-                path = path.substring(1);
-            }
-        }
-        return WindowsPath.parse(fs, path);
-    }
 }
