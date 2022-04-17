@@ -32,6 +32,7 @@ import java.lang.ref.*;
 import java.io.FileDescriptor;
 import java.io.IOException;
 
+// 文件锁集合，记录了当前进程中作用在某个文件通道上的所有文件锁
 abstract class FileLockTable {
     protected FileLockTable() {
     }
@@ -85,6 +86,7 @@ class SharedFileLockTable extends FileLockTable {
      * SharedFileLockTable uses a list of file lock references to avoid keeping the
      * FileLock (and FileChannel) alive.
      */
+    // 文件锁弱引用
     private static class FileLockReference extends WeakReference<FileLock> {
         private FileKey fileKey;
 
@@ -103,23 +105,34 @@ class SharedFileLockTable extends FileLockTable {
     // The system-wide map is a ConcurrentHashMap that is keyed on the FileKey.
     // The map value is a list of file locks represented by FileLockReferences.
     // All access to the list must be synchronized on the list.
+    /*
+     * 文件锁集合，实现为一个map
+     *
+     * key  : 文件键
+     * value: 文件锁弱引用列表
+     */
     private static ConcurrentHashMap<FileKey, List<FileLockReference>> lockMap =
         new ConcurrentHashMap<FileKey, List<FileLockReference>>();
 
     // reference queue for cleared refs
+    // 引用队列，记录被gc回收的文件锁引用
     private static ReferenceQueue<FileLock> queue = new ReferenceQueue<FileLock>();
 
     // The connection to which this table is connected
+    // 当前文件锁集合链接到的文件通道
     private final Channel channel;
 
     // File key for the file that this channel is connected to
+    // 文件键，用来记录文件在本地(native层)的引用信息
     private final FileKey fileKey;
 
     SharedFileLockTable(Channel channel, FileDescriptor fd) throws IOException {
         this.channel = channel;
+        // 文件定位信息
         this.fileKey = FileKey.create(fd);
     }
 
+    // 向当前文件锁集合添加一个文件锁
     @Override
     public void add(FileLock fl) throws OverlappingFileLockException {
         List<FileLockReference> list = lockMap.get(fileKey);
@@ -162,6 +175,7 @@ class SharedFileLockTable extends FileLockTable {
         removeStaleEntries();
     }
 
+    // 如果lockMap中的文件锁弱引用列表已经为null，则移除fk对应的元素
     private void removeKeyIfEmpty(FileKey fk, List<FileLockReference> list) {
         assert Thread.holdsLock(list);
         assert lockMap.get(fk) == list;
@@ -170,22 +184,27 @@ class SharedFileLockTable extends FileLockTable {
         }
     }
 
+    // 移除文件锁
     @Override
     public void remove(FileLock fl) {
         assert fl != null;
 
         // the lock must exist so the list of locks must be present
+        // 获取文件锁引用列表
         List<FileLockReference> list = lockMap.get(fileKey);
         if (list == null) return;
 
         synchronized (list) {
             int index = 0;
+            // 遍历文件锁引用列表
             while (index < list.size()) {
                 FileLockReference ref = list.get(index);
                 FileLock lock = ref.get();
                 if (lock == fl) {
                     assert (lock != null) && (lock.acquiredBy() == channel);
+                    // 取消对文件锁对象的追踪
                     ref.clear();
+                    // 移除该文件锁所在的文件锁引用
                     list.remove(index);
                     break;
                 }
@@ -194,6 +213,7 @@ class SharedFileLockTable extends FileLockTable {
         }
     }
 
+    // 移除全部文件锁
     @Override
     public List<FileLock> removeAll() {
         List<FileLock> result = new ArrayList<FileLock>();
@@ -225,6 +245,7 @@ class SharedFileLockTable extends FileLockTable {
         return result;
     }
 
+    // 使用toLock替代fromLock
     @Override
     public void replace(FileLock fromLock, FileLock toLock) {
         // the lock must exist so there must be a list
@@ -257,8 +278,10 @@ class SharedFileLockTable extends FileLockTable {
     }
 
     // Process the reference queue
+    // 清理文件锁弱引用列表中的空槽
     private void removeStaleEntries() {
         FileLockReference ref;
+        // 遍历引用队列，释放那些已经被gc回收的文件锁
         while ((ref = (FileLockReference)queue.poll()) != null) {
             FileKey fk = ref.fileKey();
             List<FileLockReference> list = lockMap.get(fk);

@@ -115,12 +115,34 @@ import java.io.IOException;
  * @author JSR-51 Expert Group
  * @since 1.4
  */
-
+/*
+ * 文件锁，应用在进程级别，可以锁定同步文件通道与异步文件通道
+ *
+ * 锁的作用对象是文件而不是通道或线程，这意味着文件锁不适用于判别同一台Java虚拟机上的多个线程发起的访问。
+ *
+ * 如果一个线程在某个文件上获得了一个独占锁，然后第二个线程利用一个单独打开的通道来请求该文件的独占锁，那么第二个线程的请求会被批准。
+ * 但如果这两个线程运行在不同的Java虚拟机上，那么第二个线程会阻塞，因为锁最终是由操作系统或文件系统来判别的，并且几乎总是在进程级而非线程级上判别。
+ * 锁都是与一个文件关联的，而不是与单个的文件句柄或通道关联。
+ *
+ * FileLock对象是线程安全的，多个线程可以并发访问一个锁对象
+ */
 public abstract class FileLock implements AutoCloseable {
 
+    // 被锁定文件的通道（当前锁由channel创建）
     private final Channel channel;
+
+    // 文件锁锁定区域的起点
     private final long position;
+    /*
+     * 文件锁锁定区域的尺寸
+     *
+     * 锁定区域的范围不一定要限制在文件的size值以内，锁可以扩展从而超出文件尾。
+     * 因此，我们可以提前把待写入数据的区域锁定，也可以锁定一个不包含任何文件内容的区域，比如文件最后一个字节以外的区域。
+     * 如果之后文件增长到提前锁定的区域，那么文件锁依然可以保护该区域的文件内容。
+     * 相反，如果锁定了文件的某一块有限区域，而文件的增长超出了那块区域，那么新增加的文件内容将不会受到该文件锁的保护。
+     */
     private final long size;
+    // 文件锁是否为共享
     private final boolean shared;
 
     /**
@@ -144,6 +166,7 @@ public abstract class FileLock implements AutoCloseable {
      * @throws IllegalArgumentException
      *         If the preconditions on the parameters do not hold
      */
+    // 构造作用于同步文件通道的文件锁
     protected FileLock(FileChannel channel,
                        long position, long size, boolean shared)
     {
@@ -182,6 +205,7 @@ public abstract class FileLock implements AutoCloseable {
      *
      * @since 1.7
      */
+    // 构造作用于异步文件通道的文件锁
     protected FileLock(AsynchronousFileChannel channel,
                        long position, long size, boolean shared)
     {
@@ -206,6 +230,7 @@ public abstract class FileLock implements AutoCloseable {
      * @return  The file channel, or {@code null} if the file lock was not
      *          acquired by a file channel.
      */
+    // 返回被锁定文件的通道，该方法已被acquiredBy()取代
     public final FileChannel channel() {
         return (channel instanceof FileChannel) ? (FileChannel)channel : null;
     }
@@ -217,6 +242,7 @@ public abstract class FileLock implements AutoCloseable {
      *
      * @since 1.7
      */
+    // 返回被锁定文件的通道
     public Channel acquiredBy() {
         return channel;
     }
@@ -244,6 +270,7 @@ public abstract class FileLock implements AutoCloseable {
      *
      * @return  The size of the locked region
      */
+    // 文件锁锁定区域的尺寸
     public final long size() {
         return size;
     }
@@ -253,6 +280,12 @@ public abstract class FileLock implements AutoCloseable {
      *
      * @return <tt>true</tt> if lock is shared,
      *         <tt>false</tt> if it is exclusive
+     */
+    /*
+     * 当前的文件锁是否为共享。
+     *
+     * 如果底层的操作系统或文件系统不支持共享锁，那么该方法将总是返回false值，即使申请锁时
+     * 传递的参数值是true，这里也依旧返回false。
      */
     public final boolean isShared() {
         return shared;
@@ -268,6 +301,13 @@ public abstract class FileLock implements AutoCloseable {
      *
      * @return  <tt>true</tt> if, and only if, this lock and the given lock
      *          range overlap by at least one byte
+     */
+    /*
+     * 判断当前文件锁锁定区域是否与给定的区域重叠
+     *
+     * 注：即使返回值是false，也不能保证一定可以在指定的区域上获得一个锁，
+     * 　　因为Java虚拟机上的其他地方或者外部进程可能已经在该期望区域上有一个或多个锁了
+     * （最好使用tryLock()确认一下）。
      */
     public final boolean overlaps(long position, long size) {
         if (position + size <= this.position)
@@ -285,6 +325,14 @@ public abstract class FileLock implements AutoCloseable {
      *
      * @return  <tt>true</tt> if, and only if, this lock is valid
      */
+    /*
+     * 当前的文件锁是否有效
+     *
+     * 一个FileLock对象创建之后即有效，直到它的release()方法被调用，或它所关联的通道被关闭，或Java虚拟机
+     * 关闭时才会失效。
+     * 一个锁的有效性可能会随着时间而改变，不过它的其他属性：位置(position)、范围大小(size)和独占性
+     * (exclusivity)在创建时即被确定，不会随着时间而改变。
+     */
     public abstract boolean isValid();
 
     /**
@@ -301,6 +349,7 @@ public abstract class FileLock implements AutoCloseable {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 释放文件锁，并将其标记为失效（尤其是在发生异常时一定要释放锁，不然可能会影响下次的锁定操作）
     public abstract void release() throws IOException;
 
     /**
@@ -310,6 +359,7 @@ public abstract class FileLock implements AutoCloseable {
      *
      * @since 1.7
      */
+    // 释放文件锁，并将其标记为失效
     public final void close() throws IOException {
         release();
     }

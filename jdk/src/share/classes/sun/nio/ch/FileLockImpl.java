@@ -28,34 +28,45 @@ package sun.nio.ch;
 import java.io.IOException;
 import java.nio.channels.*;
 
+// 文件锁的实现类，实际起作用的是内核中的文件锁
 public class FileLockImpl
     extends FileLock
 {
+    // 判断当前文件锁是否失效
     private volatile boolean valid = true;
 
+    // 构造作用于同步文件通道的文件锁
     FileLockImpl(FileChannel channel, long position, long size, boolean shared)
     {
         super(channel, position, size, shared);
     }
 
+    // 构造作用于异步文件通道的文件锁
     FileLockImpl(AsynchronousFileChannel channel, long position, long size, boolean shared)
     {
         super(channel, position, size, shared);
     }
 
+    // 判断当前的文件锁是否有效
     public boolean isValid() {
         return valid;
     }
 
+    // 标记当前的文件锁失效
     void invalidate() {
         assert Thread.holdsLock(this);
         valid = false;
     }
 
+    // 释放文件锁，并将其标记为失效
     public synchronized void release() throws IOException {
+        // 获取被锁定文件的通道
         Channel ch = acquiredBy();
+        // 如果通道已经关闭了，直接抛异常
         if (!ch.isOpen())
             throw new ClosedChannelException();
+
+        // 如果当前文件锁已经失效，直接返回
         if (valid) {
             if (ch instanceof FileChannelImpl)
                 ((FileChannelImpl)ch).release(this);
