@@ -37,24 +37,37 @@ import java.io.IOException;
  * application calls the {@code getContent} method in class
  * {@code URL} or in {@code URLConnection}.
  * The application's content handler factory (an instance of a class that
- * implements the interface {@code ContentHandlerFactory} set
- * up by a call to {@code setContentHandler}) is
- * called with a {@code String} giving the MIME type of the
- * object being received on the socket. The factory returns an
+ * implements the interface {@code ContentHandlerFactory} set up by a call to
+ * {@link URLConnection#setContentHandlerFactory(ContentHandlerFactory)
+ * setContentHandlerFactory} is called with a {@code String} giving the
+ * MIME type of the object being received on the socket. The factory returns an
  * instance of a subclass of {@code ContentHandler}, and its
  * {@code getContent} method is called to create the object.
  * <p>
- * If no content handler could be found, URLConnection will
- * look for a content handler in a user-defineable set of places.
- * By default it looks in sun.net.www.content, but users can define a
- * vertical-bar delimited set of class prefixes to search through in
- * addition by defining the java.content.handler.pkgs property.
- * The class name must be of the form:
- * <pre>
- *     {package-prefix}.{major}.{minor}
- * e.g.
+ * If no content handler could be {@linkplain URLConnection#getContent() found},
+ * URLConnection will look for a content handler in a user-definable set of places.
+ * Users can define a vertical-bar delimited set of class prefixes
+ * to search through by defining the <i>{@link java.net.URLConnection#contentPathProp}</i>
+ * property. The class name must be of the form:
+ * <blockquote>
+ *     <i>{package-prefix}.{major}.{minor}</i>
+ *     <p>
+ *     where <i>{major}.{minor}</i> is formed by taking the
+ *     content-type string, replacing all slash characters with a
+ *     {@code period} ('.'), and all other non-alphanumeric characters
+ *     with the underscore character '{@code _}'. The alphanumeric
+ *     characters are specifically the 26 uppercase ASCII letters
+ *     '{@code A}' through '{@code Z}', the 26 lowercase ASCII
+ *     letters '{@code a}' through '{@code z}', and the 10 ASCII
+ *     digits '{@code 0}' through '{@code 9}'.
+ *     <p>
+ *     e.g.
  *     YoyoDyne.experimental.text.plain
- * </pre>
+ * </blockquote>
+ * If no user-defined content handler is found, then the system
+ * tries to load a specific <i>content-type</i> handler from one
+ * of the built-in handlers, if one exists.
+ * <p>
  * If the loading of the content handler class would be performed by
  * a classloader that is outside of the delegation chain of the caller,
  * the JVM will need the RuntimePermission "getClassLoader".
@@ -66,46 +79,57 @@ import java.io.IOException;
  * @see     java.net.URLConnection
  * @see     java.net.URLConnection#getContent()
  * @see     java.net.URLConnection#setContentHandlerFactory(java.net.ContentHandlerFactory)
- * @since   JDK1.0
+ * @since   1.0
  */
-abstract public class ContentHandler {
+// 资源内容句柄
+public abstract class ContentHandler {
+
     /**
      * Given a URL connect stream positioned at the beginning of the
      * representation of an object, this method reads that stream and
      * creates an object from it.
      *
-     * @param      urlc   a URL connection.
-     * @return     the object read by the {@code ContentHandler}.
-     * @exception  IOException  if an I/O error occurs while reading the object.
+     * @param urlc a URL connection.
+     *
+     * @return the object read by the {@code ContentHandler}.
+     *
+     * @throws IOException if an I/O error occurs while reading the object.
      */
-    abstract public Object getContent(URLConnection urlc) throws IOException;
+    // 返回目标资源的内容，返回的形式取决于资源的类型(不一定总是输入流)
+    public abstract Object getContent(URLConnection connection) throws IOException;
 
     /**
      * Given a URL connect stream positioned at the beginning of the
      * representation of an object, this method reads that stream and
      * creates an object that matches one of the types specified.
      *
-     * The default implementation of this method should call getContent()
+     * The default implementation of this method should call
+     * {@link #getContent(URLConnection)}
      * and screen the return type for a match of the suggested types.
      *
-     * @param      urlc   a URL connection.
-     * @param      classes      an array of types requested
-     * @return     the object read by the {@code ContentHandler} that is
-     *                 the first match of the suggested types.
-     *                 null if none of the requested  are supported.
-     * @exception  IOException  if an I/O error occurs while reading the object.
+     * @param urlc    a URL connection.
+     * @param classes an array of types requested
+     *
+     * @return the object read by the {@code ContentHandler} that is
+     * the first match of the suggested types or
+     * {@code null} if none of the requested  are supported.
+     *
+     * @throws IOException if an I/O error occurs while reading the object.
      * @since 1.3
      */
+    // 返回目标资源的内容，且限定该"内容"只能是指定的类型；内容的返回形式取决于资源的类型(不一定总是输入流)
     @SuppressWarnings("rawtypes")
-    public Object getContent(URLConnection urlc, Class[] classes) throws IOException {
-        Object obj = getContent(urlc);
+    public Object getContent(URLConnection connection, Class[] classes) throws IOException {
+        // 返回目标资源的内容，返回的形式取决于资源的类型
+        Object obj = getContent(connection);
 
-        for (int i = 0; i < classes.length; i++) {
-          if (classes[i].isInstance(obj)) {
+        // 限定该"内容"只能是指定的类型
+        for(Class<?> c : classes) {
+            if(c.isInstance(obj)) {
                 return obj;
-          }
+            }
         }
+
         return null;
     }
-
 }
