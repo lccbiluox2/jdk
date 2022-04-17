@@ -39,6 +39,7 @@ import sun.security.util.Debug;
  * @author  Li Gong
  * @author  Roland Schemers
  */
+// 类加载器的安全层
 public class SecureClassLoader extends ClassLoader {
     /*
      * If initialization succeed this is set to true and security checks will
@@ -135,6 +136,7 @@ public class SecureClassLoader extends ClassLoader {
      *             a different set of certificates than this class, or if
      *             the class name begins with "java.".
      */
+    // 利用存储在字节数组中的字节码去定义类
     protected final Class<?> defineClass(String name,
                                          byte[] b, int off, int len,
                                          CodeSource cs)
@@ -168,6 +170,7 @@ public class SecureClassLoader extends ClassLoader {
      *
      * @since  1.5
      */
+    // 利用存储在缓冲区中的字节码去定义类
     protected final Class<?> defineClass(String name, java.nio.ByteBuffer b,
                                          CodeSource cs)
     {
