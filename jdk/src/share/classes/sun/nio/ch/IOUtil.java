@@ -182,46 +182,72 @@ public class IOUtil {
         }
     }
 
+    /*
+     * 从文件描述符fd（关联的文件/socket）中position位置处开始读取，读到的内容写入dst后，返回读到的字节数量
+     * 当position==-1时，该方法是一次性地，即已经读完的流不可以重复读取（不支持随机读取）
+     * 当position>=0时，该方法可重复调用，读取的位置是position指定的位置（支持随机读取）
+     */
     static int read(FileDescriptor fd, ByteBuffer dst, long position,
                     NativeDispatcher nd)
         throws IOException
     {
         if (dst.isReadOnly())
             throw new IllegalArgumentException("Read-only buffer");
+
+        // 如果待写缓冲区已经是直接缓冲区
         if (dst instanceof DirectBuffer)
+            // 直接向目标缓冲区写入从fd中读到的数据
             return readIntoNativeBuffer(fd, dst, position, nd);
 
         // Substitute a native buffer
-        ByteBuffer bb = Util.getTemporaryDirectBuffer(dst.remaining());
+        // 如果目标缓冲区不是直接缓冲区，则需要准备一个直接缓冲区作为中转
+        ByteBuffer bb = Util.getTemporaryDirectBuffer(
+                // 获取dst中剩余可写空间
+                dst.remaining());
         try {
+            // 从fd读取，向临时创建的直接缓冲bb区写入
             int n = readIntoNativeBuffer(fd, bb, position, nd);
+            // 从写模式切换为读模式
             bb.flip();
             if (n > 0)
+                // 从临时创建的直接缓冲区bb中读取，向dst缓冲区写入
                 dst.put(bb);
             return n;
         } finally {
+            // 采用FILO的形式(入栈模式)将bb放入Buffer缓存池以待复用
             Util.offerFirstTemporaryDirectBuffer(bb);
         }
     }
 
+    /*
+     * 从文件描述符fd（关联的文件/socket）中position位置处读取，读到的内容写入直接缓冲区bb后，返回读到的字节数量
+     * 当position==-1时，该方法是一次性地，即已经读完的流不可以重复读取（不支持随机读取）
+     * 当position>=0时，该方法可重复调用，读取的位置是position指定的位置（支持随机读取）
+     */
     private static int readIntoNativeBuffer(FileDescriptor fd, ByteBuffer bb,
                                             long position, NativeDispatcher nd)
         throws IOException
     {
-        int pos = bb.position();
-        int lim = bb.limit();
+        int pos = bb.position(); // 待写缓冲区游标
+        int lim = bb.limit();// 待写缓冲区上界
         assert (pos <= lim);
+
+        // 获取bb中剩余可写空间
         int rem = (pos <= lim ? lim - pos : 0);
 
         if (rem == 0)
             return 0;
         int n = 0;
         if (position != -1) {
+            // 从文件描述符fd读取数据，并填充address指向的本地内存中的前rem个字节
             n = nd.pread(fd, ((DirectBuffer)bb).address() + pos,
                          rem, position);
         } else {
+            // 从文件描述符fd读取数据，并从address指向的本地内存中的position位置开始，填充前rem个字节
             n = nd.read(fd, ((DirectBuffer)bb).address() + pos, rem);
         }
+
+        // 设置新的游标position
         if (n > 0)
             bb.position(pos + n);
         return n;
@@ -233,10 +259,17 @@ public class IOUtil {
         return read(fd, bufs, 0, bufs.length, nd);
     }
 
+
+    /*
+     * 从文件描述符fd（关联的文件/socket）中读取，读到的内容依次写入dsts中offset处起的length个缓冲区后，返回读到的字节数量
+     * 该方法是一次性地，即已经读完的流不可以重复读取（不支持随机读取）
+     * 是否使用内存分页对齐与DirectIO，取决于alignment和directIO参数
+     */
     static long read(FileDescriptor fd, ByteBuffer[] bufs, int offset, int length,
                      NativeDispatcher nd)
         throws IOException
     {
+        // 创建长度为size的结构体length的数组
         IOVecWrapper vec = IOVecWrapper.get(length);
 
         boolean completed = false;
@@ -246,13 +279,17 @@ public class IOUtil {
             // Iterate over buffers to populate native iovec array.
             int count = offset + length;
             int i = offset;
+            // 遍历缓冲区数组，创建底层结构体iovec的数组，以便向其中写入数据
             while (i < count && iov_len < IOV_MAX) {
                 ByteBuffer buf = bufs[i];
+                // 无法向只读Buffer写入数据
                 if (buf.isReadOnly())
                     throw new IllegalArgumentException("Read-only buffer");
                 int pos = buf.position();
                 int lim = buf.limit();
                 assert (pos <= lim);
+
+                // 获取buf中剩余可写空间
                 int rem = (pos <= lim ? lim - pos : 0);
 
                 if (rem > 0) {
@@ -356,6 +393,7 @@ public class IOUtil {
         java.security.AccessController.doPrivileged(
                 new java.security.PrivilegedAction<Void>() {
                     public Void run() {
+                        // 加载本地库
                         System.loadLibrary("net");
                         System.loadLibrary("nio");
                         return null;
