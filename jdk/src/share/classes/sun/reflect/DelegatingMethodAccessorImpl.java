@@ -29,14 +29,30 @@ import java.lang.reflect.InvocationTargetException;
 
 /** Delegates its invocation to another MethodAccessorImpl and can
     change its delegate at run time. */
-
+/*
+ * 方法访问器的代理，配合"Inflation"技术的实现。
+ *
+ * 该代理会包装一个被代理的方法访问器。
+ * 如果开启了"Inflation"技术，则会用到当前代理类。
+ *
+ * 当某个方法被反射调用的次数小于某个阈值时(参考ReflectionFactory#inflationThreshold字段)，被代理的方法访问器是基于JNI的方法访问器，
+ * 当某个方法被反射调用的次数超过某个阈值时，被代理的方法访问器是基于纯Java实现的方法访问器。
+ */
 class DelegatingMethodAccessorImpl extends MethodAccessorImpl {
+    // 被代理的方法访问器
     private MethodAccessorImpl delegate;
 
     DelegatingMethodAccessorImpl(MethodAccessorImpl delegate) {
         setDelegate(delegate);
     }
 
+    /*
+     * delegate可能的值：
+     * 基于JNI的方法访问器：NativeMethodAccessorImpl
+     * 基于纯Java实现的方法访问器：jdk/internal/reflect/GeneratedMethodAccessor
+     *
+     * delegate的切换参见"Inflation"技术的描述
+     */
     public Object invoke(Object obj, Object[] args)
         throws IllegalArgumentException, InvocationTargetException
     {

@@ -39,7 +39,7 @@ import java.lang.reflect.InvocationTargetException;
     that will persistently show up on the stack are the implementing
     methods for java.lang.reflect.Method.invoke(). </P>
 */
-
+// 对基于"Inflation"技术的方法访问器的实现
 abstract class MethodAccessorImpl extends MagicAccessorImpl
     implements MethodAccessor {
     /** Matches specification in {@link java.lang.reflect.Method} */

@@ -54,6 +54,8 @@ import java.lang.annotation.Annotation;
  *
  * @since 1.2
  */
+// 可访问的元素，例如：Constructor/Method/Field
+
 public class AccessibleObject implements AnnotatedElement {
 
     /**
@@ -90,6 +92,7 @@ public class AccessibleObject implements AnnotatedElement {
      * @see SecurityManager#checkPermission
      * @see java.lang.RuntimePermission
      */
+    // 批量开启/关闭对指定成员的反射访问权限
     public static void setAccessible(AccessibleObject[] array, boolean flag)
         throws SecurityException {
         SecurityManager sm = System.getSecurityManager();
@@ -166,6 +169,12 @@ public class AccessibleObject implements AnnotatedElement {
     //
     // NOTE: for security purposes, this field must not be visible
     // outside this package.
+    /*
+     * 是否覆盖语言级别的访问安全检查，初始值为false。
+     *
+     * 如果覆盖了安全检查，那么反射访问畅行无阻；否则，反射访问元素时需要进行安全性检查。
+     * 对于private元素，访问前需要手动开启访问权限，即将此值为设置为true。
+     */
     boolean override;
 
     // Reflection factory used by subclasses for creating field,

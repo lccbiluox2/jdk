@@ -32,7 +32,9 @@ import java.lang.reflect.InvocationTargetException;
     configured with a (possibly dynamically-generated) class which
     implements this interface.
 */
-
+/*
+ * 基于"Inflation"技术的方法访问器，服务于Method#invoke()方法发起的调用
+ */
 public interface MethodAccessor {
     /** Matches specification in {@link java.lang.reflect.Method} */
     public Object invoke(Object obj, Object[] args)
