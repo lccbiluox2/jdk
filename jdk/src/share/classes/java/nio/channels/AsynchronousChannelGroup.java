@@ -129,8 +129,10 @@ import java.util.concurrent.TimeUnit;
  * @see AsynchronousSocketChannel#open(AsynchronousChannelGroup)
  * @see AsynchronousServerSocketChannel#open(AsynchronousChannelGroup)
  */
-
+// 异步IO通道组
 public abstract class AsynchronousChannelGroup {
+
+    // 异步通道组和异步Socket通道的工厂
     private final AsynchronousChannelProvider provider;
 
     /**
@@ -139,6 +141,7 @@ public abstract class AsynchronousChannelGroup {
      * @param   provider
      *          The asynchronous channel provider for this group
      */
+    // 返回异步通道组和异步Socket通道的工厂
     protected AsynchronousChannelGroup(AsynchronousChannelProvider provider) {
         this.provider = provider;
     }
@@ -178,6 +181,7 @@ public abstract class AsynchronousChannelGroup {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 返回一个带有固定容量线程池的异步通道组，线程池容量为nThreads
     public static AsynchronousChannelGroup withFixedThreadPool(int nThreads,
                                                                ThreadFactory threadFactory)
         throws IOException
@@ -225,6 +229,7 @@ public abstract class AsynchronousChannelGroup {
      *
      * @see java.util.concurrent.Executors#newCachedThreadPool
      */
+    // 返回一个包含指定线程池的异步通道组，线程池初始容量为initialSize(具体值还需要进一步计算)
     public static AsynchronousChannelGroup withCachedThreadPool(ExecutorService executor,
                                                                 int initialSize)
         throws IOException
@@ -266,6 +271,7 @@ public abstract class AsynchronousChannelGroup {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 返回一个包含指定线程池的异步通道组，线程池初始容量为0
     public static AsynchronousChannelGroup withThreadPool(ExecutorService executor)
         throws IOException
     {
@@ -279,6 +285,7 @@ public abstract class AsynchronousChannelGroup {
      * @return  {@code true} if this asynchronous channel group is shutdown or
      *          has been marked for shutdown.
      */
+    // 判断异步IO通道组是否准备关闭
     public abstract boolean isShutdown();
 
     /**
@@ -289,6 +296,7 @@ public abstract class AsynchronousChannelGroup {
      *
      * @return  {@code true} if this group has terminated
      */
+    // 判断通道组中的异步IO线程池是否已关闭(同时也指示通道组是否已经关闭)
     public abstract boolean isTerminated();
 
     /**
@@ -301,6 +309,7 @@ public abstract class AsynchronousChannelGroup {
      * and all resources have been released. This method has no effect if the
      * group is already shutdown.
      */
+    // 尝试关闭异步IO通道组；如果通道组内的通道未关闭，则只是将当前通道组标记为准备关闭状态
     public abstract void shutdown();
 
     /**
@@ -319,6 +328,7 @@ public abstract class AsynchronousChannelGroup {
      * @throws  IOException
      *          If an I/O error occurs
      */
+    // 立即关闭异步IO通道组，包括：关闭通道、关闭工作线程、关闭线程池
     public abstract void shutdownNow() throws IOException;
 
     /**
@@ -338,6 +348,7 @@ public abstract class AsynchronousChannelGroup {
      * @throws  InterruptedException
      *          If interrupted while waiting
      */
+    // 等待通道组中的异步IO线程池关闭；成功关闭后，返回true(同时也指示通道组是否已经关闭)
     public abstract boolean awaitTermination(long timeout, TimeUnit unit)
         throws InterruptedException;
 }
