@@ -58,14 +58,16 @@ import sun.reflect.misc.ReflectUtil;
     this factory is guarded by a security check, in similar style to
     {@link sun.misc.Unsafe}. </P>
 */
-
+// 反射对象工厂
 public class ReflectionFactory {
 
+    // 是否检查过初始化
     private static boolean initted = false;
     private static final Permission reflectionFactoryAccessPerm
         = new RuntimePermission("reflectionFactoryAccess");
     private static final ReflectionFactory soleInstance = new ReflectionFactory();
     // Provides access to package-private mechanisms in java.lang.reflect
+    // 反射工具类
     private static volatile LangReflectAccess langReflectAccess;
 
     /* Method for static class initializer <clinit>, or null */
@@ -85,7 +87,29 @@ public class ReflectionFactory {
     //
     // Package-private to be accessible to NativeMethodAccessorImpl
     // and NativeConstructorAccessorImpl
+    /*
+     * 来自：https://blogs.oracle.com/buck/inflation-system-properties
+     *
+     * Java反射有两种方法来调用类的方法或构造器：JNI或纯Java。
+     * JNI的执行速度很慢(主要是因为从Java到JNI以及从JNI到Java的过渡开销)，但是它的初始化成本为零，因为我们
+     * 不需要生成任何东西，通用访问器的实现中已经内置。
+     *
+     * 纯Java的解决方案执行速度更快(没有JNI开销)，但是初始化成本很高，因为我们需要在运行前为每个需要
+     * 调用的方法生成自定义字节码。
+     *
+     * (简单讲：JNI方案执行慢，初始化快；纯Java方案执行快，初始化慢)
+     *
+     * 因此，理想情况下，我们只希望为将被调用次数多的方法生成纯Java实现(因为这样可以分摊初始化成本)。
+     * 而"Inflation"技术就是Java运行时尝试达到此目标的技术。
+     *
+     * 默认情况下，"Inflation"技术是开启的。
+     * 这样一来，反射操作会在前期先使用JNI调用，但后续会为调用次数超过某个阈值的访问器生成纯Java版本。
+     *
+     * 如果关闭了"Inflation"技术，则跳过前面的JNI调用，在首次反射调用时即生成纯Java版本的访问器。
+     */
+    // 是否关闭了"Inflation"技术。
     private static boolean noInflation        = false;
+    // JNI调用阈值，当某个方法反射调用超过这个阈值时，会为其生成纯Java的版本访问器。
     private static int     inflationThreshold = 15;
 
     private ReflectionFactory() {}
@@ -124,6 +148,7 @@ public class ReflectionFactory {
      * @exception SecurityException if a security manager exists and its
      *             <code>checkPermission</code> method doesn't allow
      *             access to the RuntimePermission "reflectionFactoryAccess".  */
+    // 返回ReflectionFactory实例
     public static ReflectionFactory getReflectionFactory() {
         SecurityManager security = System.getSecurityManager();
         if (security != null) {
@@ -151,7 +176,7 @@ public class ReflectionFactory {
      * @param field the field
      * @param override true if caller has overridden aaccessibility
      */
-    public FieldAccessor newFieldAccessor(Field field, boolean override) {
+    public jdk.internal.reflect.FieldAccessor newFieldAccessor(Field field, boolean override) {
         checkInitted();
         return UnsafeFieldAccessorFactory.newFieldAccessor(field, override);
     }
@@ -160,7 +185,7 @@ public class ReflectionFactory {
         checkInitted();
 
         if (noInflation && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())) {
-            return new MethodAccessorGenerator().
+            return new jdk.internal.reflect.MethodAccessorGenerator().
                 generateMethod(method.getDeclaringClass(),
                                method.getName(),
                                method.getParameterTypes(),
@@ -177,7 +202,7 @@ public class ReflectionFactory {
         }
     }
 
-    public ConstructorAccessor newConstructorAccessor(Constructor<?> c) {
+    public jdk.internal.reflect.ConstructorAccessor newConstructorAccessor(Constructor<?> c) {
         checkInitted();
 
         Class<?> declaringClass = c.getDeclaringClass();
@@ -192,21 +217,21 @@ public class ReflectionFactory {
         // the ConstructorAccessor generation process, we have to
         // break the cycle here.
         if (Reflection.isSubclassOf(declaringClass,
-                                    ConstructorAccessorImpl.class)) {
+                                    jdk.internal.reflect.ConstructorAccessorImpl.class)) {
             return new BootstrapConstructorAccessorImpl(c);
         }
 
         if (noInflation && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass())) {
-            return new MethodAccessorGenerator().
+            return new jdk.internal.reflect.MethodAccessorGenerator().
                 generateConstructor(c.getDeclaringClass(),
                                     c.getParameterTypes(),
                                     c.getExceptionTypes(),
                                     c.getModifiers());
         } else {
-            NativeConstructorAccessorImpl acc =
-                new NativeConstructorAccessorImpl(c);
-            DelegatingConstructorAccessorImpl res =
-                new DelegatingConstructorAccessorImpl(acc);
+            jdk.internal.reflect.NativeConstructorAccessorImpl acc =
+                new jdk.internal.reflect.NativeConstructorAccessorImpl(c);
+            jdk.internal.reflect.DelegatingConstructorAccessorImpl res =
+                new jdk.internal.reflect.DelegatingConstructorAccessorImpl(acc);
             acc.setParent(res);
             return res;
         }
@@ -297,14 +322,14 @@ public class ReflectionFactory {
 
     /** Gets the ConstructorAccessor object for a
         java.lang.reflect.Constructor */
-    public ConstructorAccessor getConstructorAccessor(Constructor<?> c) {
+    public jdk.internal.reflect.ConstructorAccessor getConstructorAccessor(Constructor<?> c) {
         return langReflectAccess().getConstructorAccessor(c);
     }
 
     /** Sets the ConstructorAccessor object for a
         java.lang.reflect.Constructor */
     public void setConstructorAccessor(Constructor<?> c,
-                                       ConstructorAccessor accessor)
+                                       jdk.internal.reflect.ConstructorAccessor accessor)
     {
         langReflectAccess().setConstructorAccessor(c, accessor);
     }
@@ -394,7 +419,7 @@ public class ReflectionFactory {
                                                      Constructor<?> constructorToCall) {
 
 
-        ConstructorAccessor acc = new MethodAccessorGenerator().
+        jdk.internal.reflect.ConstructorAccessor acc = new jdk.internal.reflect.MethodAccessorGenerator().
             generateSerializationConstructor(classToInstantiate,
                                              constructorToCall.getParameterTypes(),
                                              constructorToCall.getExceptionTypes(),

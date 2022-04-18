@@ -43,6 +43,7 @@ import sun.reflect.ReflectionFactory;
  * @author Nakul Saraiya
  * @author Kenneth Russell
  */
+// 类/接口/构造器/方法/字段上的修饰符
 public class Modifier {
 
     /*
@@ -231,6 +232,7 @@ public class Modifier {
      * @return  a string representation of the set of modifiers
      * represented by {@code mod}
      */
+    // 字符串化
     public static String toString(int mod) {
         StringBuilder sb = new StringBuilder();
         int len;
@@ -364,6 +366,7 @@ public class Modifier {
      * The Java source modifiers that can be applied to a class.
      * @jls 8.1.1 Class Modifiers
      */
+    // 类修饰符
     private static final int CLASS_MODIFIERS =
         Modifier.PUBLIC         | Modifier.PROTECTED    | Modifier.PRIVATE |
         Modifier.ABSTRACT       | Modifier.STATIC       | Modifier.FINAL   |
@@ -373,6 +376,7 @@ public class Modifier {
      * The Java source modifiers that can be applied to an interface.
      * @jls 9.1.1 Interface Modifiers
      */
+    // 接口修饰符
     private static final int INTERFACE_MODIFIERS =
         Modifier.PUBLIC         | Modifier.PROTECTED    | Modifier.PRIVATE |
         Modifier.ABSTRACT       | Modifier.STATIC       | Modifier.STRICT;
@@ -382,6 +386,7 @@ public class Modifier {
      * The Java source modifiers that can be applied to a constructor.
      * @jls 8.8.3 Constructor Modifiers
      */
+    // 构造器修饰符
     private static final int CONSTRUCTOR_MODIFIERS =
         Modifier.PUBLIC         | Modifier.PROTECTED    | Modifier.PRIVATE;
 
@@ -389,6 +394,7 @@ public class Modifier {
      * The Java source modifiers that can be applied to a method.
      * @jls8.4.3  Method Modifiers
      */
+    // 方法修饰符
     private static final int METHOD_MODIFIERS =
         Modifier.PUBLIC         | Modifier.PROTECTED    | Modifier.PRIVATE |
         Modifier.ABSTRACT       | Modifier.STATIC       | Modifier.FINAL   |
@@ -398,6 +404,7 @@ public class Modifier {
      * The Java source modifiers that can be applied to a field.
      * @jls 8.3.1  Field Modifiers
      */
+    // 字段修饰符
     private static final int FIELD_MODIFIERS =
         Modifier.PUBLIC         | Modifier.PROTECTED    | Modifier.PRIVATE |
         Modifier.STATIC         | Modifier.FINAL        | Modifier.TRANSIENT |
@@ -407,12 +414,14 @@ public class Modifier {
      * The Java source modifiers that can be applied to a method or constructor parameter.
      * @jls 8.4.1 Formal Parameters
      */
+    // 形参修饰符
     private static final int PARAMETER_MODIFIERS =
         Modifier.FINAL;
 
     /**
      *
      */
+    // 访问控制修饰符
     static final int ACCESS_MODIFIERS =
         Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
 
@@ -425,6 +434,7 @@ public class Modifier {
      * @jls 8.1.1 Class Modifiers
      * @since 1.7
      */
+    // 返回类修饰符
     public static int classModifiers() {
         return CLASS_MODIFIERS;
     }
@@ -438,6 +448,7 @@ public class Modifier {
      * @jls 9.1.1 Interface Modifiers
      * @since 1.7
      */
+    // 返回接口修饰符
     public static int interfaceModifiers() {
         return INTERFACE_MODIFIERS;
     }
@@ -451,6 +462,7 @@ public class Modifier {
      * @jls 8.8.3 Constructor Modifiers
      * @since 1.7
      */
+    // 返回构造器修饰符
     public static int constructorModifiers() {
         return CONSTRUCTOR_MODIFIERS;
     }
@@ -464,6 +476,7 @@ public class Modifier {
      * @jls 8.4.3 Method Modifiers
      * @since 1.7
      */
+    // 返回方法修饰符
     public static int methodModifiers() {
         return METHOD_MODIFIERS;
     }
@@ -477,6 +490,7 @@ public class Modifier {
      * @jls 8.3.1 Field Modifiers
      * @since 1.7
      */
+    // 返回字段修饰符
     public static int fieldModifiers() {
         return FIELD_MODIFIERS;
     }
@@ -490,6 +504,7 @@ public class Modifier {
      * @jls 8.4.1 Formal Parameters
      * @since 1.8
      */
+    // 返回形参修饰符
     public static int parameterModifiers() {
         return PARAMETER_MODIFIERS;
     }

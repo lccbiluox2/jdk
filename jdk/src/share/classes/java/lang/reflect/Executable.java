@@ -40,6 +40,7 @@ import sun.reflect.generics.repository.ConstructorRepository;
  *
  * @since 1.8
  */
+// 可执行元素，比如：Constructor和Method
 public abstract class Executable extends AccessibleObject
     implements Member, GenericDeclaration {
     /*
@@ -200,17 +201,20 @@ public abstract class Executable extends AccessibleObject
      * Returns the {@code Class} object representing the class or interface
      * that declares the executable represented by this object.
      */
+    // 返回元素所在的类
     public abstract Class<?> getDeclaringClass();
 
     /**
      * Returns the name of the executable represented by this object.
      */
+    // 获取元素名称
     public abstract String getName();
 
     /**
      * Returns the Java language {@linkplain Modifier modifiers} for
      * the executable represented by this object.
      */
+    // 获取元素修饰符
     public abstract int getModifiers();
 
     /**
@@ -227,6 +231,7 @@ public abstract class Executable extends AccessibleObject
      *     the format specified in
      *     <cite>The Java&trade; Virtual Machine Specification</cite>
      */
+    // 构造器/方法引入的TypeVariable
     public abstract TypeVariable<?>[] getTypeParameters();
 
     /**
@@ -238,6 +243,7 @@ public abstract class Executable extends AccessibleObject
      * @return the parameter types for the executable this object
      * represents
      */
+    // 获取形参类型[类型擦除]
     public abstract Class<?>[] getParameterTypes();
 
     /**
@@ -248,6 +254,7 @@ public abstract class Executable extends AccessibleObject
      * @return The number of formal parameters for the executable this
      * object represents
      */
+    // 获取形参数量
     public int getParameterCount() {
         throw new AbstractMethodError();
     }
@@ -278,6 +285,7 @@ public abstract class Executable extends AccessibleObject
      *     the underlying executable's parameter types refer to a parameterized
      *     type that cannot be instantiated for any reason
      */
+    // 获取形参类型[支持泛型语义]
     public Type[] getGenericParameterTypes() {
         if (hasGenericInformation())
             return getGenericInfo().getParameterTypes();
@@ -347,6 +355,7 @@ public abstract class Executable extends AccessibleObject
      * @return an array of {@code Parameter} objects representing all
      * the parameters to the executable this object represents.
      */
+    // 获取形参对象
     public Parameter[] getParameters() {
         // TODO: This may eventually need to be guarded by security
         // mechanisms similar to those in Field, Method, etc.
@@ -452,6 +461,7 @@ public abstract class Executable extends AccessibleObject
      * @return the exception types declared as being thrown by the
      * executable this object represents
      */
+    // 获取该构造器抛出的异常类型[类型擦除]
     public abstract Class<?>[] getExceptionTypes();
 
     /**
@@ -475,6 +485,7 @@ public abstract class Executable extends AccessibleObject
      *     the underlying executable's {@code throws} clause refers to a
      *     parameterized type that cannot be instantiated for any reason
      */
+    // 获取该方法抛出的异常类型[支持泛型语义]
     public Type[] getGenericExceptionTypes() {
         Type[] result;
         if (hasGenericInformation() &&
@@ -490,6 +501,7 @@ public abstract class Executable extends AccessibleObject
      * @return a string describing this {@code Executable}, including
      * any type parameters
      */
+    // 获取元素的描述，带着泛型信息
     public abstract String toGenericString();
 
     /**
@@ -499,6 +511,7 @@ public abstract class Executable extends AccessibleObject
      * @return {@code true} if an only if this executable was declared
      * to take a variable number of arguments.
      */
+    // 是否为可变数量形参
     public boolean isVarArgs()  {
         return (getModifiers() & Modifier.VARARGS) != 0;
     }
@@ -512,6 +525,7 @@ public abstract class Executable extends AccessibleObject
      * <cite>The Java&trade; Language Specification</cite>.
      * @jls 13.1 The Form of a Binary
      */
+    // 是否由编译器引入（非人为定义）
     public boolean isSynthetic() {
         return Modifier.isSynthetic(getModifiers());
     }
@@ -544,6 +558,7 @@ public abstract class Executable extends AccessibleObject
      *    the formal and implicit parameters, in declaration order, of
      *    the executable represented by this object
      */
+    // 获取形参上的注解
     public abstract Annotation[][] getParameterAnnotations();
 
     Annotation[][] sharedGetParameterAnnotations(Class<?>[] parameterTypes,
@@ -565,6 +580,7 @@ public abstract class Executable extends AccessibleObject
      * {@inheritDoc}
      * @throws NullPointerException  {@inheritDoc}
      */
+    // 1-2 返回该元素上指定类型的注解
     public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
         Objects.requireNonNull(annotationClass);
         return annotationClass.cast(declaredAnnotations().get(annotationClass));
@@ -574,6 +590,7 @@ public abstract class Executable extends AccessibleObject
      * {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      */
+    // 1-3 返回该元素上指定类型的注解[支持获取@Repeatable类型的注解]
     @Override
     public <T extends Annotation> T[] getAnnotationsByType(Class<T> annotationClass) {
         Objects.requireNonNull(annotationClass);
@@ -584,6 +601,7 @@ public abstract class Executable extends AccessibleObject
     /**
      * {@inheritDoc}
      */
+    // 2-1 返回该元素上所有类型的注解
     public Annotation[] getDeclaredAnnotations()  {
         return AnnotationParser.toArray(declaredAnnotations());
     }
@@ -621,6 +639,7 @@ public abstract class Executable extends AccessibleObject
      * @return an object representing the return type of the method
      * or constructor represented by this {@code Executable}
      */
+    // 获取返回类型上的【被注解类型】
     public abstract AnnotatedType getAnnotatedReturnType();
 
     /* Helper for subclasses of Executable.
@@ -658,6 +677,7 @@ public abstract class Executable extends AccessibleObject
      * @return an object representing the receiver type of the method or
      * constructor represented by this {@code Executable}
      */
+    // 获取Receiver Type上的【被注解类型】
     public AnnotatedType getAnnotatedReceiverType() {
         if (Modifier.isStatic(this.getModifiers()))
             return null;
@@ -684,6 +704,7 @@ public abstract class Executable extends AccessibleObject
      * formal parameters of the method or constructor represented by this
      * {@code Executable}
      */
+    // 获取形参上的【被注解类型】
     public AnnotatedType[] getAnnotatedParameterTypes() {
         return TypeAnnotationParser.buildAnnotatedTypes(getTypeAnnotationBytes0(),
                 sun.misc.SharedSecrets.getJavaLangAccess().
@@ -708,6 +729,7 @@ public abstract class Executable extends AccessibleObject
      * exceptions of the method or constructor represented by this {@code
      * Executable}
      */
+    // 获取异常上的【被注解类型】
     public AnnotatedType[] getAnnotatedExceptionTypes() {
         return TypeAnnotationParser.buildAnnotatedTypes(getTypeAnnotationBytes0(),
                 sun.misc.SharedSecrets.getJavaLangAccess().

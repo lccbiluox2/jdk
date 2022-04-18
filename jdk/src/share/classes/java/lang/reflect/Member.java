@@ -36,6 +36,7 @@ package java.lang.reflect;
  *
  * @author Nakul Saraiya
  */
+// 成员元素，例如：Constructor/Method/Field
 public
 interface Member {
 
@@ -58,6 +59,7 @@ interface Member {
      * @return an object representing the declaring class of the
      * underlying member
      */
+    // 返回元素所在的类
     public Class<?> getDeclaringClass();
 
     /**
@@ -66,6 +68,7 @@ interface Member {
      *
      * @return the simple name of the underlying member
      */
+    // 获取元素的名称
     public String getName();
 
     /**
@@ -77,6 +80,7 @@ interface Member {
      * @return the Java language modifiers for the underlying member
      * @see Modifier
      */
+    // 获取构造器的修饰符
     public int getModifiers();
 
     /**
@@ -88,5 +92,6 @@ interface Member {
      * @jls 13.1 The Form of a Binary
      * @since 1.5
      */
+    // 是否由编译器引入（非主动定义）
     public boolean isSynthetic();
 }

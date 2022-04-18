@@ -6,6 +6,8 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/jdk/src/share/classes" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/hotspot/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hotspot/agent/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/jdk/src" isTestSource="false" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
