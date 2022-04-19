@@ -165,6 +165,7 @@ public class ReflectionFactory {
     //
 
     /** Called only by java.lang.reflect.Modifier's static initializer */
+    // 设置指定的反射工具类，仅在Modifier静态初始化块中被初始化
     public void setLangReflectAccess(LangReflectAccess access) {
         langReflectAccess = access;
     }
@@ -176,12 +177,16 @@ public class ReflectionFactory {
      * @param field the field
      * @param override true if caller has overridden aaccessibility
      */
+    // 构造并返回字段field的访问器，override指示字段field的访问安全检查是否被禁用
     public jdk.internal.reflect.FieldAccessor newFieldAccessor(Field field, boolean override) {
+        // 检查初始化，只检查一次
         checkInitted();
         return UnsafeFieldAccessorFactory.newFieldAccessor(field, override);
     }
 
+    // 返回指定方法的访问器
     public MethodAccessor newMethodAccessor(Method method) {
+        // 检查初始化，只检查一次
         checkInitted();
 
         if (noInflation && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())) {
@@ -193,6 +198,7 @@ public class ReflectionFactory {
                                method.getExceptionTypes(),
                                method.getModifiers());
         } else {
+            // 构造基于JNI的方法调用器，先尝试用基于JNI的方式进行反射操作
             NativeMethodAccessorImpl acc =
                 new NativeMethodAccessorImpl(method);
             DelegatingMethodAccessorImpl res =
@@ -202,13 +208,21 @@ public class ReflectionFactory {
         }
     }
 
+    // 返回指定构造器的访问器
     public jdk.internal.reflect.ConstructorAccessor newConstructorAccessor(Constructor<?> c) {
+        // 检查初始化，只检查一次
         checkInitted();
 
+        // 返回构造器所在的类
         Class<?> declaringClass = c.getDeclaringClass();
+
+        // 如果需要创建的是抽象类，则禁止通过反射实例化对象
         if (Modifier.isAbstract(declaringClass.getModifiers())) {
+            // 适用于抽象类的构造器访问器：当尝试调用newInstance()方法构造对象时，会抛出异常
             return new InstantiationExceptionConstructorAccessorImpl(null);
         }
+
+        // 如果需要创建的是Class类，则禁止通过反射实例化对象
         if (declaringClass == Class.class) {
             return new InstantiationExceptionConstructorAccessorImpl
                 ("Can not instantiate java.lang.Class");
@@ -216,18 +230,28 @@ public class ReflectionFactory {
         // Bootstrapping issue: since we use Class.newInstance() in
         // the ConstructorAccessor generation process, we have to
         // break the cycle here.
+        // 如果declaringClass类是否与ConstructorAccessorImpl类相同，或为ConstructorAccessorImpl类的子类，则需要防止构造器产生无限递归调用
         if (Reflection.isSubclassOf(declaringClass,
                                     jdk.internal.reflect.ConstructorAccessorImpl.class)) {
             return new BootstrapConstructorAccessorImpl(c);
         }
 
-        if (noInflation && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass())) {
+        // 构造器可能已经发生了改变
+        declaringClass = c.getDeclaringClass();
+
+
+        // 如果关闭了"Inflation"技术，且declaringClass不是虚拟机匿名类
+        if (noInflation && !ReflectUtil.isVMAnonymousClass(declaringClass)) {
+            // 构造基于纯Java的构造器访问器，以便直接使用纯Java的方式进行反射操作
             return new jdk.internal.reflect.MethodAccessorGenerator().
                 generateConstructor(c.getDeclaringClass(),
                                     c.getParameterTypes(),
                                     c.getExceptionTypes(),
                                     c.getModifiers());
         } else {
+            // 如果开启"Inflation"技术
+
+            // 构造基于JNI的构造器调用器，先尝试用基于JNI的方式进行反射操作
             jdk.internal.reflect.NativeConstructorAccessorImpl acc =
                 new jdk.internal.reflect.NativeConstructorAccessorImpl(c);
             jdk.internal.reflect.DelegatingConstructorAccessorImpl res =
@@ -245,6 +269,7 @@ public class ReflectionFactory {
 
     /** Creates a new java.lang.reflect.Field. Access checks as per
         java.lang.reflect.AccessibleObject are not overridden. */
+    // 构造并返回一个"字段"对象
     public Field newField(Class<?> declaringClass,
                           String name,
                           Class<?> type,
@@ -264,6 +289,7 @@ public class ReflectionFactory {
 
     /** Creates a new java.lang.reflect.Method. Access checks as per
         java.lang.reflect.AccessibleObject are not overridden. */
+    // 构造并返回一个"方法"对象
     public Method newMethod(Class<?> declaringClass,
                             String name,
                             Class<?>[] parameterTypes,
@@ -311,23 +337,27 @@ public class ReflectionFactory {
     }
 
     /** Gets the MethodAccessor object for a java.lang.reflect.Method */
+    // 返回指定方法的访问器
     public MethodAccessor getMethodAccessor(Method m) {
         return langReflectAccess().getMethodAccessor(m);
     }
 
     /** Sets the MethodAccessor object for a java.lang.reflect.Method */
+    // 为指定的方法设置访问器
     public void setMethodAccessor(Method m, MethodAccessor accessor) {
         langReflectAccess().setMethodAccessor(m, accessor);
     }
 
     /** Gets the ConstructorAccessor object for a
         java.lang.reflect.Constructor */
+    // 返回指定构造器的访问器
     public jdk.internal.reflect.ConstructorAccessor getConstructorAccessor(Constructor<?> c) {
         return langReflectAccess().getConstructorAccessor(c);
     }
 
     /** Sets the ConstructorAccessor object for a
         java.lang.reflect.Constructor */
+    // 为指定的构造器设置访问器
     public void setConstructorAccessor(Constructor<?> c,
                                        jdk.internal.reflect.ConstructorAccessor accessor)
     {
@@ -337,6 +367,7 @@ public class ReflectionFactory {
     /** Makes a copy of the passed method. The returned method is a
         "child" of the passed one; see the comments in Method.java for
         details. */
+    // 方法拷贝，参数中的方法是返回值的复制源
     public Method copyMethod(Method arg) {
         return langReflectAccess().copyMethod(arg);
     }
@@ -344,6 +375,7 @@ public class ReflectionFactory {
     /** Makes a copy of the passed field. The returned field is a
         "child" of the passed one; see the comments in Field.java for
         details. */
+    // 字段对象拷贝
     public Field copyField(Field arg) {
         return langReflectAccess().copyField(arg);
     }
@@ -351,6 +383,7 @@ public class ReflectionFactory {
     /** Makes a copy of the passed constructor. The returned
         constructor is a "child" of the passed one; see the comments
         in Constructor.java for details. */
+    // 构造器拷贝
     public <T> Constructor<T> copyConstructor(Constructor<T> arg) {
         return langReflectAccess().copyConstructor(arg);
     }
@@ -375,6 +408,7 @@ public class ReflectionFactory {
      * @param constructorToCall the constructor to call
      * @return an accessible constructor
      */
+    // 构造并返回一个"构造器"对象
     public Constructor<?> newConstructorForSerialization
         (Class<?> classToInstantiate, Constructor<?> constructorToCall)
     {
@@ -393,17 +427,26 @@ public class ReflectionFactory {
      * @return a no-arg constructor for the class or {@code null} if
      *     the class or supertypes do not have a suitable no-arg constructor
      */
+    /*
+     * 返回clazz的第一个不可序列化的父类的无参构造器，要求该无参构造器可被clazz访问。
+     * 如果未找到该构造器，或该构造器子类无法访问，则返回null。
+     */
     public final Constructor<?> newConstructorForSerialization(Class<?> cl) {
         Class<?> initCl = cl;
+        // 如果initCl是Serializable的实现类，则向上查找其首个不是Serializable实现类的父类
         while (Serializable.class.isAssignableFrom(initCl)) {
+            // 如果不存在父类(如接口)，直接返回null
             if ((initCl = initCl.getSuperclass()) == null) {
                 return null;
             }
         }
         Constructor<?> constructorToCall;
         try {
+            // 获取initCl中的无参构造器
             constructorToCall = initCl.getDeclaredConstructor();
+            // 获取该构造器的修饰符
             int mods = constructorToCall.getModifiers();
+            // 如果构造器私有，或者构造器为包访问权限，但cl和initCl不在同一个包，此时返回null，即无法获取到可用构造器
             if ((mods & Modifier.PRIVATE) != 0 ||
                     ((mods & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0 &&
                             !packageEquals(cl, initCl))) {
@@ -412,6 +455,7 @@ public class ReflectionFactory {
         } catch (NoSuchMethodException ex) {
             return null;
         }
+        // 基于constructorToCall，生成一个可供clazz使用的构造器后返回
         return generateConstructor(cl, constructorToCall);
     }
 
@@ -450,6 +494,7 @@ public class ReflectionFactory {
      * @return A no-arg constructor for the class; returns {@code null} if
      *     the class does not implement {@link java.io.Externalizable}
      */
+    // 如果clazz是Externalizable类型，返回其构造器
     public final Constructor<?> newConstructorForExternalization(Class<?> cl) {
         if (!Externalizable.class.isAssignableFrom(cl)) {
             return null;
@@ -644,6 +689,7 @@ public class ReflectionFactory {
      */
     public final OptionalDataException newOptionalDataExceptionForSerialization(boolean bool) {
         try {
+            // 返回OptionalDataException类中指定形参的构造器，但不包括父类中的构造器
             Constructor<OptionalDataException> boolCtor =
                     OptionalDataException.class.getDeclaredConstructor(Boolean.TYPE);
             boolCtor.setAccessible(true);
@@ -658,7 +704,7 @@ public class ReflectionFactory {
     //
     // Internals only below this point
     //
-
+    // 返回某个方法被基于JNI的反射调用的次数
     static int inflationThreshold() {
         return inflationThreshold;
     }
@@ -668,7 +714,9 @@ public class ReflectionFactory {
         static initializer (more properly, that for
         java.lang.reflect.AccessibleObject) causes this class's to be
         run, before the system properties are set up. */
+    // 检查初始化，只检查一次
     private static void checkInitted() {
+        // 如果已经检查过初始化，直接返回
         if (initted) return;
         AccessController.doPrivileged(
             new PrivilegedAction<Void>() {
@@ -687,11 +735,13 @@ public class ReflectionFactory {
                         return null;
                     }
 
+                    // 判断是否关闭"Inflation"技术，默认是开启的，反射操作会有一个从JNI调用过渡到纯Java调用的过程
                     String val = System.getProperty("sun.reflect.noInflation");
                     if (val != null && val.equals("true")) {
-                        noInflation = true;
+                        noInflation = true;// 关闭"Inflation"技术
                     }
 
+                    // 尝试更新JNI调用阈值
                     val = System.getProperty("sun.reflect.inflationThreshold");
                     if (val != null) {
                         try {
@@ -701,18 +751,21 @@ public class ReflectionFactory {
                         }
                     }
 
+                    // 已进行初始化检查
                     initted = true;
                     return null;
                 }
             });
     }
 
+    // 返回反射对象访问工具
     private static LangReflectAccess langReflectAccess() {
         if (langReflectAccess == null) {
             // Call a static method to get class java.lang.reflect.Modifier
             // initialized. Its static initializer will cause
             // setLangReflectAccess() to be called from the context of the
             // java.lang.reflect package.
+            // 加载Modifier方法内的静态初始化块，使langReflectAccess对象被初始化
             Modifier.isPublic(Modifier.PUBLIC);
         }
         return langReflectAccess;
@@ -725,7 +778,9 @@ public class ReflectionFactory {
      * @param cl2 another class
      * @returns true if the two classes are in the same classloader and package
      */
+    // 判断两个类是否位于同一个包
     private static boolean packageEquals(Class<?> cl1, Class<?> cl2) {
+        // 类加载器一致，包名一致
         return cl1.getClassLoader() == cl2.getClassLoader() &&
                 Objects.equals(cl1.getPackage(), cl2.getPackage());
     }

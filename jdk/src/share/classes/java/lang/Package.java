@@ -108,6 +108,7 @@ import java.lang.annotation.Annotation;
  *
  * @see ClassLoader#definePackage
  */
+// 包
 public class Package implements java.lang.reflect.AnnotatedElement {
     /**
      * Return the name of this package.
@@ -297,6 +298,7 @@ public class Package implements java.lang.reflect.AnnotatedElement {
      * @return a new array of packages known to the callers {@code ClassLoader}
      * instance.  An zero length array is returned if none are known.
      */
+    // 返回对调用者类的类加载器可视的包对象
     @CallerSensitive
     public static Package[] getPackages() {
         ClassLoader l = ClassLoader.getClassLoader(Reflection.getCallerClass());
@@ -404,6 +406,7 @@ public class Package implements java.lang.reflect.AnnotatedElement {
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
      */
+    // 1-2 返回该元素上指定类型的注解
     @Override
     public  <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationClass) {
         return getPackageInfo().getAnnotationsByType(annotationClass);
@@ -412,6 +415,7 @@ public class Package implements java.lang.reflect.AnnotatedElement {
     /**
      * @since 1.5
      */
+    // 1-1 返回该元素上所有类型的注解
     public Annotation[] getAnnotations() {
         return getPackageInfo().getAnnotations();
     }

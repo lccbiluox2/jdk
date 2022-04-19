@@ -116,6 +116,7 @@ import sun.reflect.misc.ReflectUtil;
  * @see     java.lang.ClassLoader#defineClass(byte[], int, int)
  * @since   JDK1.0
  */
+// 反射元素-类/接口
 public final class Class<T> implements java.io.Serializable,
                               GenericDeclaration,
                               Type,
@@ -257,6 +258,7 @@ public final class Class<T> implements java.io.Serializable,
      *            by this method fails
      * @exception ClassNotFoundException if the class cannot be located
      */
+    // 根据类的全名加载类对象，而且加载类之后对类的静态元素进行初始化
     @CallerSensitive
     public static Class<?> forName(String className)
                 throws ClassNotFoundException {
@@ -326,6 +328,7 @@ public final class Class<T> implements java.io.Serializable,
      * @see       java.lang.ClassLoader
      * @since     1.2
      */
+    // 根据类的全名和指定的类加载器加载类对象，initialize参数指示是否在加载类之后对类中的静态元素进行初始化
     @CallerSensitive
     public static Class<?> forName(String name, boolean initialize,
                                    ClassLoader loader)
@@ -389,6 +392,7 @@ public final class Class<T> implements java.io.Serializable,
      *          s.checkPackageAccess()} denies access to the package
      *          of this class.
      */
+    // 创建当前类的对象（该方法已过时，不再建议使用）
     @CallerSensitive
     public T newInstance()
         throws InstantiationException, IllegalAccessException
@@ -691,6 +695,7 @@ public final class Class<T> implements java.io.Serializable,
     // Initialized in JVM not by private constructor
     // This field is filtered from reflection access, i.e. getDeclaredField
     // will throw NoSuchFieldException
+    // 当前类关联的类加载器
     private final ClassLoader classLoader;
 
     /**
