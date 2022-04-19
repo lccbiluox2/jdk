@@ -97,16 +97,18 @@ import sun.security.util.SecurityConstants;
  * @since 9
  * @spec JPMS
  * @see Class#getModule()
+ *
+ *
  */
 
 public final class Module implements AnnotatedElement {
 
     // the layer that contains this module, can be null
-    private final ModuleLayer layer;
+    private final java.lang.ModuleLayer layer;
 
     // module name and loader, these fields are read by VM
     private final String name;
-    private final ClassLoader loader;
+    private final java.lang.ClassLoader loader;
 
     // the module descriptor
     private final ModuleDescriptor descriptor;
@@ -117,8 +119,8 @@ public final class Module implements AnnotatedElement {
      * VM but will not read any other modules, will not have any exports setup
      * and will not be registered in the service catalog.
      */
-    Module(ModuleLayer layer,
-           ClassLoader loader,
+    Module(java.lang.ModuleLayer layer,
+           java.lang.ClassLoader loader,
            ModuleDescriptor descriptor,
            URI uri)
     {
@@ -143,7 +145,7 @@ public final class Module implements AnnotatedElement {
      *
      * @see ClassLoader#getUnnamedModule
      */
-    Module(ClassLoader loader) {
+    Module(java.lang.ClassLoader loader) {
         this.layer = null;
         this.name = null;
         this.loader = loader;
@@ -156,7 +158,7 @@ public final class Module implements AnnotatedElement {
      *
      * @apiNote This constructor is for VM white-box testing.
      */
-    Module(ClassLoader loader, ModuleDescriptor descriptor) {
+    Module(java.lang.ClassLoader loader, ModuleDescriptor descriptor) {
         this.layer = null;
         this.name = descriptor.name();
         this.loader = loader;
@@ -198,8 +200,8 @@ public final class Module implements AnnotatedElement {
      * @throws SecurityException
      *         If denied by the security manager
      */
-    public ClassLoader getClassLoader() {
-        SecurityManager sm = System.getSecurityManager();
+    public java.lang.ClassLoader getClassLoader() {
+        SecurityManager sm = java.lang.System.getSecurityManager();
         if (sm != null) {
             sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
         }
@@ -231,15 +233,15 @@ public final class Module implements AnnotatedElement {
      *
      * @see java.lang.reflect.Proxy
      */
-    public ModuleLayer getLayer() {
+    public java.lang.ModuleLayer getLayer() {
         if (isNamed()) {
-            ModuleLayer layer = this.layer;
+            java.lang.ModuleLayer layer = this.layer;
             if (layer != null)
                 return layer;
 
             // special-case java.base as it is created before the boot layer
             if (loader == null && name.equals("java.base")) {
-                return ModuleLayer.boot();
+                return java.lang.ModuleLayer.boot();
             }
         }
         return null;
@@ -263,22 +265,22 @@ public final class Module implements AnnotatedElement {
         /**
          * A module (1st key) reads another module (2nd key)
          */
-        static final WeakPairMap<Module, Module, Boolean> reads =
-            new WeakPairMap<>();
+        static final WeakPairMap<Module, Module, java.lang.Boolean> reads =
+            new java.lang.WeakPairMap<>();
 
         /**
          * A module (1st key) exports or opens a package to another module
          * (2nd key). The map value is a map of package name to a boolean
          * that indicates if the package is opened.
          */
-        static final WeakPairMap<Module, Module, Map<String, Boolean>> exports =
-            new WeakPairMap<>();
+        static final WeakPairMap<Module, Module, Map<String, java.lang.Boolean>> exports =
+            new java.lang.WeakPairMap<>();
 
         /**
          * A module (1st key) uses a service (2nd key)
          */
-        static final WeakPairMap<Module, Class<?>, Boolean> uses =
-            new WeakPairMap<>();
+        static final WeakPairMap<Module, java.lang.Class<?>, java.lang.Boolean> uses =
+            new java.lang.WeakPairMap<>();
     }
 
 
@@ -360,7 +362,7 @@ public final class Module implements AnnotatedElement {
         if (this.isNamed()) {
             Module caller = getCallerModule(Reflection.getCallerClass());
             if (caller != this) {
-                throw new IllegalCallerException(caller + " != " + this);
+                throw new java.lang.IllegalCallerException(caller + " != " + this);
             }
             implAddReads(other, true);
         }
@@ -412,7 +414,7 @@ public final class Module implements AnnotatedElement {
             }
 
             // add reflective read
-            ReflectionData.reads.putIfAbsent(this, other, Boolean.TRUE);
+            ReflectionData.reads.putIfAbsent(this, other, java.lang.Boolean.TRUE);
         }
     }
 
@@ -612,9 +614,9 @@ public final class Module implements AnnotatedElement {
      */
     private boolean isReflectivelyExportedOrOpen(String pn, Module other, boolean open) {
         // exported or open to all modules
-        Map<String, Boolean> exports = ReflectionData.exports.get(this, EVERYONE_MODULE);
+        Map<String, java.lang.Boolean> exports = ReflectionData.exports.get(this, EVERYONE_MODULE);
         if (exports != null) {
-            Boolean b = exports.get(pn);
+            java.lang.Boolean b = exports.get(pn);
             if (b != null) {
                 boolean isOpen = b.booleanValue();
                 if (!open || isOpen) return true;
@@ -626,7 +628,7 @@ public final class Module implements AnnotatedElement {
             // exported or open to other
             exports = ReflectionData.exports.get(this, other);
             if (exports != null) {
-                Boolean b = exports.get(pn);
+                java.lang.Boolean b = exports.get(pn);
                 if (b != null) {
                     boolean isOpen = b.booleanValue();
                     if (!open || isOpen) return true;
@@ -637,7 +639,7 @@ public final class Module implements AnnotatedElement {
             if (!other.isNamed()) {
                 exports = ReflectionData.exports.get(this, ALL_UNNAMED_MODULE);
                 if (exports != null) {
-                    Boolean b = exports.get(pn);
+                    java.lang.Boolean b = exports.get(pn);
                     if (b != null) {
                         boolean isOpen = b.booleanValue();
                         if (!open || isOpen) return true;
@@ -700,13 +702,13 @@ public final class Module implements AnnotatedElement {
     @CallerSensitive
     public Module addExports(String pn, Module other) {
         if (pn == null)
-            throw new IllegalArgumentException("package is null");
+            throw new java.lang.IllegalArgumentException("package is null");
         Objects.requireNonNull(other);
 
         if (isNamed()) {
             Module caller = getCallerModule(Reflection.getCallerClass());
             if (caller != this) {
-                throw new IllegalCallerException(caller + " != " + this);
+                throw new java.lang.IllegalCallerException(caller + " != " + this);
             }
             implAddExportsOrOpens(pn, other, /*open*/false, /*syncVM*/true);
         }
@@ -754,13 +756,13 @@ public final class Module implements AnnotatedElement {
     @CallerSensitive
     public Module addOpens(String pn, Module other) {
         if (pn == null)
-            throw new IllegalArgumentException("package is null");
+            throw new java.lang.IllegalArgumentException("package is null");
         Objects.requireNonNull(other);
 
         if (isNamed()) {
             Module caller = getCallerModule(Reflection.getCallerClass());
             if (caller != this && (caller == null || !isOpen(pn, caller)))
-                throw new IllegalCallerException(pn + " is not open to " + caller);
+                throw new java.lang.IllegalCallerException(pn + " is not open to " + caller);
             implAddExportsOrOpens(pn, other, /*open*/true, /*syncVM*/true);
         }
 
@@ -883,7 +885,7 @@ public final class Module implements AnnotatedElement {
 
         // can only export a package in the module
         if (!descriptor.packages().contains(pn)) {
-            throw new IllegalArgumentException("package " + pn
+            throw new java.lang.IllegalArgumentException("package " + pn
                                                + " not in contents");
         }
 
@@ -899,13 +901,13 @@ public final class Module implements AnnotatedElement {
         }
 
         // add package name to exports if absent
-        Map<String, Boolean> map = ReflectionData.exports
+        Map<String, java.lang.Boolean> map = ReflectionData.exports
             .computeIfAbsent(this, other,
                              (m1, m2) -> new ConcurrentHashMap<>());
         if (open) {
-            map.put(pn, Boolean.TRUE);  // may need to promote from FALSE to TRUE
+            map.put(pn, java.lang.Boolean.TRUE);  // may need to promote from FALSE to TRUE
         } else {
-            map.putIfAbsent(pn, Boolean.FALSE);
+            map.putIfAbsent(pn, java.lang.Boolean.FALSE);
         }
     }
 
@@ -917,7 +919,7 @@ public final class Module implements AnnotatedElement {
      */
     void implAddOpensToAllUnnamed(Iterator<String> iterator) {
         if (jdk.internal.misc.VM.isModuleSystemInited()) {
-            throw new IllegalStateException("Module system already initialized");
+            throw new java.lang.IllegalStateException("Module system already initialized");
         }
 
         // replace this module's openPackages map with a new map that opens
@@ -968,13 +970,13 @@ public final class Module implements AnnotatedElement {
      * @see ModuleDescriptor#uses()
      */
     @CallerSensitive
-    public Module addUses(Class<?> service) {
+    public Module addUses(java.lang.Class<?> service) {
         Objects.requireNonNull(service);
 
         if (isNamed() && !descriptor.isAutomatic()) {
             Module caller = getCallerModule(Reflection.getCallerClass());
             if (caller != this) {
-                throw new IllegalCallerException(caller + " != " + this);
+                throw new java.lang.IllegalCallerException(caller + " != " + this);
             }
             implAddUses(service);
         }
@@ -986,9 +988,9 @@ public final class Module implements AnnotatedElement {
      * Update this module to add a service dependence on the given service
      * type.
      */
-    void implAddUses(Class<?> service) {
+    void implAddUses(java.lang.Class<?> service) {
         if (!canUse(service)) {
-            ReflectionData.uses.putIfAbsent(this, service, Boolean.TRUE);
+            ReflectionData.uses.putIfAbsent(this, service, java.lang.Boolean.TRUE);
         }
     }
 
@@ -1005,7 +1007,7 @@ public final class Module implements AnnotatedElement {
      *
      * @see #addUses(Class)
      */
-    public boolean canUse(Class<?> service) {
+    public boolean canUse(java.lang.Class<?> service) {
         Objects.requireNonNull(service);
 
         if (!isNamed())
@@ -1065,26 +1067,26 @@ public final class Module implements AnnotatedElement {
      *         If defining any of the modules to the VM fails
      */
     static Map<String, Module> defineModules(Configuration cf,
-                                             Function<String, ClassLoader> clf,
-                                             ModuleLayer layer)
+                                             Function<String, java.lang.ClassLoader> clf,
+                                             java.lang.ModuleLayer layer)
     {
-        boolean isBootLayer = (ModuleLayer.boot() == null);
+        boolean isBootLayer = (java.lang.ModuleLayer.boot() == null);
 
         int cap = (int)(cf.modules().size() / 0.75f + 1.0f);
         Map<String, Module> nameToModule = new HashMap<>(cap);
-        Map<String, ClassLoader> nameToLoader = new HashMap<>(cap);
+        Map<String, java.lang.ClassLoader> nameToLoader = new HashMap<>(cap);
 
-        Set<ClassLoader> loaders = new HashSet<>();
+        Set<java.lang.ClassLoader> loaders = new HashSet<>();
         boolean hasPlatformModules = false;
 
         // map each module to a class loader
         for (ResolvedModule resolvedModule : cf.modules()) {
             String name = resolvedModule.name();
-            ClassLoader loader = clf.apply(name);
+            java.lang.ClassLoader loader = clf.apply(name);
             nameToLoader.put(name, loader);
             if (loader == null || loader == ClassLoaders.platformClassLoader()) {
                 if (!(clf instanceof ModuleLoaderMap.Mapper)) {
-                    throw new IllegalArgumentException("loader can't be 'null'"
+                    throw new java.lang.IllegalArgumentException("loader can't be 'null'"
                             + " or the platform class loader");
                 }
                 hasPlatformModules = true;
@@ -1098,11 +1100,11 @@ public final class Module implements AnnotatedElement {
             ModuleReference mref = resolvedModule.reference();
             ModuleDescriptor descriptor = mref.descriptor();
             String name = descriptor.name();
-            ClassLoader loader = nameToLoader.get(name);
+            java.lang.ClassLoader loader = nameToLoader.get(name);
             Module m;
             if (loader == null && name.equals("java.base")) {
                 // java.base is already defined to the VM
-                m = Object.class.getModule();
+                m = java.lang.Object.class.getModule();
             } else {
                 URI uri = mref.location().orElse(null);
                 m = new Module(layer, loader, descriptor, uri);
@@ -1133,7 +1135,7 @@ public final class Module implements AnnotatedElement {
                     assert m2 != null;
                 } else {
                     // parent layer
-                    for (ModuleLayer parent: layer.parents()) {
+                    for (java.lang.ModuleLayer parent: layer.parents()) {
                         m2 = findModule(parent, other);
                         if (m2 != null)
                             break;
@@ -1169,7 +1171,7 @@ public final class Module implements AnnotatedElement {
         // if there are modules defined to the boot or platform class loaders
         // then register the modules in the class loader's services catalog
         if (hasPlatformModules) {
-            ClassLoader pcl = ClassLoaders.platformClassLoader();
+            java.lang.ClassLoader pcl = ClassLoaders.platformClassLoader();
             ServicesCatalog bootCatalog = BootLoader.getServicesCatalog();
             ServicesCatalog pclCatalog = ServicesCatalog.getServicesCatalog(pcl);
             for (ResolvedModule resolvedModule : cf.modules()) {
@@ -1178,7 +1180,7 @@ public final class Module implements AnnotatedElement {
                 if (!descriptor.provides().isEmpty()) {
                     String name = descriptor.name();
                     Module m = nameToModule.get(name);
-                    ClassLoader loader = nameToLoader.get(name);
+                    java.lang.ClassLoader loader = nameToLoader.get(name);
                     if (loader == null) {
                         bootCatalog.register(m);
                     } else if (loader == pcl) {
@@ -1189,7 +1191,7 @@ public final class Module implements AnnotatedElement {
         }
 
         // record that there is a layer with modules defined to the class loader
-        for (ClassLoader loader : loaders) {
+        for (java.lang.ClassLoader loader : loaders) {
             layer.bindToLoader(loader);
         }
 
@@ -1200,7 +1202,7 @@ public final class Module implements AnnotatedElement {
      * Find the runtime Module corresponding to the given ResolvedModule
      * in the given parent layer (or its parents).
      */
-    private static Module findModule(ModuleLayer parent,
+    private static Module findModule(java.lang.ModuleLayer parent,
                                      ResolvedModule resolvedModule) {
         Configuration cf = resolvedModule.configuration();
         String dn = resolvedModule.name();
@@ -1264,7 +1266,7 @@ public final class Module implements AnnotatedElement {
     private static void initExportsAndOpens(Module m,
                                             Map<String, Module> nameToSource,
                                             Map<String, Module> nameToModule,
-                                            List<ModuleLayer> parents) {
+                                            List<java.lang.ModuleLayer> parents) {
         ModuleDescriptor descriptor = m.getDescriptor();
         Map<String, Set<Module>> openPackages = new HashMap<>();
         Map<String, Set<Module>> exportedPackages = new HashMap<>();
@@ -1343,12 +1345,12 @@ public final class Module implements AnnotatedElement {
     private static Module findModule(String target,
                                      Map<String, Module> nameToSource,
                                      Map<String, Module> nameToModule,
-                                     List<ModuleLayer> parents) {
+                                     List<java.lang.ModuleLayer> parents) {
         Module m = nameToSource.get(target);
         if (m == null) {
             m = nameToModule.get(target);
             if (m == null) {
-                for (ModuleLayer parent : parents) {
+                for (java.lang.ModuleLayer parent : parents) {
                     m = parent.findModule(target).orElse(null);
                     if (m != null) break;
                 }
@@ -1364,8 +1366,8 @@ public final class Module implements AnnotatedElement {
      * {@inheritDoc}
      * This method returns {@code null} when invoked on an unnamed module.
      */
-    @Override
-    public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
+    @java.lang.Override
+    public <T extends Annotation> T getAnnotation(java.lang.Class<T> annotationClass) {
         return moduleInfoClass().getDeclaredAnnotation(annotationClass);
     }
 
@@ -1373,7 +1375,7 @@ public final class Module implements AnnotatedElement {
      * {@inheritDoc}
      * This method returns an empty array when invoked on an unnamed module.
      */
-    @Override
+    @java.lang.Override
     public Annotation[] getAnnotations() {
         return moduleInfoClass().getAnnotations();
     }
@@ -1382,16 +1384,16 @@ public final class Module implements AnnotatedElement {
      * {@inheritDoc}
      * This method returns an empty array when invoked on an unnamed module.
      */
-    @Override
+    @java.lang.Override
     public Annotation[] getDeclaredAnnotations() {
         return moduleInfoClass().getDeclaredAnnotations();
     }
 
     // cached class file with annotations
-    private volatile Class<?> moduleInfoClass;
+    private volatile java.lang.Class<?> moduleInfoClass;
 
-    private Class<?> moduleInfoClass() {
-        Class<?> clazz = this.moduleInfoClass;
+    private java.lang.Class<?> moduleInfoClass() {
+        java.lang.Class<?> clazz = this.moduleInfoClass;
         if (clazz != null)
             return clazz;
 
@@ -1399,7 +1401,7 @@ public final class Module implements AnnotatedElement {
             clazz = this.moduleInfoClass;
             if (clazz == null) {
                 if (isNamed()) {
-                    PrivilegedAction<Class<?>> pa = this::loadModuleInfoClass;
+                    PrivilegedAction<java.lang.Class<?>> pa = this::loadModuleInfoClass;
                     clazz = AccessController.doPrivileged(pa);
                 }
                 if (clazz == null) {
@@ -1412,12 +1414,12 @@ public final class Module implements AnnotatedElement {
         }
     }
 
-    private Class<?> loadModuleInfoClass() {
-        Class<?> clazz = null;
+    private java.lang.Class<?> loadModuleInfoClass() {
+        java.lang.Class<?> clazz = null;
         try (InputStream in = getResourceAsStream("module-info.class")) {
             if (in != null)
                 clazz = loadModuleInfoClass(in);
-        } catch (Exception ignore) { }
+        } catch (java.lang.Exception ignore) { }
         return clazz;
     }
 
@@ -1425,14 +1427,14 @@ public final class Module implements AnnotatedElement {
      * Loads module-info.class as a package-private interface in a class loader
      * that is a child of this module's class loader.
      */
-    private Class<?> loadModuleInfoClass(InputStream in) throws IOException {
-        final String MODULE_INFO = "module-info";
+    private java.lang.Class<?> loadModuleInfoClass(InputStream in) throws IOException {
+        final java.lang.String MODULE_INFO = "module-info";
 
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
                                          + ClassWriter.COMPUTE_FRAMES);
 
         ClassVisitor cv = new ClassVisitor(Opcodes.ASM6, cw) {
-            @Override
+            @java.lang.Override
             public void visit(int version,
                               int access,
                               String name,
@@ -1448,16 +1450,16 @@ public final class Module implements AnnotatedElement {
                         "java/lang/Object",
                         null);
             }
-            @Override
+            @java.lang.Override
             public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                 // keep annotations
                 return super.visitAnnotation(desc, visible);
             }
-            @Override
+            @java.lang.Override
             public void visitAttribute(Attribute attr) {
                 // drop non-annotation attributes
             }
-            @Override
+            @java.lang.Override
             public ModuleVisitor visitModule(String name, int flags, String version) {
                 // drop Module attribute
                 return null;
@@ -1468,20 +1470,20 @@ public final class Module implements AnnotatedElement {
         cr.accept(cv, 0);
         byte[] bytes = cw.toByteArray();
 
-        ClassLoader cl = new ClassLoader(loader) {
-            @Override
-            protected Class<?> findClass(String cn)throws ClassNotFoundException {
+        java.lang.ClassLoader cl = new java.lang.ClassLoader(loader) {
+            @java.lang.Override
+            protected java.lang.Class<?> findClass(String cn)throws java.lang.ClassNotFoundException {
                 if (cn.equals(MODULE_INFO)) {
                     return super.defineClass(cn, bytes, 0, bytes.length);
                 } else {
-                    throw new ClassNotFoundException(cn);
+                    throw new java.lang.ClassNotFoundException(cn);
                 }
             }
         };
 
         try {
             return cl.loadClass(MODULE_INFO);
-        } catch (ClassNotFoundException e) {
+        } catch (java.lang.ClassNotFoundException e) {
             throw new InternalError(e);
         }
     }
@@ -1548,7 +1550,7 @@ public final class Module implements AnnotatedElement {
 
         if (isNamed() && Resources.canEncapsulate(name)) {
             Module caller = getCallerModule(Reflection.getCallerClass());
-            if (caller != this && caller != Object.class.getModule()) {
+            if (caller != this && caller != java.lang.Object.class.getModule()) {
                 String pn = Resources.toPackageName(name);
                 if (getPackages().contains(pn)) {
                     if (caller == null && !isOpen(pn)) {
@@ -1577,7 +1579,7 @@ public final class Module implements AnnotatedElement {
         if (url != null) {
             try {
                 return url.openStream();
-            } catch (SecurityException e) { }
+            } catch (java.lang.SecurityException e) { }
         }
 
         return null;
@@ -1592,12 +1594,12 @@ public final class Module implements AnnotatedElement {
      *
      * @return The string representation of this module
      */
-    @Override
+    @java.lang.Override
     public String toString() {
         if (isNamed()) {
             return "module " + name;
         } else {
-            String id = Integer.toHexString(System.identityHashCode(this));
+            String id = java.lang.Integer.toHexString(java.lang.System.identityHashCode(this));
             return "unnamed module @" + id;
         }
     }
@@ -1606,7 +1608,7 @@ public final class Module implements AnnotatedElement {
      * Returns the module that a given caller class is a member of. Returns
      * {@code null} if the caller is {@code null}.
      */
-    private Module getCallerModule(Class<?> caller) {
+    private Module getCallerModule(java.lang.Class<?> caller) {
         return (caller != null) ? caller.getModule() : null;
     }
 
