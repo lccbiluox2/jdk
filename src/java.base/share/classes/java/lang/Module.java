@@ -99,6 +99,7 @@ import sun.security.util.SecurityConstants;
  * @see Class#getModule()
  *
  *
+ *
  */
 
 public final class Module implements AnnotatedElement {
@@ -265,7 +266,7 @@ public final class Module implements AnnotatedElement {
         /**
          * A module (1st key) reads another module (2nd key)
          */
-        static final WeakPairMap<Module, Module, java.lang.Boolean> reads =
+        static final java.lang.WeakPairMap<Module, Module, java.lang.Boolean> reads =
             new java.lang.WeakPairMap<>();
 
         /**
@@ -279,7 +280,7 @@ public final class Module implements AnnotatedElement {
         /**
          * A module (1st key) uses a service (2nd key)
          */
-        static final WeakPairMap<Module, java.lang.Class<?>, java.lang.Boolean> uses =
+        static final java.lang.WeakPairMap<Module, java.lang.Class<?>, java.lang.Boolean> uses =
             new java.lang.WeakPairMap<>();
     }
 
