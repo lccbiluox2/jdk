@@ -1,0 +1,3 @@
+/bin/mkdir -p /Users/lcc/IdeaProjects/source_code/jdk/build/macosx-x86_64/btbins
+rm -f /Users/lcc/IdeaProjects/source_code/jdk/build/macosx-x86_64/btbins/freetype_versioncheck
+Failed to build freetypecheck.

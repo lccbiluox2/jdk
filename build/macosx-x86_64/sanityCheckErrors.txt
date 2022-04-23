@@ -1,0 +1,29 @@
+ERROR: LANG must be set on Mac OS X. Recommended value is "C"
+ERROR: The Compiler version is undefined. 
+ 
+ERROR: The version of ant being used is older than 
+       the required version of '1.7.1'. 
+       The version of ant found was ''. 
+ 
+ERROR: Your CLASSPATH environment variable is set.  This will 
+       most likely cause the build to fail.  Please unset it 
+       and start your build again. 
+ 
+ERROR: Your JAVA_HOME environment variable is set.  This will 
+       most likely cause the build to fail.  Please unset it 
+       and start your build again. 
+ 
+ERROR: FreeType version  2.3.0  or higher is required. 
+ /bin/mkdir -p /Users/lcc/IdeaProjects/source_code/jdk/build/macosx-x86_64/btbins
+rm -f /Users/lcc/IdeaProjects/source_code/jdk/build/macosx-x86_64/btbins/freetype_versioncheck
+Failed to build freetypecheck.  
+
+ERROR: You do not have access to valid Cups header files. 
+       Please check your access to 
+           /usr/include/cups/cups.h 
+       and/or check your value of ALT_CUPS_HEADERS_PATH, 
+       CUPS is frequently pre-installed on many systems, 
+       or may be downloaded from http://www.cups.org 
+ 
+Exiting because of the above error(s). 
+ 
