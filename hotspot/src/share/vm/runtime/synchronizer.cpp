@@ -556,7 +556,27 @@ static markOop ReadStableMark (oop obj) {
 //   There are simple ways to "diffuse" the middle address bits over the
 //   generated hashCode values:
 //
+/**
+https://gitcode.net/mirrors/itwanger/toBeBetterJavaer/-/blob/master/docs/basic-extra-meal/hashcode.md
 
+如果没有 C++ 基础的话，不用细致去看每一行代码，我们只通过表面去了解一下 get_next_hash() 这个方法
+就行。其中的 hashCode 变量是 JVM 启动时的一个全局参数，可以通过它来切换哈希值的生成策略。
+
+
+hashCode==0，调用操作系统 OS 的 random() 方法返回随机数。
+
+hashCode == 1，在 STW（stop-the-world）操作中，这种策略通常用于同步方案中。利用对象地址进行计算，使用不经常更新的随机数（GVars.stw_random）参与其中。
+
+hashCode == 2，使用返回 1，用于某些情况下的测试。
+
+hashCode == 3，从 0 开始计算哈希值，不是线程安全的，多个线程可能会得到相同的哈希值。
+
+hashCode == 4，与创建对象的内存位置有关，原样输出。
+
+hashCode == 5，默认值，支持多线程，使用了 Marsaglia 的 xor-shift 算法产生伪随机数。所谓的 xor-shift 算法，简单来说，看起来就是一个移位寄存器，每次移入的位由寄存器中若干位取异或生成。所谓的伪随机数，不是完全随机的，但是真随机生成比较困难，所以只要能通过一定的随机数统计检测，就可以当作真随机数来使用。
+
+
+*/
 static inline intptr_t get_next_hash(Thread * Self, oop obj) {
   intptr_t value = 0 ;
   if (hashCode == 0) {
