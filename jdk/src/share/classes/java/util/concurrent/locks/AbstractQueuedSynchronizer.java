@@ -2705,6 +2705,9 @@ public abstract class AbstractQueuedSynchronizer
      * AbstractQueuedSynchronizer}。
      *
      * 这个类是可序列化的，但是所有的字段都是瞬态的，所以反序列化的条件没有等待器。
+     *
+     * https://github.com/CL0610/Java-concurrency/blob/master/12.%E8%AF%A6%E8%A7%A3Condition%E7%9A%84await%E5%92%8Csignal%E7%AD%89%E5%BE%85%E9%80%9A%E7%9F%A5%E6%9C%BA%E5%88%B6/%E8%AF%A6%E8%A7%A3Condition%E7%9A%84await%E5%92%8Csignal%E7%AD%89%E5%BE%85%E9%80%9A%E7%9F%A5%E6%9C%BA%E5%88%B6.md
+     *
      */
     public class ConditionObject implements Condition, java.io.Serializable {
         private static final long serialVersionUID = 1173984872572414699L;
@@ -2751,6 +2754,7 @@ public abstract class AbstractQueuedSynchronizer
                 firstWaiter = node;
                 // 若已经初始化过，此时条件队列已经有等待的节点的了，此时将当前节点加入到条件队列尾部即可
             else// 尾结点不为空
+                // /尾插入
                 t.nextWaiter = node;// 设置为节点的nextWaiter域为node结点
             // 并将尾节点指针移动到当前节点
             lastWaiter = node;// 更新condition队列的尾结点
@@ -3015,10 +3019,11 @@ public abstract class AbstractQueuedSynchronizer
             // 当前线程被中断，抛出异常
             if (Thread.interrupted())
                 throw new InterruptedException();
-            // 在wait队列上添加一个结点
+            // 在wait队列上添加一个结点，将当前线程包装成Node，尾插入到等待队列中
             // 将当前线程加入到条件队列中，此时还未park阻塞且还未放弃锁,注意条件队列是一个单链表结构
             Node node = addConditionWaiter();
             // 释放同步状态并唤醒后继的线程节点，若成功，则返回当前节点的同步状态;若抛出异常，下面的逻辑不用执行了，此时同步状态未被释放？
+            // 释放当前线程所占用的lock，在释放的过程中会唤醒同步队列中的下一个节点
             int savedState = fullyRelease(node);
             int interruptMode = 0;
             // 判断节点是不是在队列中
