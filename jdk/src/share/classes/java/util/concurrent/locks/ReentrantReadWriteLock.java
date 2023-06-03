@@ -591,7 +591,7 @@ public class ReentrantReadWriteLock
              */
             // 获取当前线程
             Thread current = Thread.currentThread();
-            int c = getState();// 当前状态
+            int c = getState();// 获取写锁当前的同步状态
             int w = exclusiveCount(c);// 写线程数量 互斥线程的个数
             if (c != 0) { // 状态不为0 代表有写锁竞争
                 // (Note: if c != 0 and w == 0 then shared count != 0)

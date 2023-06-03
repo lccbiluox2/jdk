@@ -637,7 +637,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * 完成任务后的通知方法，最要作用是移除和唤醒所有的等待结果线程，调用钩子方法
      * done()和设置任务实例callable为null
      *
-     *
+     * https://www.javanorth.cn/2021/06/20/FutureTask/
      */
     private void finishCompletion() {
         // assert state > COMPLETING;

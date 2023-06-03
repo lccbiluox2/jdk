@@ -154,10 +154,13 @@ public class ArrayList<E> extends AbstractList<E>
      */
     public ArrayList(int initialCapacity) {
         if (initialCapacity > 0) {
+            //容量大于 0 就构建一个 Object 的数组
             this.elementData = new Object[initialCapacity];
         } else if (initialCapacity == 0) {
+            //容量等于 0 就是一个空数组
             this.elementData = EMPTY_ELEMENTDATA;
         } else {
+            //容量小于 0 抛出异常
             throw new IllegalArgumentException("Illegal Capacity: "+
                                                initialCapacity);
         }
@@ -179,7 +182,7 @@ public class ArrayList<E> extends AbstractList<E>
      * @throws NullPointerException if the specified collection is null
      */
     public ArrayList(Collection<? extends E> c) {
-        elementData = c.toArray();
+        elementData = c.toArray();//集合转为数组
         if ((size = elementData.length) != 0) {
             // c.toArray might (incorrectly) not return Object[] (see 6260652)
             // 类型检查
@@ -190,7 +193,7 @@ public class ArrayList<E> extends AbstractList<E>
              */
                 elementData = Arrays.copyOf(elementData, size, Object[].class);
         } else {
-            // replace with empty array.
+            // replace with empty array.//空元素
             this.elementData = EMPTY_ELEMENTDATA;
         }
     }
@@ -234,6 +237,7 @@ public class ArrayList<E> extends AbstractList<E>
      * @param minCapacity
      */
     private void ensureCapacityInternal(int minCapacity) {
+        //检查时不是默认时的空数组，是默认时的空数组，初始化的容量就是 10
         if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
             //获取默认的容量和传入参数的较大值,即添加第一个元素时数组的容量默认设为10
             minCapacity = Math.max(DEFAULT_CAPACITY, minCapacity);
@@ -275,12 +279,12 @@ public class ArrayList<E> extends AbstractList<E>
     private void grow(int minCapacity) {
         // overflow-conscious code
         int oldCapacity = elementData.length;
-        //即: oldCapacity + oldCapacity/2；对容量进行1.5倍的扩容
+        //即: oldCapacity + oldCapacity/2；对容量进行1.5倍的扩容，新长度时原来长度的 1.5 倍
         int newCapacity = oldCapacity + (oldCapacity >> 1);
         //然后检查新容量是否大于最小需要容量，若还是小于最小需要容量，那么就把最小需要容量当作数组的新容量
         if (newCapacity - minCapacity < 0)
             newCapacity = minCapacity;
-        //当容量超出设定的最大容量时
+        //当容量超出设定的最大容量时，就用最大的容量
         if (newCapacity - MAX_ARRAY_SIZE > 0)
             //进入hugeCapacity方法,对MAX_ARRAY_SIZE 和 minCapacity进行比较
             newCapacity = hugeCapacity(minCapacity);
@@ -495,7 +499,7 @@ public class ArrayList<E> extends AbstractList<E>
      * @return <tt>true</tt> (as specified by {@link Collection#add})
      */
     public boolean add(E e) {
-        //添加元素之前，先调用ensureCapacityInternal方法
+        //添加元素之前，先调用ensureCapacityInternal方法，检查数组是否存放的下
         ensureCapacityInternal(size + 1);  // Increments modCount!!
         //默认添加元素的位置在数组的末尾处
         elementData[size++] = e;
